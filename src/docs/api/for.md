@@ -1,11 +1,11 @@
-# ♻️ Reactive Lists: `$.for( )`
+# ♻️ Reactive Lists: `$for( )`
 
-The `$.for` function is a high-performance list renderer. It maps an array (or a Signal containing an array) to DOM nodes. Unlike a simple `.map()`, `$.for` is **keyed**, meaning it only updates, moves, or deletes the specific items that changed.
+The `$for` function is a high-performance list renderer. It maps an array (or a Signal containing an array) to DOM nodes. Unlike a simple `.map()`, `$for` is **keyed**, meaning it only updates, moves, or deletes the specific items that changed.
 
 ## 🛠️ Function Signature
 
 ```typescript
-$.for(
+$for(
   source: Signal<any[]> | Function | any[], 
   render: (item: any, index: number) => HTMLElement, 
   keyFn: (item: any, index: number) => string | number
@@ -34,7 +34,7 @@ const users = $([
 ]);
 
 Ul({ class: "list" }, [
-  $.for(users, 
+  $for(users, 
     (user) => Li({ class: "p-2" }, user.name),
     (user) => user.id
   )
@@ -48,7 +48,7 @@ If your array contains simple strings or numbers, you can use the value itself o
 const tags = $(["Tech", "JS", "Web"]);
 
 Div({ class: "flex gap-1" }, [
-  $.for(tags, (tag) => Badge(tag), (tag) => tag)
+  $for(tags, (tag) => Badge(tag), (tag) => tag)
 ]);
 ```
 
@@ -56,7 +56,7 @@ Div({ class: "flex gap-1" }, [
 
 ## 🏗️ How it Works (The Reconciliation)
 
-When the `source` signal changes, `$.for` performs the following steps:
+When the `source` signal changes, `$for` performs the following steps:
 
 1.  **Key Diffing**: It compares the new keys with the previous ones stored in an internal `Map`.
 2.  **Node Reuse**: If a key already exists, the DOM node is **reused** and moved to its new position. No new elements are created.
@@ -69,13 +69,13 @@ When the `source` signal changes, `$.for` performs the following steps:
 ## 💡 Performance Tips
 
 * **Stable Keys**: Never use `Math.random()` as a key. This will force SigPro to destroy and recreate the entire list on every update, killing performance.
-* **Component Encapsulation**: If each item in your list has its own complex internal state, `$.for` ensures that state is preserved even if the list is reordered, as long as the key remains the same.
+* **Component Encapsulation**: If each item in your list has its own complex internal state, `$for` ensures that state is preserved even if the list is reordered, as long as the key remains the same.
 
 ---
 
 ## 🧪 Summary Comparison
 
-| Feature | Standard `Array.map` | SigPro `$.for` |
+| Feature | Standard `Array.map` | SigPro `$for` |
 | :--- | :--- | :--- |
 | **Re-render** | Re-renders everything | Only updates changes |
 | **DOM Nodes** | Re-created every time | **Reused via Keys** |

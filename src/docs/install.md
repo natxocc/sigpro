@@ -66,7 +66,7 @@ export const App = () => {
 import { $ } from 'sigpro';
 import { App } from './App.js';
 
-$.mount(App, '#app');
+$mount(App, '#app');
 ```
 
 ```html [Classic (Direct CDN)]
@@ -91,7 +91,7 @@ $.mount(App, '#app');
       })
     ]);
 
-    $.mount(App, '#app');
+    $mount(App, '#app');
   </script>
 </body>
 </html>

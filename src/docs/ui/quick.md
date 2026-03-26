@@ -17,7 +17,7 @@ To ensure all components render correctly with their reactive themes and states,
 Unlike **Tag Helpers** (which are just functional mirrors of HTML tags), SigPro UI Components are smart abstractions:
 
 * **Stateful**: They manage complex internal states (like date ranges, search filtering, or API lifecycles).
-* **Reactive**: Attributes prefixed with `$` are automatically tracked via `$.watch`.
+* **Reactive**: Attributes prefixed with `$` are automatically tracked via `$watch`.
 * **Self-Sane**: They automatically use `._cleanups` to destroy observers or event listeners when removed from the DOM.
 * **Themed**: Fully compatible with the DaisyUI v5 theme system and Tailwind v4 utility classes.
 
@@ -85,7 +85,7 @@ Datepicker({
 ```
 
 ### D. Imperative Toasts & Modals
-Trigger complex UI elements from your logic. These components use `$.mount` internally to ensure they are properly cleaned up from memory after they close.
+Trigger complex UI elements from your logic. These components use `$mount` internally to ensure they are properly cleaned up from memory after they close.
 
 ```javascript
 // Show a notification (Self-destroying after 3s)
@@ -107,7 +107,7 @@ Modal({
 
 ## 4. Internationalization (i18n)
 
-The UI library comes with a built-in locale system. It currently supports `es` and `en`.
+The UI library comes with a built-in locale system.
 
 ```javascript
 // Set the global UI language
@@ -117,11 +117,4 @@ SetLocale("en");
 const t = tt("confirm"); 
 ```
 
----
-
-## 5. Best Practices
-
-* **Use `$` for Reactivity**: If a property starts with `$`, the component expects a Signal (e.g., `$value: mySignal`).
-* **Automatic Cleaning**: You don't need to manually destroy these components if they are inside a `$.If` or `$.For`. SigPro's core will "sweep" their internal watchers automatically.
-* **Manual Cleanups**: If you build custom components using `setInterval` or third-party observers, always add the stop functions to the element's `._cleanups` Set.
 

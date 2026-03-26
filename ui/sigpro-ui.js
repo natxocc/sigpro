@@ -2,8 +2,8 @@
  * SigPro UI - daisyUI v5 & Tailwind v4 Plugin
  * Provides a set of reactive functional components, flow control and i18n.
  */
-export const UI = (core, defaultLang = "es") => {
-  const { $, $if, $for, $watch, $html, $mount } = core;
+import { $, $if, $for, $watch, $html, $mount } from './sigpro.js';
+export const UI = (defaultLang = "es") => {
   const ui = {};
 
   // --- I18N CORE ---

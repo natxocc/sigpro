@@ -1,12 +1,12 @@
 
-# 🔀 Reactive Branching: `$.if( )`
+# 🔀 Reactive Branching: `$if( )`
 
-The `$.if` function is a reactive control flow operator. It manages the conditional rendering of components, ensuring that only the active branch exists in the DOM and in memory.
+The `$if` function is a reactive control flow operator. It manages the conditional rendering of components, ensuring that only the active branch exists in the DOM and in memory.
 
 ## 🛠️ Function Signature
 
 ```typescript
-$.if(
+$if(
   condition: Signal<boolean> | Function, 
   thenVal: Component | Node, 
   otherwiseVal?: Component | Node
@@ -34,7 +34,7 @@ const isVisible = $(false);
 Div([
   Button({ onclick: () => isVisible(!isVisible()) }, "Toggle Message"),
   
-  $.if(isVisible, 
+  $if(isVisible, 
     P("Now you see me!"), 
     P("Now you don't...")
   )
@@ -42,10 +42,10 @@ Div([
 ```
 
 ### 2. Lazy Component Loading
-Unlike using a hidden class (CSS `display: none`), `$.if` is **lazy**. The branch that isn't active **is never created**. This saves memory and initial processing time.
+Unlike using a hidden class (CSS `display: none`), `$if` is **lazy**. The branch that isn't active **is never created**. This saves memory and initial processing time.
 
 ```javascript
-$.if(() => user.isLogged(), 
+$if(() => user.isLogged(), 
   () => Dashboard(), // Only executed if logged in
   () => LoginGate()  // Only executed if guest
 )
@@ -55,7 +55,7 @@ $.if(() => user.isLogged(),
 
 ## 🧹 Automatic Cleanup
 
-One of the core strengths of `$.if` is its integrated **Cleanup** logic. SigPro ensures that when a branch is swapped out, it is completely purged.
+One of the core strengths of `$if` is its integrated **Cleanup** logic. SigPro ensures that when a branch is swapped out, it is completely purged.
 
 1.  **Stop Watchers**: All `$.watch` calls inside the inactive branch are permanently stopped.
 2.  **Unbind Events**: Event listeners attached via `$.html` are removed.
@@ -70,7 +70,7 @@ One of the core strengths of `$.if` is its integrated **Cleanup** logic. SigPro 
 * **Function Wrappers**: If your branches are heavy (e.g., they contain complex components), wrap them in a function `() => MyComponent()`. This prevents the component from being initialized until the condition actually meets its requirement.
 * **Logical Expressions**: You can pass a complex computed function as the condition:
     ```javascript
-    $.if(() => count() > 10 && status() === 'ready', 
+    $if(() => count() > 10 && status() === 'ready', 
       Span("Threshold reached!")
     )
     ```
@@ -79,7 +79,7 @@ One of the core strengths of `$.if` is its integrated **Cleanup** logic. SigPro 
 
 ## 🏗️ Technical Comparison
 
-| Feature | Standard CSS `hidden` | SigPro `$.if` |
+| Feature | Standard CSS `hidden` | SigPro `$if` |
 | :--- | :--- | :--- |
 | **DOM Presence** | Always present | Only if active |
 | **Reactivity** | Still processing in background | **Paused/Destroyed** |
