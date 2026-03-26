@@ -35,7 +35,7 @@ $.watch(() => {
 });
 ```
 
-### 2. Explicit Mode (Advanced Saneamiento) 🚀
+### 2. Explicit Mode (Advanced Cleanup) 🚀
 This mode **isolates** execution. The callback only triggers when the signals in the array change. Any other signal accessed *inside* the callback will NOT trigger a re-run. This is the "gold standard" for Routers and heavy components.
 
 ```javascript

@@ -1,6 +1,6 @@
 # ⚡ Quick API Reference
 
-SigPro is a high-performance micro-framework that updates the **Real DOM** surgically. No Virtual DOM, no unnecessary re-renders, and built-in **Saneamiento** (memory cleanup).
+SigPro is a high-performance micro-framework that updates the **Real DOM** surgically. No Virtual DOM, no unnecessary re-renders, and built-in **Cleanup** (memory cleanup).
 
 ## 🟢 Core Functions
 
@@ -9,7 +9,7 @@ SigPro is a high-performance micro-framework that updates the **Real DOM** surgi
 | **`$(val, key?)`** | `(any, string?) => Signal` | Creates a **Signal**. If `key` is provided, it persists in `localStorage`. |
 | **`$(fn)`** | `(function) => Computed` | Creates a **Computed Signal** that auto-updates when its dependencies change. |
 | **`$.watch(fn)`** | `(function) => stopFn` | **Automatic Mode:** Tracks any signal touched inside. Returns a stop function. |
-| **`$.watch(deps, fn)`** | `(Array, function) => stopFn` | **Explicit Mode:** Only runs when signals in `deps` change. Used for Saneamiento. |
+| **`$.watch(deps, fn)`** | `(Array, function) => stopFn` | **Explicit Mode:** Only runs when signals in `deps` change. Used for Cleanup. |
 | **`$.html(tag, props, kids)`** | `(string, obj, any) => Element` | The low-level DOM factory. Attaches `._cleanups` to every element. |
 | **`$.If(cond, then, else?)`** | `(Signal, fn, fn?) => Node` | Reactive conditional. Automatically destroys the "else" branch memory. |
 | **`$.For(list, itemFn)`** | `(Signal, fn) => Node` | Optimized list renderer. Manages individual item lifecycles. |

@@ -47,7 +47,7 @@ $.mount(Counter, '#sidebar-widget');
 
 ---
 
-## 🔄 How it Works (Lifecycle & Saneamiento)
+## 🔄 How it Works (Lifecycle & Cleanup)
 
 When `$.mount` is executed, it performs these critical steps to ensure a leak-free environment:
 
@@ -81,5 +81,5 @@ instance.destroy();
 | **Mount to CSS Selector** | `$.mount(App, '#root')` |
 | **Mount to DOM Node** | `$.mount(App, myElement)` |
 | **Clean & Re-mount** | Calling `$.mount` again on the same target |
-| **Total Saneamiento** | `const app = $.mount(App); app.destroy();` |
+| **Total Cleanup** | `const app = $.mount(App); app.destroy();` |
 

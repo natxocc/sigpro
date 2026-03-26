@@ -86,7 +86,7 @@ Input({
 });
 ```
 
-### Dynamic Flow & Saneamiento
+### Dynamic Flow & Cleanup
 Combine tags with Core controllers for high-performance rendering. SigPro automatically cleans up the `$.watch` instances when nodes are removed.
 ```javascript
 const items = $(["Apple", "Banana", "Cherry"]);
