@@ -97,7 +97,7 @@
     const callback = isExplicit ? fn : target;
     const depsInput = isExplicit ? target : null;
 
-    if (typeof callback !== "function") return () => {};
+    if (typeof callback !== "function") return () => { };
 
     const owner = currentOwner;
     const runner = () => {
@@ -190,22 +190,25 @@
     el._cleanups = new Set();
 
     for (let [k, v] of Object.entries(props)) {
-      if (k.startsWith("on")) {
+      const isSignal = typeof v === "function";
+      const isInput = ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName);
+      const isBindAttr = (k === "value" || k === "checked");
+
+      if (isInput && isBindAttr && isSignal) {
+        el._cleanups.add($.watch(() => {
+          const val = v();
+          if (el[k] !== val) el[k] = val;
+        }));
+        const evt = k === "checked" ? "change" : "input";
+        const handler = (e) => v(e.target[k]);
+        el.addEventListener(evt, handler);
+        el._cleanups.add(() => el.removeEventListener(evt, handler));
+      } else if (k.startsWith("on")) {
         const name = k.slice(2).toLowerCase().split(".")[0];
         const handler = (e) => v(e);
         el.addEventListener(name, handler);
         el._cleanups.add(() => el.removeEventListener(name, handler));
-      } else if (k.startsWith("$")) {
-        const attr = k.slice(1);
-        el._cleanups.add($.watch(() => {
-          const val = typeof v === "function" ? v() : v;
-          if (el[attr] !== val) el[attr] = val;
-        }));
-        if (typeof v === "function") {
-          const evt = attr === "checked" ? "change" : "input";
-          el.addEventListener(evt, (e) => v(e.target[attr]));
-        }
-      } else if (typeof v === "function") {
+      } else if (isSignal) {
         el._cleanups.add($.watch(() => {
           const val = v();
           if (k === "class") el.className = val || "";
