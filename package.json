@@ -1,24 +1,22 @@
 {
   "name": "sigpro",
-  "version": "1.1.8",
+  "version": "1.1.9",
   "type": "module",
   "license": "MIT",
+  "main": "./index.js",
+  "module": "./index.js",
   "exports": {
-    ".": {
-      "import": "./index.js"
-    },
-    "./vite/*": {
-      "import": "./vite/*.js"
-    },
-    "./ui/*": {
-      "import": "./ui/*.js"
-    }
+    ".": "./index.js",
+    "./ui": "./ui/index.js",
+    "./ui/*": "./ui/*.js",
+    "./vite": "./vite/index.js",
+    "./vite/*": "./vite/*.js"
   },
   "files": [
     "index.js",
-    "sigpro/",
-    "vite/",
-    "ui/",
+    "sigpro",
+    "vite",
+    "ui",
     "README.md",
     "LICENSE"
   ],
