@@ -5,30 +5,20 @@
   "license": "MIT",
   "exports": {
     ".": {
-      "import": "./index.js",
-      "types": "./sigpro/sigpro.d.ts"
+      "import": "./index.js"
     },
     "./vite/*": {
-      "import": "./vite/*.js",
-      "types": "./vite/*.d.ts"
+      "import": "./vite/*.js"
     },
     "./ui/*": {
-      "import": "./ui/*.js",
-      "types": "./ui/*.d.ts"
-    }
-  },
-  "types": "./sigpro/sigpro.d.ts",
-  "typesVersions": {
-    "*": {
-      "*": ["./sigpro/sigpro.d.ts"],
-      "plugins": ["./plugins/index.d.ts"]
+      "import": "./ui/*.js"
     }
   },
   "files": [
     "index.js",
     "sigpro/",
-    "plugins/",
     "vite/",
+    "ui/",
     "README.md",
     "LICENSE"
   ],
