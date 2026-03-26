@@ -1,6 +1,6 @@
 # 🏗️ The DOM Factory: `$.html( )`
 
-`$.html` is the internal engine that creates, attributes, and attaches reactivity to DOM elements. In V2, it uses `$.watch` to maintain a live, high-performance link between your Signals and the Document Object Model.
+`$.html` is the internal engine that creates, attributes, and attaches reactivity to DOM elements. It uses `$.watch` to maintain a live, high-performance link between your Signals and the Document Object Model.
 
 ## 🛠 Function Signature
 

@@ -1,4 +1,4 @@
-# ⚡ Quick API Reference (V2)
+# ⚡ Quick API Reference
 
 SigPro is a high-performance micro-framework that updates the **Real DOM** surgically. No Virtual DOM, no unnecessary re-renders, and built-in **Saneamiento** (memory cleanup).
 
@@ -36,14 +36,3 @@ Tag({ attributes }, [children])
 | **Two-way** | `$value: username` | **Binding Operator**: Syncs input $\leftrightarrow$ signal both ways. |
 | **Text** | `P({}, () => count())` | Updates text node surgically without re-rendering the `P`. |
 | **Boolean** | `hidden: isHidden` | Toggles the attribute based on signal truthiness. |
-
----
-
-## 🧹 Saneamiento (Memory Management)
-
-In SigPro V2, you rarely need to clean up manually, but the tools are there if you build custom components:
-
-* **Automatic**: Anything inside `$.If`, `$.For`, or `$.router` is "swept" when it disappears.
-* **Manual**: Use `instance.destroy()` for apps or `$.cleanup(el)` for manual DOM injections.
-* **Internal**: Every element carries a `._cleanups` Set with its own reactive "kill-switches".
-

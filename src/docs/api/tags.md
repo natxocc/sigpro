@@ -1,6 +1,6 @@
 # 🎨 Global Tag Helpers
 
-In **SigPro V2**, you don't need to manually type `$.html('div', ...)` for every element. To keep your code declarative and readable, the engine automatically generates **Global Helper Functions** for all standard HTML5 tags upon initialization.
+In **SigPro**, you don't need to manually type `$.html('div', ...)` for every element. To keep your code declarative and readable, the engine automatically generates **Global Helper Functions** for all standard HTML5 tags upon initialization.
 
 ## 1. How it Works
 
@@ -59,7 +59,7 @@ Span(42);
 
 ---
 
-## 4. Reactive Power V2
+## 4. Reactive Power
 
 These helpers are natively wired into SigPro's **`$.watch`** engine. No manual effect management is needed; the lifecycle is tied to the DOM node.
 
@@ -109,7 +109,7 @@ Since SigPro injects these helpers into the global `window` object, follow these
 
 ## 5. Logic to UI Comparison
 
-Here is how a dynamic **User Status** component translates from SigPro logic to the final DOM structure, handled by the V2 "Saneamiento" engine.
+Here is how a dynamic **User Status** component translates from SigPro logic to the final DOM structure, handled by the engine.
 
 ```javascript
 // SigPro Component

@@ -1,6 +1,6 @@
 # ⚡ Reactivity Control: `$.watch( )`
 
-The `$.watch` function is the reactive engine of SigPro. It allows you to execute code automatically when signals change. In V2, `$.watch` is **polymorphic**: it can track dependencies automatically or follow an explicit list.
+The `$.watch` function is the reactive engine of SigPro. It allows you to execute code automatically when signals change. `$.watch` is **polymorphic**: it can track dependencies automatically or follow an explicit list.
 
 ## 🛠 Function Signature
 
