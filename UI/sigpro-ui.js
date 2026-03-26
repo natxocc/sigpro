@@ -133,16 +133,16 @@ export const UI = ($, defaultLang = "es") => {
 
   /** BUTTON */
   ui.Button = (props, children) => {
-    const { badge, badgeClass, tooltip, icon, $loading, ...rest } = props;
+    const { badge, badgeClass, tooltip, icon, loading, ...rest } = props;
     const btn = $.html(
       "button",
       {
         ...rest,
-        class: joinClass("btn", props.$class || props.class),
-        $disabled: () => val($loading) || val(props.$disabled) || val(props.disabled),
+        class: joinClass("btn", props.class || props.class),
+        disabled: () => val(loading) || val(props.disabled) || val(props.disabled),
       },
       [
-        () => (val($loading) ? $.html("span", { class: "loading loading-spinner" }) : null),
+        () => (val(loading) ? $.html("span", { class: "loading loading-spinner" }) : null),
         icon ? $.html("span", { class: "mr-1" }, icon) : null,
         children,
       ],
@@ -159,8 +159,7 @@ export const UI = ($, defaultLang = "es") => {
 
   /** INPUT */
   ui.Input = (props) => {
-    const { label, tip, $value, $error, isSearch, icon, type = "text", ...rest } = props;
-
+    const { label, tip, value, error, isSearch, icon, type = "text", ...rest } = props;
     const isPassword = type === "password";
     const visible = $(false);
 
@@ -176,13 +175,10 @@ export const UI = ($, defaultLang = "es") => {
       ...rest,
       type: () => (isPassword ? (visible() ? "text" : "password") : type),
       placeholder: props.placeholder || label || (isSearch ? tt("search")() : " "),
-      class: joinClass("grow order-2 focus:outline-none", props.$class || props.class),
-      $value: $value,
-      oninput: (e) => {
-        $value?.(e.target.value);
-        props.oninput?.(e);
-      },
-      $disabled: () => val(props.$disabled) || val(props.disabled),
+      class: joinClass("grow order-2 focus:outline-none", props.class),
+      value: value,
+      oninput: (e) => props.oninput?.(e),
+      disabled: () => val(props.disabled),
     });
 
     const leftIcon = icon ? icon : iconsByType[type] ? $.html("img", { src: iconsByType[type], class: "w-5 h-5 opacity-50", alt: type }) : null;
@@ -190,7 +186,7 @@ export const UI = ($, defaultLang = "es") => {
     return $.html(
       "label",
       {
-        class: () => joinClass("input input-bordered floating-label flex items-center gap-2 w-full relative", val($error) ? "input-error" : ""),
+        class: () => joinClass("input input-bordered floating-label flex items-center gap-2 w-full relative", val(error) ? "input-error" : ""),
       },
       [
         leftIcon ? $.html("div", { class: "order-1 shrink-0" }, leftIcon) : null,
@@ -198,47 +194,44 @@ export const UI = ($, defaultLang = "es") => {
         inputEl,
         isPassword
           ? $.html(
-              "button",
-              {
-                type: "button",
-                class: "order-3 btn btn-ghost btn-xs btn-circle opacity-50 hover:opacity-100",
-                onclick: (e) => {
-                  e.preventDefault();
-                  visible(!visible());
-                },
+            "button",
+            {
+              type: "button",
+              class: "order-3 btn btn-ghost btn-xs btn-circle opacity-50 hover:opacity-100",
+              onclick: (e) => {
+                e.preventDefault();
+                visible(!visible());
               },
-              () =>
-                $.html("img", {
-                  class: "w-5 h-5",
-                  src: visible() ? iconShow : iconHide,
-                }),
-            )
+            },
+            () =>
+              $.html("img", {
+                class: "w-5 h-5",
+                src: visible() ? iconShow : iconHide,
+              }),
+          )
           : null,
-
         tip
           ? $.html(
-              "div",
-              { class: "tooltip tooltip-left order-4", "data-tip": tip },
-              $.html("span", { class: "badge badge-ghost badge-xs cursor-help" }, "?"),
-            )
+            "div",
+            { class: "tooltip tooltip-left order-4", "data-tip": tip },
+            $.html("span", { class: "badge badge-ghost badge-xs cursor-help" }, "?"),
+          )
           : null,
-
-        () => (val($error) ? $.html("span", { class: "text-error text-[10px] absolute -bottom-5 left-2" }, val($error)) : null),
+        () => (val(error) ? $.html("span", { class: "text-error text-[10px] absolute -bottom-5 left-2" }, val(error)) : null),
       ],
     );
   };
 
   /** SELECT */
   ui.Select = (props) => {
-    const { label, options, $value, ...rest } = props;
+    const { label, options, value, ...rest } = props;
 
     const selectEl = $.html(
       "select",
       {
         ...rest,
-        class: joinClass("select select-bordered w-full", props.$class || props.class),
-        $value: $value,
-        onchange: (e) => $value?.(e.target.value),
+        class: joinClass("select select-bordered w-full", props.class || props.class),
+        value: value
       },
       $.for(
         () => val(options) || [],
@@ -247,7 +240,7 @@ export const UI = ($, defaultLang = "es") => {
             "option",
             {
               value: opt.value,
-              $selected: () => String(val($value)) === String(opt.value),
+              $selected: () => String(val(value)) === String(opt.value),
             },
             opt.label,
           ),
@@ -262,9 +255,9 @@ export const UI = ($, defaultLang = "es") => {
 
   /** AUTOCOMPLETE */
   ui.Autocomplete = (props) => {
-    const { options = [], $value, onSelect, label, placeholder, ...rest } = props;
+    const { options = [], value, onSelect, label, placeholder, ...rest } = props;
 
-    const query = $(val($value) || "");
+    const query = $(val(value) || "");
     const isOpen = $(false);
     const cursor = $(-1);
 
@@ -279,7 +272,7 @@ export const UI = ($, defaultLang = "es") => {
       const labelStr = typeof opt === "string" ? opt : opt.label;
 
       query(labelStr);
-      if (typeof $value === "function") $value(valStr);
+      if (typeof value === "function") value(valStr);
       onSelect?.(opt);
 
       isOpen(false);
@@ -307,14 +300,14 @@ export const UI = ($, defaultLang = "es") => {
       ui.Input({
         label,
         placeholder: placeholder || tt("search")(),
-        $value: query,
+        value: query,
         onfocus: () => isOpen(true),
         onblur: () => setTimeout(() => isOpen(false), 150),
         onkeydown: nav,
         oninput: (e) => {
           const v = e.target.value;
           query(v);
-          if (typeof $value === "function") $value(v);
+          if (typeof value === "function") value(v);
           isOpen(true);
           cursor(-1);
         },
@@ -351,7 +344,7 @@ export const UI = ($, defaultLang = "es") => {
 
   /** DATEPICKER */
   ui.Datepicker = (props) => {
-    const { $value, range, label, placeholder, ...rest } = props;
+    const { value, range, label, placeholder, ...rest } = props;
 
     const isOpen = $(false);
     const internalDate = $(new Date());
@@ -370,26 +363,26 @@ export const UI = ($, defaultLang = "es") => {
 
     const selectDate = (date) => {
       const dateStr = formatDate(date);
-      const current = val($value);
+      const current = val(value);
 
       if (isRangeMode()) {
         if (!current?.start || (current.start && current.end)) {
-          if (typeof $value === "function") $value({ start: dateStr, end: null });
+          if (typeof value === "function") value({ start: dateStr, end: null });
         } else {
           const start = current.start;
-          if (typeof $value === "function") {
-            $value(dateStr < start ? { start: dateStr, end: start } : { start, end: dateStr });
+          if (typeof value === "function") {
+            value(dateStr < start ? { start: dateStr, end: start } : { start, end: dateStr });
           }
           isOpen(false);
         }
       } else {
-        if (typeof $value === "function") $value(dateStr);
+        if (typeof value === "function") value(dateStr);
         isOpen(false);
       }
     };
 
     const displayValue = $(() => {
-      const v = val($value);
+      const v = val(value);
       if (!v) return "";
       if (typeof v === "string") return v;
       if (v.start && v.end) return `${v.start} - ${v.end}`;
@@ -411,7 +404,7 @@ export const UI = ($, defaultLang = "es") => {
       ui.Input({
         label,
         placeholder: placeholder || (isRangeMode() ? "Seleccionar rango..." : "Seleccionar fecha..."),
-        $value: displayValue,
+        value: displayValue,
         readonly: true,
         icon: $.html("img", { src: iconCalendar, class: "opacity-40" }),
         onclick: (e) => {
@@ -482,7 +475,7 @@ export const UI = ($, defaultLang = "es") => {
                       {
                         type: "button",
                         class: () => {
-                          const v = val($value);
+                          const v = val(value);
                           const h = hoverDate();
                           const isStart = typeof v === "string" ? v === dStr : v?.start === dStr;
                           const isEnd = v?.end === dStr;
@@ -525,7 +518,7 @@ export const UI = ($, defaultLang = "es") => {
 
   /** COLORPICKER  */
   ui.Colorpicker = (props) => {
-    const { $value, label, ...rest } = props;
+    const { value, label, ...rest } = props;
     const isOpen = $(false);
 
     const palette = [
@@ -539,7 +532,7 @@ export const UI = ($, defaultLang = "es") => {
       ...["#2e1065", "#4c1d95", "#6d28d9", "#7c3aed", "#8b5cf6", "#a855f7", "#d946ef", "#fae8ff"],
     ];
 
-    const getColor = () => val($value) || "#000000";
+    const getColor = () => val(value) || "#000000";
 
     return $.html("div", { class: "relative w-fit" }, [
       $.html(
@@ -583,7 +576,7 @@ export const UI = ($, defaultLang = "es") => {
                 ${active ? "ring-2 ring-offset-1 ring-primary z-10 scale-110" : ""}`;
                   },
                   onclick: () => {
-                    $value(c);
+                    value(c);
                     isOpen(false);
                   },
                 }),
@@ -604,13 +597,12 @@ export const UI = ($, defaultLang = "es") => {
 
   /** CHECKBOX */
   ui.CheckBox = (props) => {
-    const { $value, tooltip, toggle, ...rest } = props;
+    const { value, tooltip, toggle, ...rest } = props;
     const checkEl = $.html("input", {
       ...rest,
       type: "checkbox",
       class: () => (val(toggle) ? "toggle" : "checkbox"),
-      $checked: $value,
-      onchange: (e) => $value?.(e.target.checked),
+      checked: value
     });
 
     const layout = $.html("label", { class: "label cursor-pointer justify-start gap-3" }, [
@@ -623,15 +615,15 @@ export const UI = ($, defaultLang = "es") => {
 
   /** RADIO */
   ui.Radio = (props) => {
-    const { label, tooltip, $value, value, ...rest } = props;
+    const { label, tooltip, value, ...rest } = props;
 
     const radioEl = $.html("input", {
       ...rest,
       type: "radio",
-      class: joinClass("radio", props.$class || props.class),
-      $checked: () => val($value) === value,
-      $disabled: () => val(props.$disabled) || val(props.disabled),
-      onclick: () => typeof $value === "function" && $value(value),
+      class: joinClass("radio", props.class || props.class),
+      checked: () => val(value) === value,
+      disabled: () => val(props.disabled) || val(props.disabled),
+      onclick: () => typeof value === "function" && value(value),
     });
 
     if (!label && !tooltip) return radioEl;
@@ -646,30 +638,32 @@ export const UI = ($, defaultLang = "es") => {
 
   /** RANGE */
   ui.Range = (props) => {
-    const { label, tooltip, $value, ...rest } = props;
+    const { label, tooltip, value, ...rest } = props;
 
     const rangeEl = $.html("input", {
       ...rest,
       type: "range",
-      class: joinClass("range", props.$class || props.class),
-      $value: $value,
-      $disabled: () => val(props.$disabled) || val(props.disabled),
-      oninput: (e) => typeof $value === "function" && $value(e.target.value),
+      class: joinClass("range", props.class),
+      value: value,
+      disabled: () => val(props.disabled)
     });
 
     if (!label && !tooltip) return rangeEl;
 
-    const layout = $.html("div", { class: "flex flex-col gap-2" }, [label ? $.html("span", { class: "label-text" }, label) : null, rangeEl]);
+    const layout = $.html("div", { class: "flex flex-col gap-2" }, [
+      label ? $.html("span", { class: "label-text" }, label) : null,
+      rangeEl
+    ]);
 
     return tooltip ? $.html("div", { class: "tooltip", "data-tip": tooltip }, layout) : layout;
   };
 
   /** MODAL */
   ui.Modal = (props, children) => {
-    const { title, buttons, $open, ...rest } = props;
-    const close = () => $open(false);
+    const { title, buttons, open, ...rest } = props;
+    const close = () => open(false);
 
-    return $.if($open, () =>
+    return $.if(open, () =>
       $.html("dialog", { ...rest, class: "modal modal-open" }, [
         $.html("div", { class: "modal-box" }, [
           title ? $.html("h3", { class: "text-lg font-bold mb-4" }, title) : null,
@@ -756,7 +750,7 @@ export const UI = ($, defaultLang = "es") => {
       "div",
       {
         ...rest,
-        class: () => `dropdown ${val(props.$class) || props.class || ""}`,
+        class: () => `dropdown ${val(props.class) || props.class || ""}`,
       },
       [
         $.html(
@@ -782,20 +776,19 @@ export const UI = ($, defaultLang = "es") => {
 
   /** ACCORDION */
   ui.Accordion = (props, children) => {
-    const { title, name, $open, open, ...rest } = props;
+    const { title, name, open, ...rest } = props;
 
     return $.html(
       "div",
       {
         ...rest,
-        class: joinClass("collapse collapse-arrow bg-base-200 mb-2", props.$class || props.class),
+        class: joinClass("collapse collapse-arrow bg-base-200 mb-2", props.class || props.class),
       },
       [
         $.html("input", {
           type: name ? "radio" : "checkbox",
           name: name,
-          $checked: () => val($open) || val(open),
-          onchange: (e) => typeof $open === "function" && $open(e.target.checked),
+          checked: open
         }),
         $.html("div", { class: "collapse-title text-xl font-medium" }, title),
         $.html("div", { class: "collapse-content" }, children),
@@ -813,7 +806,7 @@ export const UI = ($, defaultLang = "es") => {
         "div",
         {
           role: "tablist",
-          class: joinClass("tabs tabs-box", props.$class || props.class),
+          class: joinClass("tabs tabs-box", props.class || props.class),
         },
         $.for(
           itemsSignal,
@@ -841,15 +834,15 @@ export const UI = ($, defaultLang = "es") => {
   };
 
   /** BADGE */
-  ui.Badge = (props, children) => $.html("span", { ...props, class: joinClass("badge", props.$class || props.class) }, children);
+  ui.Badge = (props, children) => $.html("span", { ...props, class: joinClass("badge", props.class || props.class) }, children);
 
   /** TOOLTIP */
   ui.Tooltip = (props, children) =>
-    $.html("div", { ...props, class: joinClass("tooltip", props.$class || props.class), "data-tip": props.tip }, children);
+    $.html("div", { ...props, class: joinClass("tooltip", props.class || props.class), "data-tip": props.tip }, children);
 
   /** NAVBAR */
   ui.Navbar = (props, children) =>
-    $.html("div", { ...props, class: joinClass("navbar bg-base-100 shadow-sm px-4", props.$class || props.class) }, children);
+    $.html("div", { ...props, class: joinClass("navbar bg-base-100 shadow-sm px-4", props.class || props.class) }, children);
 
   /** MENU */
   ui.Menu = (props) => {
@@ -860,32 +853,32 @@ export const UI = ($, defaultLang = "es") => {
           $.html("li", {}, [
             it.children
               ? $.html("details", { open: it.open }, [
-                  $.html("summary", {}, [it.icon && $.html("span", { class: "mr-2" }, it.icon), it.label]),
-                  $.html("ul", {}, renderItems(it.children)),
-                ])
+                $.html("summary", {}, [it.icon && $.html("span", { class: "mr-2" }, it.icon), it.label]),
+                $.html("ul", {}, renderItems(it.children)),
+              ])
               : $.html("a", { class: () => (val(it.active) ? "active" : ""), onclick: it.onclick }, [
-                  it.icon && $.html("span", { class: "mr-2" }, it.icon),
-                  it.label,
-                ]),
+                it.icon && $.html("span", { class: "mr-2" }, it.icon),
+                it.label,
+              ]),
           ]),
         (it, i) => it.label || i,
       );
 
-    return $.html("ul", { ...props, class: joinClass("menu bg-base-200 rounded-box", props.$class || props.class) }, renderItems(props.items));
+    return $.html("ul", { ...props, class: joinClass("menu bg-base-200 rounded-box", props.class || props.class) }, renderItems(props.items));
   };
 
   /** DRAWER */
   ui.Drawer = (props) =>
-    $.html("div", { class: joinClass("drawer", props.$class || props.class) }, [
+    $.html("div", { class: joinClass("drawer", props.class || props.class) }, [
       $.html("input", {
         id: props.id,
         type: "checkbox",
         class: "drawer-toggle",
-        $checked: props.$open,
+        checked: props.open,
       }),
       $.html("div", { class: "drawer-content" }, props.content),
       $.html("div", { class: "drawer-side" }, [
-        $.html("label", { for: props.id, class: "drawer-overlay", onclick: () => props.$open?.(false) }),
+        $.html("label", { for: props.id, class: "drawer-overlay", onclick: () => props.open?.(false) }),
         $.html("div", { class: "min-h-full bg-base-200 w-80" }, props.side),
       ]),
     ]);
@@ -896,7 +889,7 @@ export const UI = ($, defaultLang = "es") => {
       "fieldset",
       {
         ...props,
-        class: joinClass("fieldset bg-base-200 border border-base-300 p-4 rounded-lg", props.$class || props.class),
+        class: joinClass("fieldset bg-base-200 border border-base-300 p-4 rounded-lg", props.class || props.class),
       },
       [
         () => {
@@ -924,24 +917,23 @@ export const UI = ($, defaultLang = "es") => {
   };
 
   /** STACK */
-  ui.Stack = (props, children) => $.html("div", { ...props, class: joinClass("stack", props.$class || props.class) }, children);
+  ui.Stack = (props, children) => $.html("div", { ...props, class: joinClass("stack", props.class || props.class) }, children);
 
   /** STAT */
   ui.Stat = (props) =>
-    $.html("div", { ...props, class: joinClass("stat", props.$class || props.class) }, [
+    $.html("div", { ...props, class: joinClass("stat", props.class || props.class) }, [
       props.icon && $.html("div", { class: "stat-figure text-secondary" }, props.icon),
       props.label && $.html("div", { class: "stat-title" }, props.label),
-      $.html("div", { class: "stat-value" }, () => val(props.$value) ?? props.value),
+      $.html("div", { class: "stat-value" }, () => val(props.value) ?? props.value),
       props.desc && $.html("div", { class: "stat-desc" }, props.desc),
     ]);
 
   /** SWAP */
   ui.Swap = (props) =>
-    $.html("label", { class: joinClass("swap", props.$class || props.class) }, [
+    $.html("label", { class: joinClass("swap", props.class || props.class) }, [
       $.html("input", {
         type: "checkbox",
-        $checked: props.$value,
-        onchange: (e) => props.$value?.(e.target.checked),
+        checked: props.value
       }),
       $.html("div", { class: "swap-on" }, props.on),
       $.html("div", { class: "swap-off" }, props.off),
@@ -949,37 +941,36 @@ export const UI = ($, defaultLang = "es") => {
 
   /** INDICATOR */
   ui.Indicator = (props, children) =>
-    $.html("div", { class: joinClass("indicator", props.$class || props.class) }, [
+    $.html("div", { class: joinClass("indicator", props.class || props.class) }, [
       children,
       $.html("span", { class: joinClass("indicator-item badge", props.badgeClass) }, props.badge),
     ]);
 
   /** RATING */
   ui.Rating = (props) => {
-    const { $value, count = 5, name = `rating-${Math.random().toString(36).slice(2, 7)}`, mask = "mask-star", readonly = false, ...rest } = props;
+    const { value, count = 5, mask = "mask-star", readonly = false, ...rest } = props;
+    const ratingGroup = `rating-${Math.random().toString(36).slice(2, 7)}`;
 
-    return $.html(
-      "div",
-      {
-        ...rest,
-        class: () => `rating ${val(readonly) ? "pointer-events-none" : ""} ${props.class || ""}`,
-      },
+    return $.html("div", {
+      ...rest,
+      class: () => `rating ${val(readonly) ? "pointer-events-none" : ""} ${props.class || ""}`,
+    },
       Array.from({ length: val(count) }, (_, i) => {
-        const ratingValue = i + 1;
+        const starValue = i + 1;
+
         return $.html("input", {
           type: "radio",
-          name: name,
+          name: ratingGroup,
           class: `mask ${mask}`,
-          "aria-label": `${ratingValue} star`,
-          checked: () => Math.round(val($value)) === ratingValue,
+          "aria-label": `${starValue} star`,
+          checked: () => Math.round(val(value)) === starValue,
           onchange: () => {
-            if (!val(readonly) && typeof $value === "function") {
-              $value(ratingValue);
+            if (!val(readonly) && typeof value === "function") {
+              value(starValue);
             }
           },
         });
-      }),
-    );
+      }));
   };
 
   /** ALERT */
@@ -1180,8 +1171,13 @@ export const UI = ($, defaultLang = "es") => {
 
   ui.tt = tt;
   Object.keys(ui).forEach((key) => {
-    window[key] = ui[key];
     $[key] = ui[key];
+    Object.defineProperty(window, key, {
+      value: ui[key],
+      writable: false,
+      configurable: true,
+      enumerable: true
+    });
   });
 
   return ui;

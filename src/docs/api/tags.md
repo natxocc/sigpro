@@ -13,7 +13,7 @@ SigPro iterates through a manifest of standard HTML tags and attaches a wrapper 
 
 ## 2. The Complete Global Registry
 
-The following functions are injected into the global scope (using **PascalCase** to prevent naming collisions with common JS variables) and are ready to use:
+The following functions are injected into the global scope using **PascalCase** to prevent naming collisions with common JS variables:
 
 | Category | Available Global Functions |
 | :--- | :--- |
@@ -24,8 +24,6 @@ The following functions are injected into the global scope (using **PascalCase**
 | **Tables** | `Table`, `Thead`, `Tbody`, `Tr`, `Th`, `Td`, `Tfoot`, `Caption` |
 | **Media** | `Img`, `Canvas`, `Video`, `Audio`, `Svg`, `Iframe`, `Picture`, `Source` |
 
-> **The SigPro Philosophy:** Tags are not "magic strings" handled by a compiler. They are **functional constructors**. Every time you call `Div()`, you execute a pure JS function that returns a real, reactive DOM element.
-
 ---
 
 ## 3. Usage Patterns (Smart Arguments)
@@ -33,7 +31,6 @@ The following functions are injected into the global scope (using **PascalCase**
 SigPro tag helpers are flexible. They automatically detect if you are passing attributes, children, or both.
 
 ### A. Attributes + Children
-The standard way to build structured UI.
 ```javascript
 Div({ class: 'container', id: 'main' }, [
   H1("Welcome to SigPro"),
@@ -42,7 +39,7 @@ Div({ class: 'container', id: 'main' }, [
 ```
 
 ### B. Children Only (The "Skipper")
-If you don't need attributes, you can skip the object and pass the content (string, array, or function) directly as the first argument.
+If you don't need attributes, you can pass the content directly as the first argument.
 ```javascript
 Section([
   H2("Clean Syntax"),
@@ -50,85 +47,79 @@ Section([
 ]);
 ```
 
-### C. Primitive Content
-For simple tags, just pass a string or a number.
-```javascript
-H1("Hello World"); 
-Span(42);
-```
-
 ---
 
 ## 4. Reactive Power
 
-These helpers are natively wired into SigPro's **`$.watch`** engine. No manual effect management is needed; the lifecycle is tied to the DOM node.
+These helpers are natively wired into SigPro's **`$.watch`** engine.
 
-### Reactive Attributes
+### Reactive Attributes (One-Way)
 Simply pass a Signal (function) to any attribute. SigPro creates an internal `$.watch` to keep the DOM in sync.
 ```javascript
 const theme = $("light");
 
 Div({ 
-  // Updates 'class' automatically via internal $.watch
   class: () => `app-box ${theme()}` 
 }, "Themeable Box");
 ```
 
-### The Binding Operator (`$`)
-Use the `$` prefix for **Two-Way Binding** on inputs. This bridges the Signal and the Input element bi-directionally.
+### Smart Two-Way Binding (Automatic)
+SigPro automatically bridges the **Signal** and the **Input** element bi-directionally when you assign a Signal to `value` or `checked`. No special operators are required.
+
 ```javascript
 const search = $("");
 
+// UI updates Signal AND Signal updates UI automatically
 Input({ 
   type: "text", 
   placeholder: "Search...",
-  $value: search // UI updates Signal AND Signal updates UI
+  value: search 
 });
 ```
 
+> **Pro Tip:** If you want an input to be **read-only** but still reactive, wrap the signal in an anonymous function: `value: () => search()`. This prevents the "backwards" synchronization.
+
 ### Dynamic Flow & Cleanup
-Combine tags with Core controllers for high-performance rendering. SigPro automatically cleans up the `$.watch` instances when nodes are removed.
+Combine tags with Core controllers. SigPro automatically cleans up the `$.watch` instances and event listeners when nodes are removed from the DOM.
 ```javascript
 const items = $(["Apple", "Banana", "Cherry"]);
 
 Ul({ class: "list-disc" }, [
-  $.For(items, (item) => Li(item))
+  $.for(items, (item) => Li(item), (item) => item)
 ]);
 ```
 
 ---
+
 ::: danger
 ## ⚠️ Important: Naming Conventions
 
-Since SigPro injects these helpers into the global `window` object, follow these rules to avoid bugs:
-
-1.  **Avoid Shadowing**: Don't name your local variables like the tags (e.g., `const Div = ...`). This will "hide" the SigPro helper.
-2.  **Custom Components**: Always use **PascalCase** for your own component functions (e.g., `UserCard`, `NavMenu`) to distinguish them from the built-in Tag Helpers and maintain architectural clarity.
+1.  **Avoid Shadowing**: Don't name your local variables like the tags (e.g., `const Div = ...`). This will "hide" the global SigPro helper.
+2.  **Custom Components**: Always use **PascalCase** for your own component functions (e.g., `UserCard`, `NavMenu`) to distinguish them from built-in Tag Helpers.
 :::
+
 ---
 
 ## 5. Logic to UI Comparison
 
-Here is how a dynamic **User Status** component translates from SigPro logic to the final DOM structure, handled by the engine.
+Here is how a dynamic **User Status** component translates from SigPro logic to the final DOM structure.
 
 ```javascript
-// SigPro Component
-const UserStatus = (name, $online) => (
+const UserStatus = (name, online) => (
   Div({ class: 'flex items-center gap-2' }, [
     Span({ 
-      // Boolean toggle for 'hidden' attribute
-      hidden: () => !$online(), 
+      hidden: () => !online(), 
       class: 'w-3 h-3 bg-green-500 rounded-full' 
     }),
     P({ 
-      // Reactive text content via automatic $.watch
-      class: () => $online() ? "text-bold" : "text-gray-400" 
+      class: () => online() ? "text-bold" : "text-gray-400" 
     }, name)
   ])
 );
 ```
 
-| State (`$online`) | Rendered HTML | Memory Management |
+| State (`online`) | Rendered HTML | Memory Management |
 | :--- | :--- | :--- |
 | **`true`** | `<div class="flex..."><span class="w-3..."></span><p class="text-bold">John</p></div>` | Watcher active |
 | **`false`** | `<div class="flex..."><span hidden class="w-3..."></span><p class="text-gray-400">John</p></div>` | Attribute synced |
+
