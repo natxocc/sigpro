@@ -8,18 +8,15 @@ const __dirname = path.resolve();
 export default defineConfig({
   plugins: [tailwindcss()],
   build: {
-    // Usamos la configuración de librería para generar el bundle limpio
     lib: {
-      entry: resolve(__dirname, "./UI/aggrid/aggrid-lib.js"),
-      name: "AgGridBundle",
-      fileName: "aggrid",
+      entry: resolve(__dirname, "./UI/aggrid/grid-lib.js"),
+      name: "GridBundle",
+      fileName: "grid",
       formats: ["es"],
     },
-    outDir: "./UI/aggrid/dist",
-    minify: "terser", // Máxima compresión
+    outDir: "./ui/grid/dist",
+    minify: "terser",
     rollupOptions: {
-      // Si quieres que ag-grid NO se incluya y sea externo, añádelo aquí.
-      // Pero como quieres un "Bundle", lo dejamos vacío para que empaquete todo.
       external: ["sigpro"], 
       output: {
         globals: {

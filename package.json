@@ -32,7 +32,7 @@
     "dev:docs": "vitepress dev src/docs",
     "build:docs": "vitepress build src/docs",
     "preview:docs": "vitepress preview src/docs",
-    "build:aggrid": "vite build --config UI/aggrid/vite.config.js"
+    "build:aggrid": "vite build --config ui/grid/vite.config.js"
   },
   "devDependencies": {
     "vitepress": "^1.6.4",

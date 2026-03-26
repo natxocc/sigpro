@@ -3,7 +3,6 @@
  * @module sigpro/vite
  */
 
-// ✅ Correcto: importas la función y la llamas como quieras
 import sigproRouter from './router.js';
 
 /**
@@ -24,5 +23,4 @@ import sigproRouter from './router.js';
  */
 export default sigproRouter;
 
-// Opcional: también exportar como named export
 export { sigproRouter };
