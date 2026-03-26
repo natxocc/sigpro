@@ -2,7 +2,8 @@
  * SigPro UI - daisyUI v5 & Tailwind v4 Plugin
  * Provides a set of reactive functional components, flow control and i18n.
  */
-export const UI = ($, defaultLang = "es") => {
+export const UI = (core, defaultLang = "es") => {
+  const { $, $if, $for, $watch, $html, $mount } = core;
   const ui = {};
 
   // --- I18N CORE ---
@@ -115,15 +116,15 @@ export const UI = ($, defaultLang = "es") => {
 
   /** RESPONSE */
   ui.Response = (reqObj, renderFn) =>
-    $.html("div", { class: "res-container" }, [
-      $.if(reqObj.loading, $.html("div", { class: "flex justify-center p-4" }, $.html("span", { class: "loading loading-dots text-primary" }))),
-      $.if(reqObj.error, () =>
-        $.html("div", { role: "alert", class: "alert alert-error" }, [
-          $.html("span", {}, reqObj.error()),
+    $html("div", { class: "res-container" }, [
+      $if(reqObj.loading, $html("div", { class: "flex justify-center p-4" }, $html("span", { class: "loading loading-dots text-primary" }))),
+      $if(reqObj.error, () =>
+        $html("div", { role: "alert", class: "alert alert-error" }, [
+          $html("span", {}, reqObj.error()),
           ui.Button({ class: "btn-xs btn-ghost border-current", onclick: () => reqObj.reload() }, "Retry"),
         ]),
       ),
-      $.if(reqObj.success, () => {
+      $if(reqObj.success, () => {
         const current = reqObj.data();
         return current !== null ? renderFn(current) : null;
       }),
@@ -134,7 +135,7 @@ export const UI = ($, defaultLang = "es") => {
   /** BUTTON */
   ui.Button = (props, children) => {
     const { badge, badgeClass, tooltip, icon, loading, ...rest } = props;
-    const btn = $.html(
+    const btn = $html(
       "button",
       {
         ...rest,
@@ -142,19 +143,19 @@ export const UI = ($, defaultLang = "es") => {
         disabled: () => val(loading) || val(props.disabled) || val(props.disabled),
       },
       [
-        () => (val(loading) ? $.html("span", { class: "loading loading-spinner" }) : null),
-        icon ? $.html("span", { class: "mr-1" }, icon) : null,
+        () => (val(loading) ? $html("span", { class: "loading loading-spinner" }) : null),
+        icon ? $html("span", { class: "mr-1" }, icon) : null,
         children,
       ],
     );
     let out = btn;
     if (badge) {
-      out = $.html("div", { class: "indicator" }, [
-        $.html("span", { class: joinClass("indicator-item badge", badgeClass || "badge-secondary") }, badge),
+      out = $html("div", { class: "indicator" }, [
+        $html("span", { class: joinClass("indicator-item badge", badgeClass || "badge-secondary") }, badge),
         out,
       ]);
     }
-    return tooltip ? $.html("div", { class: "tooltip", "data-tip": tooltip }, out) : out;
+    return tooltip ? $html("div", { class: "tooltip", "data-tip": tooltip }, out) : out;
   };
 
   /** INPUT */
@@ -171,7 +172,7 @@ export const UI = ($, defaultLang = "es") => {
       email: iconMail,
     };
 
-    const inputEl = $.html("input", {
+    const inputEl = $html("input", {
       ...rest,
       type: () => (isPassword ? (visible() ? "text" : "password") : type),
       placeholder: props.placeholder || label || (isSearch ? tt("search")() : " "),
@@ -181,19 +182,19 @@ export const UI = ($, defaultLang = "es") => {
       disabled: () => val(props.disabled),
     });
 
-    const leftIcon = icon ? icon : iconsByType[type] ? $.html("img", { src: iconsByType[type], class: "w-5 h-5 opacity-50", alt: type }) : null;
+    const leftIcon = icon ? icon : iconsByType[type] ? $html("img", { src: iconsByType[type], class: "w-5 h-5 opacity-50", alt: type }) : null;
 
-    return $.html(
+    return $html(
       "label",
       {
         class: () => joinClass("input input-bordered floating-label flex items-center gap-2 w-full relative", val(error) ? "input-error" : ""),
       },
       [
-        leftIcon ? $.html("div", { class: "order-1 shrink-0" }, leftIcon) : null,
-        label ? $.html("span", { class: "text-base-content/60 order-0" }, label) : null,
+        leftIcon ? $html("div", { class: "order-1 shrink-0" }, leftIcon) : null,
+        label ? $html("span", { class: "text-base-content/60 order-0" }, label) : null,
         inputEl,
         isPassword
-          ? $.html(
+          ? $html(
             "button",
             {
               type: "button",
@@ -204,20 +205,20 @@ export const UI = ($, defaultLang = "es") => {
               },
             },
             () =>
-              $.html("img", {
+              $html("img", {
                 class: "w-5 h-5",
                 src: visible() ? iconShow : iconHide,
               }),
           )
           : null,
         tip
-          ? $.html(
+          ? $html(
             "div",
             { class: "tooltip tooltip-left order-4", "data-tip": tip },
-            $.html("span", { class: "badge badge-ghost badge-xs cursor-help" }, "?"),
+            $html("span", { class: "badge badge-ghost badge-xs cursor-help" }, "?"),
           )
           : null,
-        () => (val(error) ? $.html("span", { class: "text-error text-[10px] absolute -bottom-5 left-2" }, val(error)) : null),
+        () => (val(error) ? $html("span", { class: "text-error text-[10px] absolute -bottom-5 left-2" }, val(error)) : null),
       ],
     );
   };
@@ -226,17 +227,17 @@ export const UI = ($, defaultLang = "es") => {
   ui.Select = (props) => {
     const { label, options, value, ...rest } = props;
 
-    const selectEl = $.html(
+    const selectEl = $html(
       "select",
       {
         ...rest,
         class: joinClass("select select-bordered w-full", props.class || props.class),
         value: value
       },
-      $.for(
+      $for(
         () => val(options) || [],
         (opt) =>
-          $.html(
+          $html(
             "option",
             {
               value: opt.value,
@@ -250,7 +251,7 @@ export const UI = ($, defaultLang = "es") => {
 
     if (!label) return selectEl;
 
-    return $.html("label", { class: "fieldset-label flex flex-col gap-1" }, [$.html("span", {}, label), selectEl]);
+    return $html("label", { class: "fieldset-label flex flex-col gap-1" }, [$html("span", {}, label), selectEl]);
   };
 
   /** AUTOCOMPLETE */
@@ -296,7 +297,7 @@ export const UI = ($, defaultLang = "es") => {
       }
     };
 
-    return $.html("div", { class: "relative w-full" }, [
+    return $html("div", { class: "relative w-full" }, [
       ui.Input({
         label,
         placeholder: placeholder || tt("search")(),
@@ -313,18 +314,18 @@ export const UI = ($, defaultLang = "es") => {
         },
         ...rest,
       }),
-      $.html(
+      $html(
         "ul",
         {
           class: "absolute left-0 w-full menu bg-base-100 rounded-box mt-1 p-2 shadow-xl max-h-60 overflow-y-auto border border-base-300 z-50",
           style: () => (isOpen() && list().length ? "display:block" : "display:none"),
         },
         [
-          $.for(
+          $for(
             list,
             (opt, i) =>
-              $.html("li", {}, [
-                $.html(
+              $html("li", {}, [
+                $html(
                   "a",
                   {
                     class: () => `block w-full ${cursor() === i ? "active bg-primary text-primary-content" : ""}`,
@@ -336,7 +337,7 @@ export const UI = ($, defaultLang = "es") => {
               ]),
             (opt, i) => (typeof opt === "string" ? opt : opt.value) + i,
           ),
-          () => (list().length ? null : $.html("li", { class: "p-2 text-center opacity-50" }, "No results")),
+          () => (list().length ? null : $html("li", { class: "p-2 text-center opacity-50" }, "No results")),
         ],
       ),
     ]);
@@ -400,13 +401,13 @@ export const UI = ($, defaultLang = "es") => {
       internalDate(new Date(d.getFullYear() + y, d.getMonth(), 1));
     };
 
-    return $.html("div", { class: "relative w-full" }, [
+    return $html("div", { class: "relative w-full" }, [
       ui.Input({
         label,
         placeholder: placeholder || (isRangeMode() ? "Seleccionar rango..." : "Seleccionar fecha..."),
         value: displayValue,
         readonly: true,
-        icon: $.html("img", { src: iconCalendar, class: "opacity-40" }),
+        icon: $html("img", { src: iconCalendar, class: "opacity-40" }),
         onclick: (e) => {
           e.stopPropagation();
           isOpen(!isOpen());
@@ -414,46 +415,46 @@ export const UI = ($, defaultLang = "es") => {
         ...rest,
       }),
 
-      $.if(isOpen, () =>
-        $.html(
+      $if(isOpen, () =>
+        $html(
           "div",
           {
             class: "absolute left-0 mt-2 p-4 bg-base-100 border border-base-300 shadow-2xl rounded-box z-[100] w-80 select-none",
             onclick: (e) => e.stopPropagation(),
           },
           [
-            $.html("div", { class: "flex justify-between items-center mb-4 gap-1" }, [
-              $.html("div", { class: "flex gap-0.5" }, [
-                $.html(
+            $html("div", { class: "flex justify-between items-center mb-4 gap-1" }, [
+              $html("div", { class: "flex gap-0.5" }, [
+                $html(
                   "button",
                   { type: "button", class: "btn btn-ghost btn-xs px-1", onclick: () => moveYear(-1) },
-                  $.html("img", { src: iconLLeft, class: "opacity-40" }),
+                  $html("img", { src: iconLLeft, class: "opacity-40" }),
                 ),
-                $.html(
+                $html(
                   "button",
                   { type: "button", class: "btn btn-ghost btn-xs px-1", onclick: () => move(-1) },
-                  $.html("img", { src: iconLeft, class: "opacity-40" }),
+                  $html("img", { src: iconLeft, class: "opacity-40" }),
                 ),
               ]),
-              $.html("span", { class: "font-bold uppercase flex-1 text-center" }, [
+              $html("span", { class: "font-bold uppercase flex-1 text-center" }, [
                 () => internalDate().toLocaleString("es-ES", { month: "short", year: "numeric" }),
               ]),
-              $.html("div", { class: "flex gap-0.5" }, [
-                $.html(
+              $html("div", { class: "flex gap-0.5" }, [
+                $html(
                   "button",
                   { type: "button", class: "btn btn-ghost btn-xs px-1", onclick: () => move(1) },
-                  $.html("img", { src: iconRight, class: "opacity-40" }),
+                  $html("img", { src: iconRight, class: "opacity-40" }),
                 ),
-                $.html(
+                $html(
                   "button",
                   { type: "button", class: "btn btn-ghost btn-xs px-1", onclick: () => moveYear(1) },
-                  $.html("img", { src: iconRRight, class: "opacity-40" }),
+                  $html("img", { src: iconRRight, class: "opacity-40" }),
                 ),
               ]),
             ]),
 
-            $.html("div", { class: "grid grid-cols-7 gap-1", onmouseleave: () => hoverDate(null) }, [
-              ...["L", "M", "X", "J", "V", "S", "D"].map((d) => $.html("div", { class: "text-[10px] opacity-40 font-bold text-center" }, d)),
+            $html("div", { class: "grid grid-cols-7 gap-1", onmouseleave: () => hoverDate(null) }, [
+              ...["L", "M", "X", "J", "V", "S", "D"].map((d) => $html("div", { class: "text-[10px] opacity-40 font-bold text-center" }, d)),
               () => {
                 const d = internalDate();
                 const year = d.getFullYear();
@@ -463,14 +464,14 @@ export const UI = ($, defaultLang = "es") => {
                 const daysInMonth = new Date(year, month + 1, 0).getDate();
 
                 const nodes = [];
-                for (let i = 0; i < offset; i++) nodes.push($.html("div"));
+                for (let i = 0; i < offset; i++) nodes.push($html("div"));
 
                 for (let i = 1; i <= daysInMonth; i++) {
                   const date = new Date(year, month, i);
                   const dStr = formatDate(date);
 
                   nodes.push(
-                    $.html(
+                    $html(
                       "button",
                       {
                         type: "button",
@@ -512,7 +513,7 @@ export const UI = ($, defaultLang = "es") => {
         ),
       ),
 
-      $.if(isOpen, () => $.html("div", { class: "fixed inset-0 z-[90]", onclick: () => isOpen(false) })),
+      $if(isOpen, () => $html("div", { class: "fixed inset-0 z-[90]", onclick: () => isOpen(false) })),
     ]);
   };
 
@@ -534,8 +535,8 @@ export const UI = ($, defaultLang = "es") => {
 
     const getColor = () => val(value) || "#000000";
 
-    return $.html("div", { class: "relative w-fit" }, [
-      $.html(
+    return $html("div", { class: "relative w-fit" }, [
+      $html(
         "button",
         {
           type: "button",
@@ -547,27 +548,27 @@ export const UI = ($, defaultLang = "es") => {
           ...rest,
         },
         [
-          $.html("div", {
+          $html("div", {
             class: "size-5 rounded-sm shadow-inner border border-black/10 shrink-0",
             style: () => `background-color: ${getColor()}`,
           }),
-          label ? $.html("span", { class: "opacity-80" }, label) : null,
+          label ? $html("span", { class: "opacity-80" }, label) : null,
         ],
       ),
 
-      $.if(isOpen, () =>
-        $.html(
+      $if(isOpen, () =>
+        $html(
           "div",
           {
             class: "absolute left-0 mt-2 p-3 bg-base-100 border border-base-300 shadow-2xl rounded-box z-[110] w-64 select-none",
             onclick: (e) => e.stopPropagation(),
           },
           [
-            $.html(
+            $html(
               "div",
               { class: "grid grid-cols-8 gap-1" },
               palette.map((c) =>
-                $.html("button", {
+                $html("button", {
                   type: "button",
                   style: `background-color: ${c}`,
                   class: () => {
@@ -586,8 +587,8 @@ export const UI = ($, defaultLang = "es") => {
         ),
       ),
 
-      $.if(isOpen, () =>
-        $.html("div", {
+      $if(isOpen, () =>
+        $html("div", {
           class: "fixed inset-0 z-[100]",
           onclick: () => isOpen(false),
         }),
@@ -598,26 +599,26 @@ export const UI = ($, defaultLang = "es") => {
   /** CHECKBOX */
   ui.CheckBox = (props) => {
     const { value, tooltip, toggle, ...rest } = props;
-    const checkEl = $.html("input", {
+    const checkEl = $html("input", {
       ...rest,
       type: "checkbox",
       class: () => (val(toggle) ? "toggle" : "checkbox"),
       checked: value
     });
 
-    const layout = $.html("label", { class: "label cursor-pointer justify-start gap-3" }, [
+    const layout = $html("label", { class: "label cursor-pointer justify-start gap-3" }, [
       checkEl,
-      props.label ? $.html("span", { class: "label-text" }, props.label) : null,
+      props.label ? $html("span", { class: "label-text" }, props.label) : null,
     ]);
 
-    return tooltip ? $.html("div", { class: "tooltip", "data-tip": tooltip }, layout) : layout;
+    return tooltip ? $html("div", { class: "tooltip", "data-tip": tooltip }, layout) : layout;
   };
 
   /** RADIO */
   ui.Radio = (props) => {
     const { label, tooltip, value, ...rest } = props;
 
-    const radioEl = $.html("input", {
+    const radioEl = $html("input", {
       ...rest,
       type: "radio",
       class: joinClass("radio", props.class || props.class),
@@ -628,19 +629,19 @@ export const UI = ($, defaultLang = "es") => {
 
     if (!label && !tooltip) return radioEl;
 
-    const layout = $.html("label", { class: "label cursor-pointer justify-start gap-3" }, [
+    const layout = $html("label", { class: "label cursor-pointer justify-start gap-3" }, [
       radioEl,
-      label ? $.html("span", { class: "label-text" }, label) : null,
+      label ? $html("span", { class: "label-text" }, label) : null,
     ]);
 
-    return tooltip ? $.html("div", { class: "tooltip", "data-tip": tooltip }, layout) : layout;
+    return tooltip ? $html("div", { class: "tooltip", "data-tip": tooltip }, layout) : layout;
   };
 
   /** RANGE */
   ui.Range = (props) => {
     const { label, tooltip, value, ...rest } = props;
 
-    const rangeEl = $.html("input", {
+    const rangeEl = $html("input", {
       ...rest,
       type: "range",
       class: joinClass("range", props.class),
@@ -650,12 +651,12 @@ export const UI = ($, defaultLang = "es") => {
 
     if (!label && !tooltip) return rangeEl;
 
-    const layout = $.html("div", { class: "flex flex-col gap-2" }, [
-      label ? $.html("span", { class: "label-text" }, label) : null,
+    const layout = $html("div", { class: "flex flex-col gap-2" }, [
+      label ? $html("span", { class: "label-text" }, label) : null,
       rangeEl
     ]);
 
-    return tooltip ? $.html("div", { class: "tooltip", "data-tip": tooltip }, layout) : layout;
+    return tooltip ? $html("div", { class: "tooltip", "data-tip": tooltip }, layout) : layout;
   };
 
   /** MODAL */
@@ -663,24 +664,24 @@ export const UI = ($, defaultLang = "es") => {
     const { title, buttons, open, ...rest } = props;
     const close = () => open(false);
 
-    return $.if(open, () =>
-      $.html("dialog", { ...rest, class: "modal modal-open" }, [
-        $.html("div", { class: "modal-box" }, [
-          title ? $.html("h3", { class: "text-lg font-bold mb-4" }, title) : null,
+    return $if(open, () =>
+      $html("dialog", { ...rest, class: "modal modal-open" }, [
+        $html("div", { class: "modal-box" }, [
+          title ? $html("h3", { class: "text-lg font-bold mb-4" }, title) : null,
           typeof children === "function" ? children() : children,
-          $.html("div", { class: "modal-action flex gap-2" }, [
+          $html("div", { class: "modal-action flex gap-2" }, [
             ...(Array.isArray(buttons) ? buttons : [buttons]).filter(Boolean),
             ui.Button({ onclick: close }, tt("close")()),
           ]),
         ]),
-        $.html(
+        $html(
           "form",
           {
             method: "dialog",
             class: "modal-backdrop",
             onclick: (e) => (e.preventDefault(), close()),
           },
-          [$.html("button", {}, "close")],
+          [$html("button", {}, "close")],
         ),
       ]),
     );
@@ -691,7 +692,7 @@ export const UI = ($, defaultLang = "es") => {
     const { data, options, class: className } = props;
     let gridApi = null;
 
-    const container = $.html("div", {
+    const container = $html("div", {
       style: "height: 100%; width: 100%;",
       class: className,
     });
@@ -707,7 +708,7 @@ export const UI = ($, defaultLang = "es") => {
 
     container._cleanups.add(() => observer.disconnect());
 
-    const stopGrid = $.watch(() => {
+    const stopGrid = $watch(() => {
       const dark = isDark();
       const agTheme = getTheme(dark);
       const rowData = val(data) || [];
@@ -724,7 +725,7 @@ export const UI = ($, defaultLang = "es") => {
     });
     container._cleanups.add(stopGrid);
 
-    const stopData = $.watch(() => {
+    const stopData = $watch(() => {
       const rowData = val(data);
       if (gridApi && Array.isArray(rowData)) {
         gridApi.setGridOption("rowData", rowData);
@@ -746,14 +747,14 @@ export const UI = ($, defaultLang = "es") => {
   ui.Dropdown = (props, children) => {
     const { label, icon, ...rest } = props;
 
-    return $.html(
+    return $html(
       "div",
       {
         ...rest,
         class: () => `dropdown ${val(props.class) || props.class || ""}`,
       },
       [
-        $.html(
+        $html(
           "div",
           {
             tabindex: 0,
@@ -762,7 +763,7 @@ export const UI = ($, defaultLang = "es") => {
           },
           [icon ? (typeof icon === "function" ? icon() : icon) : null, label ? (typeof label === "function" ? label() : label) : null],
         ),
-        $.html(
+        $html(
           "ul",
           {
             tabindex: 0,
@@ -778,20 +779,20 @@ export const UI = ($, defaultLang = "es") => {
   ui.Accordion = (props, children) => {
     const { title, name, open, ...rest } = props;
 
-    return $.html(
+    return $html(
       "div",
       {
         ...rest,
         class: joinClass("collapse collapse-arrow bg-base-200 mb-2", props.class || props.class),
       },
       [
-        $.html("input", {
+        $html("input", {
           type: name ? "radio" : "checkbox",
           name: name,
           checked: open
         }),
-        $.html("div", { class: "collapse-title text-xl font-medium" }, title),
-        $.html("div", { class: "collapse-content" }, children),
+        $html("div", { class: "collapse-title text-xl font-medium" }, title),
+        $html("div", { class: "collapse-content" }, children),
       ],
     );
   };
@@ -801,17 +802,17 @@ export const UI = ($, defaultLang = "es") => {
     const { items, ...rest } = props;
     const itemsSignal = typeof items === "function" ? items : () => items || [];
 
-    return $.html("div", { ...rest, class: "flex flex-col gap-4 w-full" }, [
-      $.html(
+    return $html("div", { ...rest, class: "flex flex-col gap-4 w-full" }, [
+      $html(
         "div",
         {
           role: "tablist",
           class: joinClass("tabs tabs-box", props.class || props.class),
         },
-        $.for(
+        $for(
           itemsSignal,
           (it) =>
-            $.html(
+            $html(
               "a",
               {
                 role: "tab",
@@ -828,64 +829,64 @@ export const UI = ($, defaultLang = "es") => {
         const active = itemsSignal().find((it) => val(it.active));
         if (!active) return null;
         const content = val(active.content);
-        return $.html("div", { class: "p-4" }, [typeof content === "function" ? content() : content]);
+        return $html("div", { class: "p-4" }, [typeof content === "function" ? content() : content]);
       },
     ]);
   };
 
   /** BADGE */
-  ui.Badge = (props, children) => $.html("span", { ...props, class: joinClass("badge", props.class || props.class) }, children);
+  ui.Badge = (props, children) => $html("span", { ...props, class: joinClass("badge", props.class || props.class) }, children);
 
   /** TOOLTIP */
   ui.Tooltip = (props, children) =>
-    $.html("div", { ...props, class: joinClass("tooltip", props.class || props.class), "data-tip": props.tip }, children);
+    $html("div", { ...props, class: joinClass("tooltip", props.class || props.class), "data-tip": props.tip }, children);
 
   /** NAVBAR */
   ui.Navbar = (props, children) =>
-    $.html("div", { ...props, class: joinClass("navbar bg-base-100 shadow-sm px-4", props.class || props.class) }, children);
+    $html("div", { ...props, class: joinClass("navbar bg-base-100 shadow-sm px-4", props.class || props.class) }, children);
 
   /** MENU */
   ui.Menu = (props) => {
     const renderItems = (items) =>
-      $.for(
+      $for(
         () => items || [],
         (it) =>
-          $.html("li", {}, [
+          $html("li", {}, [
             it.children
-              ? $.html("details", { open: it.open }, [
-                $.html("summary", {}, [it.icon && $.html("span", { class: "mr-2" }, it.icon), it.label]),
-                $.html("ul", {}, renderItems(it.children)),
+              ? $html("details", { open: it.open }, [
+                $html("summary", {}, [it.icon && $html("span", { class: "mr-2" }, it.icon), it.label]),
+                $html("ul", {}, renderItems(it.children)),
               ])
-              : $.html("a", { class: () => (val(it.active) ? "active" : ""), onclick: it.onclick }, [
-                it.icon && $.html("span", { class: "mr-2" }, it.icon),
+              : $html("a", { class: () => (val(it.active) ? "active" : ""), onclick: it.onclick }, [
+                it.icon && $html("span", { class: "mr-2" }, it.icon),
                 it.label,
               ]),
           ]),
         (it, i) => it.label || i,
       );
 
-    return $.html("ul", { ...props, class: joinClass("menu bg-base-200 rounded-box", props.class || props.class) }, renderItems(props.items));
+    return $html("ul", { ...props, class: joinClass("menu bg-base-200 rounded-box", props.class || props.class) }, renderItems(props.items));
   };
 
   /** DRAWER */
   ui.Drawer = (props) =>
-    $.html("div", { class: joinClass("drawer", props.class || props.class) }, [
-      $.html("input", {
+    $html("div", { class: joinClass("drawer", props.class || props.class) }, [
+      $html("input", {
         id: props.id,
         type: "checkbox",
         class: "drawer-toggle",
         checked: props.open,
       }),
-      $.html("div", { class: "drawer-content" }, props.content),
-      $.html("div", { class: "drawer-side" }, [
-        $.html("label", { for: props.id, class: "drawer-overlay", onclick: () => props.open?.(false) }),
-        $.html("div", { class: "min-h-full bg-base-200 w-80" }, props.side),
+      $html("div", { class: "drawer-content" }, props.content),
+      $html("div", { class: "drawer-side" }, [
+        $html("label", { for: props.id, class: "drawer-overlay", onclick: () => props.open?.(false) }),
+        $html("div", { class: "min-h-full bg-base-200 w-80" }, props.side),
       ]),
     ]);
 
   /** FIELDSET */
   ui.Fieldset = (props, children) =>
-    $.html(
+    $html(
       "fieldset",
       {
         ...props,
@@ -894,7 +895,7 @@ export const UI = ($, defaultLang = "es") => {
       [
         () => {
           const legendText = val(props.legend);
-          return legendText ? $.html("legend", { class: "fieldset-legend font-bold" }, [legendText]) : null;
+          return legendText ? $html("legend", { class: "fieldset-legend font-bold" }, [legendText]) : null;
         },
         children,
       ],
@@ -904,46 +905,46 @@ export const UI = ($, defaultLang = "es") => {
   ui.List = (props) => {
     const { items, header, render, keyFn, class: className } = props;
 
-    return $.html(
+    return $html(
       "ul",
       {
         class: joinClass("list bg-base-100 rounded-box shadow-md", className),
       },
       [
-        $.if(header, () => $.html("li", { class: "p-4 pb-2 text-xs opacity-60 tracking-wide" }, [val(header)])),
-        $.for(items, (item, index) => $.html("li", { class: "list-row" }, [render(item, index)]), keyFn),
+        $if(header, () => $html("li", { class: "p-4 pb-2 text-xs opacity-60 tracking-wide" }, [val(header)])),
+        $for(items, (item, index) => $html("li", { class: "list-row" }, [render(item, index)]), keyFn),
       ],
     );
   };
 
   /** STACK */
-  ui.Stack = (props, children) => $.html("div", { ...props, class: joinClass("stack", props.class || props.class) }, children);
+  ui.Stack = (props, children) => $html("div", { ...props, class: joinClass("stack", props.class || props.class) }, children);
 
   /** STAT */
   ui.Stat = (props) =>
-    $.html("div", { ...props, class: joinClass("stat", props.class || props.class) }, [
-      props.icon && $.html("div", { class: "stat-figure text-secondary" }, props.icon),
-      props.label && $.html("div", { class: "stat-title" }, props.label),
-      $.html("div", { class: "stat-value" }, () => val(props.value) ?? props.value),
-      props.desc && $.html("div", { class: "stat-desc" }, props.desc),
+    $html("div", { ...props, class: joinClass("stat", props.class || props.class) }, [
+      props.icon && $html("div", { class: "stat-figure text-secondary" }, props.icon),
+      props.label && $html("div", { class: "stat-title" }, props.label),
+      $html("div", { class: "stat-value" }, () => val(props.value) ?? props.value),
+      props.desc && $html("div", { class: "stat-desc" }, props.desc),
     ]);
 
   /** SWAP */
   ui.Swap = (props) =>
-    $.html("label", { class: joinClass("swap", props.class || props.class) }, [
-      $.html("input", {
+    $html("label", { class: joinClass("swap", props.class || props.class) }, [
+      $html("input", {
         type: "checkbox",
         checked: props.value
       }),
-      $.html("div", { class: "swap-on" }, props.on),
-      $.html("div", { class: "swap-off" }, props.off),
+      $html("div", { class: "swap-on" }, props.on),
+      $html("div", { class: "swap-off" }, props.off),
     ]);
 
   /** INDICATOR */
   ui.Indicator = (props, children) =>
-    $.html("div", { class: joinClass("indicator", props.class || props.class) }, [
+    $html("div", { class: joinClass("indicator", props.class || props.class) }, [
       children,
-      $.html("span", { class: joinClass("indicator-item badge", props.badgeClass) }, props.badge),
+      $html("span", { class: joinClass("indicator-item badge", props.badgeClass) }, props.badge),
     ]);
 
   /** RATING */
@@ -951,14 +952,14 @@ export const UI = ($, defaultLang = "es") => {
     const { value, count = 5, mask = "mask-star", readonly = false, ...rest } = props;
     const ratingGroup = `rating-${Math.random().toString(36).slice(2, 7)}`;
 
-    return $.html("div", {
+    return $html("div", {
       ...rest,
       class: () => `rating ${val(readonly) ? "pointer-events-none" : ""} ${props.class || ""}`,
     },
       Array.from({ length: val(count) }, (_, i) => {
         const starValue = i + 1;
 
-        return $.html("input", {
+        return $html("input", {
           type: "radio",
           name: ratingGroup,
           class: `mask ${mask}`,
@@ -996,7 +997,7 @@ export const UI = ($, defaultLang = "es") => {
 
     const content = children || props.message;
 
-    return $.html(
+    return $html(
       "div",
       {
         ...rest,
@@ -1004,13 +1005,13 @@ export const UI = ($, defaultLang = "es") => {
         class: () => `alert ${typeClass()} ${val(soft) ? "alert-soft" : ""} ${props.class || ""}`,
       },
       [
-        $.html("img", {
+        $html("img", {
           src: icons[val(type)] || icons.info,
           class: "w-4 h-4 object-contain",
           alt: val(type),
         }),
-        $.html("div", { class: "flex-1" }, [$.html("span", {}, [typeof content === "function" ? content() : content])]),
-        props.actions ? $.html("div", { class: "flex-none" }, [typeof props.actions === "function" ? props.actions() : props.actions]) : null,
+        $html("div", { class: "flex-1" }, [$html("span", {}, [typeof content === "function" ? content() : content])]),
+        props.actions ? $html("div", { class: "flex-none" }, [typeof props.actions === "function" ? props.actions() : props.actions]) : null,
       ],
     );
   };
@@ -1026,7 +1027,7 @@ export const UI = ($, defaultLang = "es") => {
       error: iconError,
     };
 
-    return $.html(
+    return $html(
       "ul",
       {
         ...rest,
@@ -1034,7 +1035,7 @@ export const UI = ($, defaultLang = "es") => {
           `timeline ${val(vertical) ? "timeline-vertical" : "timeline-horizontal"} ${val(compact) ? "timeline-compact" : ""} ${props.class || ""}`,
       },
       [
-        $.for(
+        $for(
           items,
           (item, i) => {
             const isFirst = i === 0;
@@ -1042,18 +1043,18 @@ export const UI = ($, defaultLang = "es") => {
             const itemType = item.type || "success";
             const renderSlot = (content) => (typeof content === "function" ? content() : content);
 
-            return $.html("li", { class: "flex-1" }, [
-              !isFirst ? $.html("hr", { class: item.completed ? "bg-primary" : "" }) : null,
-              $.html("div", { class: "timeline-start" }, [renderSlot(item.title)]),
-              $.html("div", { class: "timeline-middle" }, [
-                $.html("img", {
+            return $html("li", { class: "flex-1" }, [
+              !isFirst ? $html("hr", { class: item.completed ? "bg-primary" : "" }) : null,
+              $html("div", { class: "timeline-start" }, [renderSlot(item.title)]),
+              $html("div", { class: "timeline-middle" }, [
+                $html("img", {
                   src: icons[itemType] || item.icon || icons.success,
                   class: "w-4 h-4 object-contain mx-1",
                   alt: itemType,
                 }),
               ]),
-              $.html("div", { class: "timeline-end timeline-box shadow-sm" }, [renderSlot(item.detail)]),
-              !isLast ? $.html("hr", { class: item.completed ? "bg-primary" : "" }) : null,
+              $html("div", { class: "timeline-end timeline-box shadow-sm" }, [renderSlot(item.detail)]),
+              !isLast ? $html("hr", { class: item.completed ? "bg-primary" : "" }) : null,
             ]);
           },
           (item, i) => item.id || i,
@@ -1066,14 +1067,14 @@ export const UI = ($, defaultLang = "es") => {
   ui.Fab = (props) => {
     const { icon, label, actions = [], position = "bottom-6 right-6", ...rest } = props;
 
-    return $.html(
+    return $html(
       "div",
       {
         ...rest,
         class: () => `fab fixed ${val(position)} flex flex-col-reverse items-end gap-3 z-[100] ${props.class || ""}`,
       },
       [
-        $.html(
+        $html(
           "div",
           {
             tabindex: 0,
@@ -1084,9 +1085,9 @@ export const UI = ($, defaultLang = "es") => {
         ),
 
         ...val(actions).map((act) =>
-          $.html("div", { class: "flex items-center gap-3 transition-all duration-300" }, [
-            act.label ? $.html("span", { class: "badge badge-ghost shadow-sm whitespace-nowrap" }, act.label) : null,
-            $.html(
+          $html("div", { class: "flex items-center gap-3 transition-all duration-300" }, [
+            act.label ? $html("span", { class: "badge badge-ghost shadow-sm whitespace-nowrap" }, act.label) : null,
+            $html(
               "button",
               {
                 type: "button",
@@ -1108,14 +1109,14 @@ export const UI = ($, defaultLang = "es") => {
   ui.Toast = (message, type = "alert-success", duration = 3500) => {
     let container = document.getElementById("sigpro-toast-container");
     if (!container) {
-      container = $.html("div", {
+      container = $html("div", {
         id: "sigpro-toast-container",
         class: "fixed top-0 right-0 z-[9999] p-4 flex flex-col gap-2 pointer-events-none",
       });
       document.body.appendChild(container);
     }
 
-    const toastHost = $.html("div", { style: "display: contents" });
+    const toastHost = $html("div", { style: "display: contents" });
     container.appendChild(toastHost);
 
     let timeoutId;
@@ -1136,13 +1137,13 @@ export const UI = ($, defaultLang = "es") => {
     };
 
     const ToastComponent = () => {
-      const el = $.html(
+      const el = $html(
         "div",
         {
           class: `alert alert-soft ${type} shadow-lg transition-all duration-300 translate-x-10 opacity-0 pointer-events-auto`,
         },
         [
-          $.html("span", typeof message === "function" ? message : () => message),
+          $html("span", typeof message === "function" ? message : () => message),
           ui.Button({ class: "btn-xs btn-circle btn-ghost", onclick: close }, "✕"),
         ],
       );
@@ -1151,7 +1152,7 @@ export const UI = ($, defaultLang = "es") => {
       return el;
     };
 
-    const instance = $.mount(ToastComponent, toastHost);
+    const instance = $mount(ToastComponent, toastHost);
 
     if (duration > 0) {
       timeoutId = setTimeout(close, duration);
@@ -1162,9 +1163,9 @@ export const UI = ($, defaultLang = "es") => {
 
   /** LOADING */
   ui.Loading = (props) => {
-    return $.if(props.$show, () =>
-      $.html("div", { class: "fixed inset-0 z-[100] flex items-center justify-center backdrop-blur-sm bg-base-100/30" }, [
-        $.html("span", { class: "loading loading-spinner loading-lg text-primary" }),
+    return $if(props.$show, () =>
+      $html("div", { class: "fixed inset-0 z-[100] flex items-center justify-center backdrop-blur-sm bg-base-100/30" }, [
+        $html("span", { class: "loading loading-spinner loading-lg text-primary" }),
       ]),
     );
   };

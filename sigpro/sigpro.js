@@ -92,7 +92,7 @@
     };
   };
 
-  $.watch = (target, fn) => {
+  const $watch = (target, fn) => {
     const isExplicit = Array.isArray(target);
     const callback = isExplicit ? fn : target;
     const depsInput = isExplicit ? target : null;
@@ -182,7 +182,7 @@
     };
   };
 
-  $.html = (tag, props = {}, content = []) => {
+  const $html = (tag, props = {}, content = []) => {
     if (props instanceof Node || Array.isArray(props) || typeof props !== "object") {
       content = props; props = {};
     }
@@ -195,7 +195,7 @@
       const isBindAttr = (k === "value" || k === "checked");
 
       if (isInput && isBindAttr && isSignal) {
-        el._cleanups.add($.watch(() => {
+        el._cleanups.add($watch(() => {
           const val = v();
           if (el[k] !== val) el[k] = val;
         }));
@@ -209,7 +209,7 @@
         el.addEventListener(name, handler);
         el._cleanups.add(() => el.removeEventListener(name, handler));
       } else if (isSignal) {
-        el._cleanups.add($.watch(() => {
+        el._cleanups.add($watch(() => {
           const val = v();
           if (k === "class") el.className = val || "";
           else val == null ? el.removeAttribute(k) : el.setAttribute(k, val);
@@ -225,7 +225,7 @@
         const marker = document.createTextNode("");
         el.appendChild(marker);
         let nodes = [];
-        el._cleanups.add($.watch(() => {
+        el._cleanups.add($watch(() => {
           const res = c();
           const next = (Array.isArray(res) ? res : [res]).map((i) =>
             i?._isRuntime ? i.container : i instanceof Node ? i : document.createTextNode(i ?? "")
@@ -240,11 +240,11 @@
     return el;
   };
 
-  $.if = (condition, thenVal, otherwiseVal = null) => {
+  const $if = (condition, thenVal, otherwiseVal = null) => {
     const marker = document.createTextNode("");
-    const container = $.html("div", { style: "display:contents" }, [marker]);
+    const container = $html("div", { style: "display:contents" }, [marker]);
     let current = null, last = null;
-    $.watch(() => {
+    $watch(() => {
       const state = !!(typeof condition === "function" ? condition() : condition);
       if (state !== last) {
         last = state;
@@ -259,11 +259,13 @@
     return container;
   };
 
-  $.for = (source, render, keyFn) => {
+  $if.not = (condition, thenVal, otherwiseVal) => $if(() => !(typeof condition === "function" ? condition() : condition), thenVal, otherwiseVal);
+
+  const $for = (source, render, keyFn) => {
     const marker = document.createTextNode("");
-    const container = $.html("div", { style: "display:contents" }, [marker]);
+    const container = $html("div", { style: "display:contents" }, [marker]);
     const cache = new Map();
-    $.watch(() => {
+    $watch(() => {
       const items = (typeof source === "function" ? source() : source) || [];
       const newKeys = new Set();
       items.forEach((item, index) => {
@@ -283,13 +285,13 @@
     return container;
   };
 
-  $.router = (routes) => {
+  const $router = (routes) => {
     const sPath = $(window.location.hash.replace(/^#/, "") || "/");
     window.addEventListener("hashchange", () => sPath(window.location.hash.replace(/^#/, "") || "/"));
     const outlet = Div({ class: "router-outlet" });
     let current = null;
 
-    $.watch([sPath], () => {
+    $watch([sPath], () => {
       if (current) current.destroy();
       const path = sPath();
       const route = routes.find(r => {
@@ -303,6 +305,7 @@
         route.path.split("/").filter(Boolean).forEach((p, i) => {
           if (p.startsWith(":")) params[p.slice(1)] = path.split("/").filter(Boolean)[i];
         });
+        if ($router.params) $router.params(params);
         current = _view(() => {
           const res = route.component(params);
           return typeof res === "function" ? res() : res;
@@ -313,9 +316,12 @@
     return outlet;
   };
 
-  $.go = (path) => (window.location.hash = path.replace(/^#?\/?/, "#/"));
+  $router.params = $({});
+  $router.to = (path) => (window.location.hash = path.replace(/^#?\/?/, "#/"));
+  $router.back = () => window.history.back();
+  $router.path = () => window.location.hash.replace(/^#/, "") || "/";
 
-  $.mount = (component, target) => {
+  const $mount = (component, target) => {
     const el = typeof target === "string" ? document.querySelector(target) : target;
     if (!el) return;
     if (MOUNTED_NODES.has(el)) MOUNTED_NODES.get(el).destroy();
@@ -325,18 +331,27 @@
     return instance;
   };
 
+  const core = { $, $if, $for, $watch, $mount, $router, $html };
+
+  for (const [name, fn] of Object.entries(core)) {
+    Object.defineProperty(window, name, {
+      value: fn,
+      writable: false,
+      configurable: false
+    });
+  }
+
   const tags = `div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer address ul ol li dl dt dd a em strong small i b u mark time sub sup pre code blockquote details summary dialog form label input textarea select button option fieldset legend table thead tbody tfoot tr th td caption img video audio canvas svg iframe picture source progress meter`.split(/\s+/);
   tags.forEach((tagName) => {
     const helperName = tagName.charAt(0).toUpperCase() + tagName.slice(1);
 
     Object.defineProperty(window, helperName, {
-      value: (props, content) => $.html(tagName, props, content),
+      value: (props, content) => $html(tagName, props, content),
       writable: false,
       configurable: true,
       enumerable: true
     });
   });
 
-  window.$ = $;
 })();
-export const { $ } = window;
+export const { $, $watch, $html, $if, $for, $router, $mount } = window;
