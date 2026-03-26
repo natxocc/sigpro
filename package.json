@@ -8,13 +8,13 @@
       "import": "./index.js",
       "types": "./sigpro/sigpro.d.ts"
     },
-    "./plugins": {
-      "import": "./plugins/index.js",
-      "types": "./plugins/index.d.ts"
-    },
     "./vite/*": {
       "import": "./vite/*.js",
       "types": "./vite/*.d.ts"
+    },
+    "./ui/*": {
+      "import": "./ui/*.js",
+      "types": "./ui/*.d.ts"
     }
   },
   "types": "./sigpro/sigpro.d.ts",
