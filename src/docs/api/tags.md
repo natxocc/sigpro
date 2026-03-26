@@ -1,6 +1,6 @@
 # 🎨 Global Tag Helpers
 
-In **SigPro**, you don't need to manually type `$.html('div', ...)` for every element. To keep your code declarative and readable, the engine automatically generates **Global Helper Functions** for all standard HTML5 tags upon initialization.
+In **SigPro V2**, you don't need to manually type `$.html('div', ...)` for every element. To keep your code declarative and readable, the engine automatically generates **Global Helper Functions** for all standard HTML5 tags upon initialization.
 
 ## 1. How it Works
 
@@ -59,23 +59,23 @@ Span(42);
 
 ---
 
-## 4. Reactive Power Examples
+## 4. Reactive Power V2
 
-These helpers are natively wired into SigPro's reactivity. No manual `useEffect` or `watch` calls are needed.
+These helpers are natively wired into SigPro's **`$.watch`** engine. No manual effect management is needed; the lifecycle is tied to the DOM node.
 
 ### Reactive Attributes
-Simply pass a Signal (function) to any attribute. SigPro handles the rest.
+Simply pass a Signal (function) to any attribute. SigPro creates an internal `$.watch` to keep the DOM in sync.
 ```javascript
 const theme = $("light");
 
 Div({ 
-  // Updates 'class' automatically when theme() changes
+  // Updates 'class' automatically via internal $.watch
   class: () => `app-box ${theme()}` 
 }, "Themeable Box");
 ```
 
 ### The Binding Operator (`$`)
-Use the `$` prefix for **Two-Way Binding** on inputs.
+Use the `$` prefix for **Two-Way Binding** on inputs. This bridges the Signal and the Input element bi-directionally.
 ```javascript
 const search = $("");
 
@@ -86,13 +86,13 @@ Input({
 });
 ```
 
-### Dynamic Lists
-Combine tags with `ui.For` for high-performance list rendering.
+### Dynamic Flow & Saneamiento
+Combine tags with Core controllers for high-performance rendering. SigPro automatically cleans up the `$.watch` instances when nodes are removed.
 ```javascript
 const items = $(["Apple", "Banana", "Cherry"]);
 
 Ul({ class: "list-disc" }, [
-  ui.For(items, (item) => Li(item), (item) => item)
+  $.For(items, (item) => Li(item))
 ]);
 ```
 
@@ -103,13 +103,13 @@ Ul({ class: "list-disc" }, [
 Since SigPro injects these helpers into the global `window` object, follow these rules to avoid bugs:
 
 1.  **Avoid Shadowing**: Don't name your local variables like the tags (e.g., `const Div = ...`). This will "hide" the SigPro helper.
-2.  **Custom Components**: Always use **PascalCase**, **UPPERCASE**, or **Underscore** prefixes for your own component functions (e.g., `UserCard`, `INPUT`, or `_Input`) to distinguish them from the built-in Tag Helpers and avoid naming collisions.
+2.  **Custom Components**: Always use **PascalCase** for your own component functions (e.g., `UserCard`, `NavMenu`) to distinguish them from the built-in Tag Helpers and maintain architectural clarity.
 :::
 ---
 
-## 6. Logic to UI Comparison
+## 5. Logic to UI Comparison
 
-Here is how a dynamic **User Status** component translates from SigPro logic to the final DOM structure.
+Here is how a dynamic **User Status** component translates from SigPro logic to the final DOM structure, handled by the V2 "Saneamiento" engine.
 
 ```javascript
 // SigPro Component
@@ -121,16 +121,14 @@ const UserStatus = (name, $online) => (
       class: 'w-3 h-3 bg-green-500 rounded-full' 
     }),
     P({ 
-      // Reactive text content
+      // Reactive text content via automatic $.watch
       class: () => $online() ? "text-bold" : "text-gray-400" 
     }, name)
   ])
 );
 ```
 
-| State (`$online`) | Rendered HTML |
-| :--- | :--- |
-| **`true`** | `<div class="flex..."><span class="w-3..."></span><p class="text-bold">John</p></div>` |
-| **`false`** | `<div class="flex..."><span hidden class="w-3..."></span><p class="text-gray-400">John</p></div>` |
-
-
+| State (`$online`) | Rendered HTML | Memory Management |
+| :--- | :--- | :--- |
+| **`true`** | `<div class="flex..."><span class="w-3..."></span><p class="text-bold">John</p></div>` | Watcher active |
+| **`false`** | `<div class="flex..."><span hidden class="w-3..."></span><p class="text-gray-400">John</p></div>` | Attribute synced |

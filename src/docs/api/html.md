@@ -1,6 +1,6 @@
 # 🏗️ The DOM Factory: `$.html( )`
 
-`$.html` is the internal engine that creates, attributes, and attaches reactivity to DOM elements. It is the foundation for all Tag Constructors in SigPro.
+`$.html` is the internal engine that creates, attributes, and attaches reactivity to DOM elements. In V2, it uses `$.watch` to maintain a live, high-performance link between your Signals and the Document Object Model.
 
 ## 🛠 Function Signature
 
@@ -41,7 +41,7 @@ $.html("button", {
 ```
 
 ### 3. Reactive Attributes
-If an attribute value is a **function** (like a Signal), `$.html` creates an internal `$.effect` to keep the DOM in sync with the state.
+If an attribute value is a **function** (like a Signal), `$.html` creates an internal **`$.watch`** to keep the DOM in sync with the state.
 
 ```javascript
 $.html("div", {
@@ -51,7 +51,7 @@ $.html("div", {
 ```
 
 ### 4. Reactive Children
-Children can be static or dynamic. When a child is a function, SigPro creates a reactive boundary for that specific part of the DOM.
+Children can be static or dynamic. When a child is a function, SigPro creates a reactive boundary using `$.watch` for that specific part of the DOM.
 
 ```javascript
 $.html("div", {}, [
@@ -74,9 +74,10 @@ $.html("input", {
 });
 ```
 
-## 🧹 Automatic Cleanup
-Every element created with `$.html` gets a hidden `._cleanups` property (a `Set`). 
-* When SigPro removes an element via `$.view` or `$.router`, it automatically executes all functions stored in this Set (stopping effects, removing listeners, etc.).
+## 🧹 Memory Management (Internal)
+Every element created with `$.html` is "self-aware" regarding its reactive dependencies.
+* **`._cleanups`**: A hidden `Set` attached to the element that stores all `stop()` functions from its internal `$.watch` calls and event listeners.
+* **Lifecycle**: When an element is removed by a Controller (`$.If`, `$.For`, or `$.router`), SigPro performs a recursive "sweep" to execute these cleanups, ensuring **zero memory leaks**.
 
 ---
 

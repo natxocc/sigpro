@@ -41,9 +41,7 @@ export default defineConfig({
         items: [
           { text: 'Quick Start', link: '/api/quick' },
           { text: '$', link: '/api/signal' },
-          { text: '$.effect', link: '/api/effect' },
-          { text: '$.ignore', link: '/api/ignore' },
-          { text: '$.view', link: '/api/view' },
+          { text: '$.watch', link: '/api/watch' },
           { text: '$.html', link: '/api/html' },
           { text: '$.router', link: '/api/router' },
           { text: '$.mount', link: '/api/mount' },

@@ -1,15 +1,25 @@
+
 # 🧩 UI Components `(WIP)`
 
-> **Status: Work In Progress.** > These are high-level, complex visual components designed to speed up development. They often replace native HTML elements with "superpowered" versions that handle their own internal logic, reactivity, and accessibility.
+> **Status: Work In Progress.** > These are high-level, complex visual components designed to speed up development. They replace native HTML elements with "superpowered" versions that handle their own internal logic, reactivity, and professional styling.
+
+## ⚠️ Prerequisites
+
+To ensure all components render correctly with their reactive themes and states, your project **must** have the following versions installed:
+
+* **Tailwind CSS v4+**: For the new engine performance and modern CSS variables.
+* **DaisyUI v5+**: Required for the updated theme-selectors and improved component classes used in the SigPro UI library.
+
+---
 
 ## 1. What are UI Components?
 
-Unlike **Tag Helpers** (which are just functional mirrors of HTML tags), SigPro UI Components are smart abstractions. 
+Unlike **Tag Helpers** (which are just functional mirrors of HTML tags), SigPro UI Components are smart abstractions:
 
 * **Stateful**: They manage complex internal states (like date ranges, search filtering, or API lifecycles).
-* **Reactive**: Attributes prefixed with `$` are automatically tracked.
-* **Self-Cleaning**: They automatically use `_cleanups` to destroy observers or event listeners when removed from the DOM.
-* **Themed**: Fully compatible with Tailwind CSS and DaisyUI themes.
+* **Reactive**: Attributes prefixed with `$` are automatically tracked via `$.watch`.
+* **Self-Sane**: They automatically use `._cleanups` to destroy observers or event listeners when removed from the DOM.
+* **Themed**: Fully compatible with the DaisyUI v5 theme system and Tailwind v4 utility classes.
 
 ---
 
@@ -17,7 +27,6 @@ Unlike **Tag Helpers** (which are just functional mirrors of HTML tags), SigPro 
 
 | Category | Components |
 | :--- | :--- |
-| **Logic & Flow** | `If`, `For`, `Json` |
 | **Forms & Inputs** | `Button`, `Input`, `Select`, `Autocomplete`, `Datepicker`, `Colorpicker`, `CheckBox`, `Radio`, `Range`, `Rating`, `Swap` |
 | **Feedback** | `Alert`, `Toast`, `Modal`, `Loading`, `Badge`, `Tooltip`, `Indicator` |
 | **Navigation** | `Navbar`, `Menu`, `Drawer`, `Tabs`, `Accordion`, `Dropdown` |
@@ -28,7 +37,7 @@ Unlike **Tag Helpers** (which are just functional mirrors of HTML tags), SigPro 
 ## 3. Examples with "Superpowers"
 
 ### A. The Declarative API Flow (`Request` & `Response`)
-Instead of manually managing `loading` and `error` flags, use these two together to handle data fetching elegantly.
+Instead of manually managing `loading` and `error` flags, use these together to handle data fetching elegantly.
 
 ```javascript
 // 1. Define the request (it tracks dependencies automatically)
@@ -48,7 +57,7 @@ Div({ class: "p-4" }, [
 ```
 
 ### B. Smart Inputs & Autocomplete
-Native inputs are boring. SigPro UI inputs handle labels, icons, password toggles, and validation states out of the box.
+SigPro UI inputs handle labels, icons, password toggles, and validation states out of the box using DaisyUI v5 classes.
 
 ```javascript
 const searchQuery = $("");
@@ -63,7 +72,7 @@ Autocomplete({
 ```
 
 ### C. The Reactive Datepicker
-Handles single dates or ranges with a clean, reactive interface.
+Handles single dates or ranges with a clean, reactive interface that automatically syncs with your signals.
 
 ```javascript
 const myDate = $(""); // or { start: "", end: "" } for range
@@ -71,15 +80,15 @@ const myDate = $(""); // or { start: "", end: "" } for range
 Datepicker({
   label: "Select Expiry Date",
   $value: myDate,
-  range: false // Set to true for range selection
+  range: false
 });
 ```
 
 ### D. Imperative Toasts & Modals
-Sometimes you just need to trigger a message without cluttering your template.
+Trigger complex UI elements from your logic. These components use `$.mount` internally to ensure they are properly cleaned up from memory after they close.
 
 ```javascript
-// Show a notification from anywhere in your logic
+// Show a notification (Self-destroying after 3s)
 Toast("Settings saved successfully!", "alert-success", 3000);
 
 // Control a modal with a simple signal
@@ -104,15 +113,15 @@ The UI library comes with a built-in locale system. It currently supports `es` a
 // Set the global UI language
 SetLocale("en");
 
-// Access translated strings in your own components
-const t = tt("confirm"); // Returns a signal that tracks the current locale
+// Access translated strings (Returns a signal that tracks the current locale)
+const t = tt("confirm"); 
 ```
 
 ---
 
 ## 5. Best Practices
 
-* **Use `$` for Reactivity**: If a property starts with `$`, it expects a Signal (e.g., `$value: mySignal`).
-* **Key your Lists**: When using `For`, always provide a `keyFn` to ensure high-performance DOM reconciliation.
-* **Cleanups**: If you build custom components that use `setInterval` or `observers`, add them to the element's `_cleanups` Set.
+* **Use `$` for Reactivity**: If a property starts with `$`, the component expects a Signal (e.g., `$value: mySignal`).
+* **Automatic Cleaning**: You don't need to manually destroy these components if they are inside a `$.If` or `$.For`. SigPro's core will "sweep" their internal watchers automatically.
+* **Manual Cleanups**: If you build custom components using `setInterval` or third-party observers, always add the stop functions to the element's `._cleanups` Set.
 

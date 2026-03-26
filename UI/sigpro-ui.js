@@ -63,66 +63,6 @@ export const UI = ($, defaultLang = "es") => {
   const iconRRight =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAAdgAAAHYBTnsmCAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAABmSURBVDiN3dGxCoAgEMbxfz1dL1BTREJzmUv08trgDYcg6VCD3/YD7zvkoLmMgFEegLmmwAAecOJVvNeUWCAAt7IHjt9LThkyiRf9qC8oCom70u0BuDL+bngj/tNm/JqJePucW8wDvGYdzT0nMUkAAAAASUVORK5CYII=";
 
-  // --- UTILITY FUNCTIONS ---
-
-  /** IF */
-  ui.If = (condition, thenValue, otherwiseValue = null) => {
-    return () => {
-      const isTrue = val(condition);
-      const result = isTrue ? thenValue : otherwiseValue;
-      if (typeof result === "function" && !(result instanceof HTMLElement)) {
-        return result();
-      }
-      return result;
-    };
-  };
-
-  /** FOR */
-  ui.For = (source, render, keyFn) => {
-    if (typeof keyFn !== "function") throw new Error("SigPro UI: For requires a keyFn.");
-
-    const marker = document.createTextNode("");
-    const container = $.html("div", { style: "display:contents" }, [marker]);
-    const cache = new Map();
-
-    $.effect(() => {
-      const items = val(source) || [];
-      const newKeys = new Set();
-
-      items.forEach((item, index) => {
-        const key = keyFn(item, index);
-        newKeys.add(key);
-
-        let runtime = cache.get(key);
-        if (!runtime) {
-          runtime = $.view(() => render(item, index));
-          cache.set(key, runtime);
-        }
-        container.insertBefore(runtime.container, marker);
-      });
-
-      cache.forEach((runtime, key) => {
-        if (!newKeys.has(key)) {
-          runtime.destroy();
-          cache.delete(key);
-        }
-      });
-    });
-
-    return container;
-  };
-
-  /** JSON */
-  ui.Json = (data, space = 2) => {
-    return Span({ class: "font-mono whitespace-pre-wrap" }, () => {
-      try {
-        return JSON.stringify(val(data), null, space);
-      } catch (e) {
-        return "[Error: Circular or Invalid JSON]";
-      }
-    });
-  };
-
   /** REQ */
   ui.Request = (url, payload = null, options = {}) => {
     const data = $(null),
@@ -176,14 +116,14 @@ export const UI = ($, defaultLang = "es") => {
   /** RESPONSE */
   ui.Response = (reqObj, renderFn) =>
     $.html("div", { class: "res-container" }, [
-      ui.If(reqObj.loading, $.html("div", { class: "flex justify-center p-4" }, $.html("span", { class: "loading loading-dots text-primary" }))),
-      ui.If(reqObj.error, () =>
+      $.if(reqObj.loading, $.html("div", { class: "flex justify-center p-4" }, $.html("span", { class: "loading loading-dots text-primary" }))),
+      $.if(reqObj.error, () =>
         $.html("div", { role: "alert", class: "alert alert-error" }, [
           $.html("span", {}, reqObj.error()),
           ui.Button({ class: "btn-xs btn-ghost border-current", onclick: () => reqObj.reload() }, "Retry"),
         ]),
       ),
-      ui.If(reqObj.success, () => {
+      $.if(reqObj.success, () => {
         const current = reqObj.data();
         return current !== null ? renderFn(current) : null;
       }),
@@ -300,7 +240,7 @@ export const UI = ($, defaultLang = "es") => {
         $value: $value,
         onchange: (e) => $value?.(e.target.value),
       },
-      ui.For(
+      $.for(
         () => val(options) || [],
         (opt) =>
           $.html(
@@ -387,7 +327,7 @@ export const UI = ($, defaultLang = "es") => {
           style: () => (isOpen() && list().length ? "display:block" : "display:none"),
         },
         [
-          ui.For(
+          $.for(
             list,
             (opt, i) =>
               $.html("li", {}, [
@@ -481,7 +421,7 @@ export const UI = ($, defaultLang = "es") => {
         ...rest,
       }),
 
-      ui.If(isOpen, () =>
+      $.if(isOpen, () =>
         $.html(
           "div",
           {
@@ -579,7 +519,7 @@ export const UI = ($, defaultLang = "es") => {
         ),
       ),
 
-      ui.If(isOpen, () => $.html("div", { class: "fixed inset-0 z-[90]", onclick: () => isOpen(false) })),
+      $.if(isOpen, () => $.html("div", { class: "fixed inset-0 z-[90]", onclick: () => isOpen(false) })),
     ]);
   };
 
@@ -622,7 +562,7 @@ export const UI = ($, defaultLang = "es") => {
         ],
       ),
 
-      ui.If(isOpen, () =>
+      $.if(isOpen, () =>
         $.html(
           "div",
           {
@@ -653,7 +593,7 @@ export const UI = ($, defaultLang = "es") => {
         ),
       ),
 
-      ui.If(isOpen, () =>
+      $.if(isOpen, () =>
         $.html("div", {
           class: "fixed inset-0 z-[100]",
           onclick: () => isOpen(false),
@@ -729,7 +669,7 @@ export const UI = ($, defaultLang = "es") => {
     const { title, buttons, $open, ...rest } = props;
     const close = () => $open(false);
 
-    return ui.If($open, () =>
+    return $.if($open, () =>
       $.html("dialog", { ...rest, class: "modal modal-open" }, [
         $.html("div", { class: "modal-box" }, [
           title ? $.html("h3", { class: "text-lg font-bold mb-4" }, title) : null,
@@ -773,7 +713,7 @@ export const UI = ($, defaultLang = "es") => {
 
     container._cleanups.add(() => observer.disconnect());
 
-    const stopGrid = $.effect(() => {
+    const stopGrid = $.watch(() => {
       const dark = isDark();
       const agTheme = getTheme(dark);
       const rowData = val(data) || [];
@@ -790,7 +730,7 @@ export const UI = ($, defaultLang = "es") => {
     });
     container._cleanups.add(stopGrid);
 
-    const stopData = $.effect(() => {
+    const stopData = $.watch(() => {
       const rowData = val(data);
       if (gridApi && Array.isArray(rowData)) {
         gridApi.setGridOption("rowData", rowData);
@@ -875,7 +815,7 @@ export const UI = ($, defaultLang = "es") => {
           role: "tablist",
           class: joinClass("tabs tabs-box", props.$class || props.class),
         },
-        ui.For(
+        $.for(
           itemsSignal,
           (it) =>
             $.html(
@@ -914,7 +854,7 @@ export const UI = ($, defaultLang = "es") => {
   /** MENU */
   ui.Menu = (props) => {
     const renderItems = (items) =>
-      ui.For(
+      $.for(
         () => items || [],
         (it) =>
           $.html("li", {}, [
@@ -977,8 +917,8 @@ export const UI = ($, defaultLang = "es") => {
         class: joinClass("list bg-base-100 rounded-box shadow-md", className),
       },
       [
-        ui.If(header, () => $.html("li", { class: "p-4 pb-2 text-xs opacity-60 tracking-wide" }, [val(header)])),
-        ui.For(items, (item, index) => $.html("li", { class: "list-row" }, [render(item, index)]), keyFn),
+        $.if(header, () => $.html("li", { class: "p-4 pb-2 text-xs opacity-60 tracking-wide" }, [val(header)])),
+        $.for(items, (item, index) => $.html("li", { class: "list-row" }, [render(item, index)]), keyFn),
       ],
     );
   };
@@ -1103,7 +1043,7 @@ export const UI = ($, defaultLang = "es") => {
           `timeline ${val(vertical) ? "timeline-vertical" : "timeline-horizontal"} ${val(compact) ? "timeline-compact" : ""} ${props.class || ""}`,
       },
       [
-        ui.For(
+        $.for(
           items,
           (item, i) => {
             const isFirst = i === 0;
@@ -1179,51 +1119,59 @@ export const UI = ($, defaultLang = "es") => {
     if (!container) {
       container = $.html("div", {
         id: "sigpro-toast-container",
-        class: "fixed top-0 right-0 z-[9999] p-4 flex flex-col gap-2",
+        class: "fixed top-0 right-0 z-[9999] p-4 flex flex-col gap-2 pointer-events-none",
       });
       document.body.appendChild(container);
     }
 
-    const runtime = $.view(() => {
+    const toastHost = $.html("div", { style: "display: contents" });
+    container.appendChild(toastHost);
+
+    let timeoutId;
+    const close = () => {
+      clearTimeout(timeoutId);
+      const el = toastHost.firstElementChild;
+      if (el && !el.classList.contains("opacity-0")) {
+        el.classList.add("translate-x-full", "opacity-0");
+        setTimeout(() => {
+          instance.destroy();
+          toastHost.remove();
+          if (!container.hasChildNodes()) container.remove();
+        }, 300);
+      } else {
+        instance.destroy();
+        toastHost.remove();
+      }
+    };
+
+    const ToastComponent = () => {
       const el = $.html(
         "div",
         {
-          class: `alert alert-soft ${type} shadow-lg transition-all duration-300 translate-x-10 opacity-0`,
+          class: `alert alert-soft ${type} shadow-lg transition-all duration-300 translate-x-10 opacity-0 pointer-events-auto`,
         },
         [
-          $.html("span", typeof message === "function" ? message() : message),
-          ui.Button(
-            {
-              class: "btn-xs btn-circle btn-ghost",
-              onclick: () => remove(),
-            },
-            "✕",
-          ),
+          $.html("span", typeof message === "function" ? message : () => message),
+          ui.Button({ class: "btn-xs btn-circle btn-ghost", onclick: close }, "✕"),
         ],
       );
 
-      const remove = () => {
-        el.classList.add("translate-x-full", "opacity-0");
-        setTimeout(() => {
-          runtime.destroy();
-          if (!container.hasChildNodes()) container.remove();
-        }, 300);
-      };
-
-      setTimeout(remove, duration);
+      requestAnimationFrame(() => el.classList.remove("translate-x-10", "opacity-0"));
       return el;
-    });
+    };
 
-    container.appendChild(runtime.container);
-    requestAnimationFrame(() => {
-      const el = runtime.container.firstElementChild;
-      if (el) el.classList.remove("translate-x-10", "opacity-0");
-    });
+    const instance = $.mount(ToastComponent, toastHost);
+
+    if (duration > 0) {
+      timeoutId = setTimeout(close, duration);
+    }
+
+    return close;
   };
 
   /** LOADING */
   ui.Loading = (props) => {
-    return ui.If(props.$show, () =>
+    return $.if(props.$show, () =>
       $.html("div", { class: "fixed inset-0 z-[100] flex items-center justify-center backdrop-blur-sm bg-base-100/30" }, [
         $.html("span", { class: "loading loading-spinner loading-lg text-primary" }),
       ]),
