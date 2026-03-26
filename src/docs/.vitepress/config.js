@@ -42,9 +42,11 @@ export default defineConfig({
           { text: 'Quick Start', link: '/api/quick' },
           { text: '$', link: '/api/signal' },
           { text: '$.watch', link: '/api/watch' },
-          { text: '$.html', link: '/api/html' },
+          { text: '$.if', link: '/api/if' },
+          { text: '$.for', link: '/api/for' },
           { text: '$.router', link: '/api/router' },
           { text: '$.mount', link: '/api/mount' },
+          { text: '$.html', link: '/api/html' },
           { text: 'Tags', link: '/api/tags' },
         ]
       },

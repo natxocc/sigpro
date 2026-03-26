@@ -11,8 +11,8 @@ SigPro is a high-performance micro-framework that updates the **Real DOM** surgi
 | **`$.watch(fn)`** | `(function) => stopFn` | **Automatic Mode:** Tracks any signal touched inside. Returns a stop function. |
 | **`$.watch(deps, fn)`** | `(Array, function) => stopFn` | **Explicit Mode:** Only runs when signals in `deps` change. Used for Cleanup. |
 | **`$.html(tag, props, kids)`** | `(string, obj, any) => Element` | The low-level DOM factory. Attaches `._cleanups` to every element. |
-| **`$.If(cond, then, else?)`** | `(Signal, fn, fn?) => Node` | Reactive conditional. Automatically destroys the "else" branch memory. |
-| **`$.For(list, itemFn)`** | `(Signal, fn) => Node` | Optimized list renderer. Manages individual item lifecycles. |
+| **`$.if(cond, then, else?)`** | `(Signal, fn, fn?) => Node` | Reactive conditional. Automatically destroys the "else" branch memory. |
+| **`$.for(list, itemFn)`** | `(Signal, fn) => Node` | Optimized list renderer. Manages individual item lifecycles. |
 | **`$.router(routes)`** | `(Array) => Element` | Hash-based SPA router. Uses Explicit Watch to prevent memory leaks. |
 | **`$.mount(node, target)`** | `(any, string\|Node) => Runtime` | Entry point. Creates a root instance with `.destroy()` capabilities. |
 
