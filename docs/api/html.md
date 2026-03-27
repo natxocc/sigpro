@@ -1,6 +1,6 @@
 # The DOM Factory: `$html( )`
 
-`$html` is the internal engine that creates, attributes, and attaches reactivity to DOM elements. It uses `$.watch` to maintain a live, high-performance link between your Signals and the Document Object Model.
+`$html` is the internal engine that creates, attributes, and attaches reactivity to DOM elements. It uses `$watch` to maintain a live, high-performance link between your Signals and the Document Object Model.
 
 ## Function Signature
 
@@ -34,7 +34,7 @@ Button({
 ```
 
 ### 3. Reactive Attributes (One-Way)
-If an attribute value is a **function** (like a Signal), `$html` creates an internal **`$.watch`** to keep the DOM in sync with the state.
+If an attribute value is a **function** (like a Signal), `$html` creates an internal **`$watch`** to keep the DOM in sync with the state.
 
 ```javascript
 Div({
@@ -59,7 +59,7 @@ Input({
 > **Note:** To use a Signal as **read-only** in an input, wrap it in an anonymous function: `value: () => username()`.
 
 ### 5. Reactive Children
-Children can be static or dynamic. When a child is a function, SigPro creates a reactive boundary using `$.watch` for that specific part of the DOM.
+Children can be static or dynamic. When a child is a function, SigPro creates a reactive boundary using `$watch` for that specific part of the DOM.
 
 ```javascript
 Div({}, [
@@ -73,8 +73,8 @@ Div({}, [
 
 ## Memory Management (Internal)
 Every element created with `$html` is "self-aware" regarding its reactive dependencies.
-* **`._cleanups`**: A hidden `Set` attached to the element that stores all `stop()` functions from its internal `$.watch` calls and event listeners.
-* **Lifecycle**: When an element is removed by a Controller (`$.if`, `$.for`, or `$.router`), SigPro performs a recursive **"sweep"** to execute these cleanups, ensuring **zero memory leaks**.
+* **`._cleanups`**: A hidden `Set` attached to the element that stores all `stop()` functions from its internal `$watch` calls and event listeners.
+* **Lifecycle**: When an element is removed by a Controller (`$if`, `$for`, or `$router`), SigPro performs a recursive **"sweep"** to execute these cleanups, ensuring **zero memory leaks**.
 
 ---
 

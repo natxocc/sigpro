@@ -57,8 +57,8 @@ $if(() => user.isLogged(),
 
 One of the core strengths of `$if` is its integrated **Cleanup** logic. SigPro ensures that when a branch is swapped out, it is completely purged.
 
-1.  **Stop Watchers**: All `$.watch` calls inside the inactive branch are permanently stopped.
-2.  **Unbind Events**: Event listeners attached via `$.html` are removed.
+1.  **Stop Watchers**: All `$watch` calls inside the inactive branch are permanently stopped.
+2.  **Unbind Events**: Event listeners attached via `$html` are removed.
 3.  **Recursive Sweep**: SigPro performs a deep "sweep" of the removed branch to ensure no nested reactive effects remain active.
 
 
