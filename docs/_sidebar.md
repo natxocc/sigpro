@@ -2,6 +2,7 @@
 
 * **Introduction**
   * [Installation](install.md)
+  * [Examples](examples.md)
   * [Vite Plugin](vite/plugin.md)
 
 * **API Reference**
