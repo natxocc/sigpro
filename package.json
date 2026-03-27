@@ -29,13 +29,10 @@
     "url": "https://github.com/natxocc/sigpro/issues"
   },
   "scripts": {
-    "dev:docs": "vitepress dev src/docs",
-    "build:docs": "vitepress build src/docs",
-    "preview:docs": "vitepress preview src/docs",
+    "docs": "bun x serve docs",
     "build:aggrid": "vite build --config ui/grid/vite.config.js"
   },
   "devDependencies": {
-    "vitepress": "^1.6.4",
     "terser": "^5.46.1"
   },
   "keywords": [
