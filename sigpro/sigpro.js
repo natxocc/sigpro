@@ -226,6 +226,10 @@
     el._cleanups = new Set();
 
     for (let [k, v] of Object.entries(props)) {
+      if (k === "ref") {
+        typeof v === "function" ? v(el) : (v.current = el);
+        continue;
+      }
       const isSignal = typeof v === "function";
       const isInput = ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName);
       const isBindAttr = (k === "value" || k === "checked");
