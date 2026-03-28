@@ -112,3 +112,6 @@ SigPro provides **PascalCase** wrappers for all standard HTML5 tags (e.g., `Div`
 
 > [!IMPORTANT]
 > **Performance Hint:** For lists (`$for`), always provide a unique key function `(item) => item.id` to prevent unnecessary node creation and enable reordering.
+>
+> > [!TIP]
+> **Performance Hint:** Always use functions `() => signal()` for dynamic children to ensure SigPro only updates the specific node and not the whole container.
