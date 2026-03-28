@@ -13,7 +13,7 @@ const i18n = {
 let currentLocale = $("es");
 
 /** SET LOCALE */
-export const SetLocale = (locale) => currentLocale(locale);
+export const langUI = (locale) => currentLocale(locale);
 
 /** TRANSLATE */
 const tt = (key) => () => i18n[currentLocale()][key] || key;
@@ -1109,7 +1109,7 @@ export const UI = (defaultLang = "es") => {
 
     // Create UI object with all components
     const ui = {
-        SetLocale, tt, Button, Input, Select, Autocomplete, Datepicker, Colorpicker,
+        langUI, tt, Button, Input, Select, Autocomplete, Datepicker, Colorpicker,
         Checkbox, Radio, Range, Modal, Grid, Dropdown, Accordion, Tabs, Badge,
         Tooltip, Navbar, Menu, Drawer, Fieldset, List, Stack, Stat, Swap, Indicator,
         Rating, Alert, Timeline, Fab, Toast, Loading
