@@ -80,8 +80,6 @@ app/
 Install via your preferred package manager:
 
 ```bash
-bun add natxocc/sigpro
-# or
 npm install sigpro
 ```
 
