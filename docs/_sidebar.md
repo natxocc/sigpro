@@ -15,6 +15,7 @@
   * [$mount](api/mount.md)
   * [$html](api/html.md)
   * [Tags](api/tags.md)
+  * [Global Store](api/global.md)
 
 * **UI Components**
   * [Quick Start](ui/quick.md)
