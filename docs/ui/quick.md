@@ -129,7 +129,7 @@ The UI library comes with a built-in locale system.
 
 ```javascript
 // Set the global UI language
-SetLocale("en");
+Locale("en");
 
 // Access translated strings (Returns a signal that tracks the current locale)
 const t = tt("confirm"); 
