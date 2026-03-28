@@ -1,41 +1,37 @@
-# `SigPro` 
+# `SigPro` ⚛️
 
 ### **The Atomic Reactivity Engine for the Modern Web.**
 
-[](https://opensource.org/licenses/MIT)
-[](https://www.google.com/search?q=https://github.com/natxocc/sigpro)
-[](https://www.google.com/search?q=https://github.com/natxocc/sigpro)
+**SigPro** is an ultra-lightweight rendering engine designed for extreme performance. By eliminating the Virtual DOM and heavy compilers, it achieves **surgical reactivity** in less than 2KB.
 
-**SigPro** is an ultra-lightweight reactive rendering engine that redefines efficiency. No Virtual DOM, no heavy compilers, and zero dependencies. Just **surgical reactivity** packed into less than 2KB.
-
-[**Explore the Docs →**](https://www.google.com/search?q=https://natxocc.github.io/sigpro/)
+[**Explore the Docs →**](https://www.google.com/search?q=https://natxocc.github.io/sigpro/) | [**View on GitHub**](https://www.google.com/search?q=https://github.com/natxocc/sigpro)
 
 -----
 
-## The SigPro Manifesto
+## Why SigPro?
 
-SigPro isn't just another framework; it’s a precision tool. While other frameworks try to guess what changed by comparing trees (Diffing), SigPro **already knows**.
+While other frameworks "guess" what changed by comparing massive DOM trees (Diffing), **SigPro already knows**.
 
-  * ** Atomic Reactivity:** Powered by a *Signal-based* architecture, SigPro binds state directly to DOM nodes. When a value changes, only that specific node reacts.
-  * ** Zero Overhead:** Forget hydration bottlenecks and 100KB bundles. SigPro is pure, optimized JavaScript tailored for the browser's engine.
-  * ** Next-Gen DX:** Say goodbye to endless imports. SigPro injects smart helpers like `Div()`, `Button()`, and `Span()` directly into your environment for a clean, functional syntax.
-  * ** Batteries Included:** Hash-based Routing, native `localStorage` persistence, and automatic lifecycle management (cleanups) come standard.
+  * 🎯 **Atomic Precision:** Powered by a *Signal-based* architecture. State is bound directly to DOM nodes—when a value changes, **only that specific node updates**.
+  * 🚀 **Zero-Hydration Bottlenecks:** No 100KB bundles or complex build steps. SigPro is pure, optimized JavaScript tailored for the browser's native engine.
+  * 💎 **Premium DX (Developer Experience):** Forget boilerplate imports. SigPro injects a functional, elegant syntax (`Div()`, `Button()`, `Span()`) directly into your workflow.
+  * 📦 **Fully Loaded:** Built-in Hash Routing, native `localStorage` persistence, and automatic lifecycle management (cleanups) out of the box.
+  * 🌳 **Tree-Shakable:** Optimized for modern bundlers. Import only what you use, or load the full engine for rapid prototyping.
 
 -----
 
-## A Glimpse of the Code
+## Elegance in Action
 
-Elegance stems from simplicity. Here is how you create a reactive, persistent component:
+Create reactive, persistent components with a syntax that feels like Vanilla JS, but works like magic:
 
 ```javascript
-// main.js
 const Counter = () => {
-  // Persistent Signal: automatically restores state after reload
+  // One-line persistence: state survives page reloads automatically
   const count = $(0, "user-counter-pref"); 
 
-  return Div({ class: "card-container" }, [
+  return Div({ class: "card" }, [
     H1(`Count: ${count()}`),
-    P("Click below to trigger an atomic update."),
+    P("Atomic updates. Zero re-renders of the parent tree."),
     Button({ 
       onclick: () => count(c => c + 1),
       class: "btn-primary" 
@@ -48,36 +44,34 @@ $mount(Counter, "#app");
 
 -----
 
-## Performance Breakdown
+## Performance Without Compromise
 
-| Metric | **SigPro** | React / Vue | Svelte |
+| Feature | **SigPro** | React / Vue | Svelte |
 | :--- | :--- | :--- | :--- |
-| **Weight (Gzipped)** | **\< 1.8KB** | \~30KB - 50KB | \~2KB (Runtime) |
-| **Strategy** | **Atomic Signals** | Virtual DOM Diffing | Compiler Dirty Bits |
-| **Update Mechanism** | **Direct Node Access** | Branch Re-rendering | Block Update |
-| **Persistence** | **Native ($)** | Manual / Plugins | Manual |
-| **Learning Curve** | **Flat (Vanilla JS)** | Medium / High | Medium |
+| **Payload (Gzipped)** | **\< 1.8KB** | \~30KB - 50KB | \~2KB (Runtime) |
+| **State Logic** | **Atomic Signals** | Virtual DOM Diffing | Compiler Dirty Bits |
+| **Update Speed** | **Direct Node Access** | Component Re-render | Block Reconciliation |
+| **Native Persistence** | **Included ($)** | Requires Plugins | Manual |
+| **Dependencies** | **Zero** | Many | Build Toolchain |
 
 -----
 
-## Recommended Architecture
+## Scalable Architecture
 
-SigPro scales beautifully with modern project structures:
+SigPro scales from micro-widgets to full enterprise dashboards:
 
 ```text
-app/
-├── 📂 components/   # UI Atoms (Button.js, Input.js)
-├── 📂 pages/        # Main Views (Home.js, Dashboard.js)
+src/
+├── 📂 components/   # UI Atoms (Button.js, Grid.js)
+├── 📂 views/        # Main Pages (Home.js, Auth.js)
 ├── 📂 store/        # Shared Global Signals
-├── 📄 App.js        # Layout, Router & Navigation
-└── 📄 index.js      # Entry Point & Mounting
+├── 📄 router.js     # Route Definitions
+└── 📄 main.js       # App Entry & Mounting
 ```
 
 -----
 
-## Quick Install
-
-Install via your preferred package manager:
+## Quick Start
 
 ```bash
 npm install sigpro
@@ -87,4 +81,5 @@ npm install sigpro
 
 ## License
 
-MIT © 2026 **SigPro Team**. Engineered for speed, designed for clarity.
+MIT © 2026 **SigPro Team**.
+*Engineered for speed, designed for clarity, built for the modern web.*
