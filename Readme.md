@@ -4,7 +4,7 @@
 
 **SigPro** is an ultra-lightweight rendering engine designed for extreme performance. By eliminating the Virtual DOM and heavy compilers, it achieves **surgical reactivity** in less than 2KB.
 
-[**Explore the Docs →**](https://www.google.com/search?q=https://natxocc.github.io/sigpro/) | [**View on GitHub**](https://www.google.com/search?q=https://github.com/natxocc/sigpro)
+[**Explore the Docs →**](https://natxocc.github.io/sigpro/) | [**View on GitHub**](https://github.com/natxocc/sigpro)
 
 -----
 
