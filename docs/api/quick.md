@@ -38,18 +38,23 @@ Explore the reactive building blocks of SigPro.
       </tr>
       <tr>
         <td><code class="text-accent font-bold">$if(cond, then, else?)</code></td>
-        <td class="font-mono text-xs opacity-70">(Signal, fn, fn?) => Node</td>
+        <td class="font-mono text-xs opacity-70">(Signal|bool, fn, fn?) => Node</td>
         <td>Reactive conditional. Automatically destroys "else" branch memory.</td>
       </tr>
       <tr>
-        <td><code class="text-accent font-bold">$for(list, itemFn)</code></td>
-        <td class="font-mono text-xs opacity-70">(Signal, fn) => Node</td>
-        <td>Optimized list renderer. Manages individual item lifecycles.</td>
+        <td><code class="text-accent font-bold">$for(src, render, key)</code></td>
+        <td class="font-mono text-xs opacity-70">(Signal, fn, fn) => Node</td>
+        <td><b>Keyed Loop:</b> Optimized list renderer. Uses the key function for surgical DOM moves.</td>
+      </tr>
+      <tr>
+        <td><code class="text-info font-bold">$router(routes)</code></td>
+        <td class="font-mono text-xs opacity-70">(Array) => Node</td>
+        <td><b>SPA Router:</b> Hash-based routing with dynamic params (<code>:id</code>) and auto-cleanup.</td>
       </tr>
       <tr>
         <td><code class="font-bold">$mount(node, target)</code></td>
         <td class="font-mono text-xs opacity-70">(any, string|Node) => Runtime</td>
-        <td>Entry point. Creates a root instance with <code>.destroy()</code> capabilities.</td>
+        <td>Entry point. Cleans the target and mounts the app with full lifecycle management.</td>
       </tr>
     </tbody>
   </table>
@@ -67,64 +72,43 @@ SigPro provides **PascalCase** wrappers for all standard HTML5 tags (e.g., `Div`
   <pre data-prefix=">"><code>Tag({ attributes }, [children])</code></pre>
 </div>
 
-### Attribute & Content Handling
-
-Learn how to bind data to your elements effectively.
+### Special Attributes & Routing
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-10">
-  <div class="card bg-base-200 border border-base-300 shadow-sm hover:border-primary/30 transition-colors">
+  <div class="card bg-base-200 border border-base-300 shadow-sm">
     <div class="card-body p-5">
-      <div class="flex justify-between items-start mb-2">
-        <h3 class="text-xs font-black uppercase tracking-widest opacity-60">Static</h3>
-        <span class="badge badge-outline badge-xs opacity-50">HTML5</span>
-      </div>
-      <code class="text-primary font-bold text-sm bg-base-300/50 p-2 rounded-lg">class: "text-red"</code>
-      <p class="text-xs mt-3 leading-relaxed">Standard HTML attribute passed as a plain string. No reactivity overhead.</p>
+      <h3 class="text-xs font-black uppercase tracking-widest opacity-60">Two-way Binding</h3>
+      <code class="text-primary font-bold text-sm bg-base-300/50 p-2 rounded-lg">value: mySignal</code>
+      <p class="text-xs mt-3 leading-relaxed">Automatic sync for <code>Input</code>, <code>Textarea</code>, and <code>Select</code>. Updates the signal on 'input' or 'change'.</p>
     </div>
   </div>
 
-  <div class="card bg-base-200 border border-base-300 shadow-sm hover:border-secondary/30 transition-colors">
+  <div class="card bg-base-200 border border-base-300 shadow-sm">
     <div class="card-body p-5">
-      <div class="flex justify-between items-start mb-2">
-        <h3 class="text-xs font-black uppercase tracking-widest opacity-60">Reactive</h3>
-        <span class="badge badge-secondary badge-xs">SIGNAL</span>
-      </div>
-      <div class="flex flex-col gap-1">
-        <code class="text-xs opacity-60 italic">const isLoading = $(false);</code>
-        <code class="text-secondary font-bold text-sm bg-base-300/50 p-2 rounded-lg">disabled: isLoading</code>
-      </div>
-      <p class="text-xs mt-3 leading-relaxed">Updates automatically via internal <code>$watch</code>. Only the attribute changes in the DOM.</p>
+      <h3 class="text-xs font-black uppercase tracking-widest opacity-60">Dynamic Routing</h3>
+      <code class="text-info font-bold text-sm bg-base-300/50 p-2 rounded-lg">$router.to('/user/1')</code>
+      <p class="text-xs mt-3 leading-relaxed">Navigate programmatically. Access params via <code>$router.params().id</code>.</p>
     </div>
   </div>
 
-<div class="card bg-base-200 border border-base-300 shadow-sm hover:border-primary/30 transition-colors">
+  <div class="card bg-base-200 border border-base-300 shadow-sm">
     <div class="card-body p-5">
-      <div class="flex justify-between items-start mb-2">
-        <h3 class="text-xs font-black uppercase tracking-widest opacity-60">Two-way Binding</h3>
-        <span class="badge badge-primary badge-xs">MAGIC</span>
-      </div>
-      <code class="text-xs opacity-60 italic">const username = $('Me');</code>
-      <code class="text-primary font-bold text-sm bg-base-300/50 p-2 rounded-lg">value: username</code>
-      <p class="text-xs mt-3 leading-relaxed font-medium">
-        <b>Automatic Sync:</b> Works out-of-the-box for <code>Input</code>, <code>Textarea</code>, and <code>Checkbox</code>. 
-        It syncs the element <span class="text-primary">↔</span> signal both ways without manual event listeners.
-      </p>
+      <h3 class="text-xs font-black uppercase tracking-widest opacity-60">Refs & DOM</h3>
+      <code class="text-accent font-bold text-sm bg-base-300/50 p-2 rounded-lg">ref: (el) => ...</code>
+      <p class="text-xs mt-3 leading-relaxed">Get direct access to the DOM node once it is created.</p>
     </div>
   </div>
 
-  <div class="card bg-base-200 border border-base-300 shadow-sm hover:border-accent/30 transition-colors">
+  <div class="card bg-base-200 border border-base-300 shadow-sm">
     <div class="card-body p-5">
-      <div class="flex justify-between items-start mb-2">
-        <h3 class="text-xs font-black uppercase tracking-widest opacity-60">Surgical Text</h3>
-        <span class="badge badge-accent badge-xs">FAST</span>
-      </div>
-      <code class="text-accent font-bold text-sm bg-base-300/50 p-2 rounded-lg">P({}, () => count())</code>
-      <p class="text-xs mt-3 leading-relaxed">Updates the specific text node surgically without ever re-rendering the parent <code>P</code> tag.</p>
+      <h3 class="text-xs font-black uppercase tracking-widest opacity-60">Event Handling</h3>
+      <code class="text-secondary font-bold text-sm bg-base-300/50 p-2 rounded-lg">onClick: (e) => ...</code>
+      <p class="text-xs mt-3 leading-relaxed">Standard events with automatic <code>removeEventListener</code> on destruction.</p>
     </div>
   </div>
 </div>
 
 ---
 
-> [!TIP]
-> **Performance Hint:** Always use functions `() => signal()` for dynamic children to ensure SigPro only updates the specific node and not the whole container.
+> [!IMPORTANT]
+> **Performance Hint:** For lists (`$for`), always provide a unique key function `(item) => item.id` to prevent unnecessary node creation and enable reordering.
