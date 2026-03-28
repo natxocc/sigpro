@@ -62,10 +62,7 @@ SigPro scales from micro-widgets to full enterprise dashboards:
 
 ```text
 src/
-├── 📂 components/   # UI Atoms (Button.js, Grid.js)
-├── 📂 views/        # Main Pages (Home.js, Auth.js)
-├── 📂 store/        # Shared Global Signals
-├── 📄 router.js     # Route Definitions
+├── 📂 pages/        # Main Pages (Home.js, Auth.js)
 └── 📄 main.js       # App Entry & Mounting
 ```
 
