@@ -2,7 +2,7 @@ name: Publish to NPM
 
 on:
   release:
-    types: [created] # Se dispara cuando creas una "Release" en GitHub
+    types: [published] # Se dispara cuando creas una "Release" en GitHub
 
 jobs:
   build:
