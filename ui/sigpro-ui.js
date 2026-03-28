@@ -624,55 +624,43 @@ export const Grid = (props) => {
     const { data, options, class: className } = props;
     let gridApi = null;
 
-    const container = $html("div", {
+    return $html("div", {
         style: "height: 100%; width: 100%;",
         class: className,
-    });
+        ref: async (container) => {
+            const { createGrid } = await import("./grid/grid.js");
 
-    const observer = new MutationObserver(() => {
-        if (gridApi) gridApi.setGridOption("theme", getTheme(isDark()));
-    });
+            const initialData = typeof data === "function" ? data() : data;
+            const gridOptions = {
+                ...(typeof options === "function" ? options() : options),
+                theme: getTheme(isDark()),
+                rowData: initialData || [],
+            };
 
-    observer.observe(document.documentElement, {
-        attributes: true,
-        attributeFilter: ["data-theme"],
-    });
+            gridApi = createGrid(container, gridOptions);
 
-    container._cleanups.add(() => observer.disconnect());
-
-    const stopGrid = $watch(() => {
-        const dark = isDark();
-        const agTheme = getTheme(dark);
-        const rowData = val(data) || [];
-
-        if (!gridApi) {
-            gridApi = createGrid(container, {
-                ...(val(options) || {}),
-                theme: agTheme,
-                rowData: rowData,
+            const stopData = $watch(() => {
+                const rowData = typeof data === "function" ? data() : data;
+                if (gridApi && Array.isArray(rowData)) {
+                    gridApi.setGridOption("rowData", rowData);
+                }
             });
-        } else {
-            gridApi.setGridOption("theme", agTheme);
+
+            const stopTheme = $watch(() => {
+                const dark = isDark();
+                if (gridApi) gridApi.setGridOption("theme", getTheme(dark));
+            });
+
+            container._cleanups.add(stopData);
+            container._cleanups.add(stopTheme);
+            container._cleanups.add(() => {
+                if (gridApi) {
+                    gridApi.destroy();
+                    gridApi = null;
+                }
+            });
         }
     });
-    container._cleanups.add(stopGrid);
-
-    const stopData = $watch(() => {
-        const rowData = val(data);
-        if (gridApi && Array.isArray(rowData)) {
-            gridApi.setGridOption("rowData", rowData);
-        }
-    });
-    container._cleanups.add(stopData);
-
-    container._cleanups.add(() => {
-        if (gridApi) {
-            gridApi.destroy();
-            gridApi = null;
-        }
-    });
-
-    return container;
 };
 
 /** DROPDOWN */
