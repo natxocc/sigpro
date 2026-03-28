@@ -1,6 +1,7 @@
-# 🚀 Interactive Examples
+# Interactive Examples
 
 Explore the power of SigPro through practical patterns. From basic reactivity to advanced composition.
+NOTE: Here we use DaisyUI for styles.
 
 ---
 

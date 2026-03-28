@@ -57,7 +57,7 @@ Explore the reactive building blocks of SigPro.
 
 ---
 
-## 🏗️ Element Constructors (Tags)
+## Element Constructors (Tags)
 
 SigPro provides **PascalCase** wrappers for all standard HTML5 tags (e.g., `Div`, `Span`, `Button`).
 
