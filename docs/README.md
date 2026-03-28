@@ -2,7 +2,7 @@
 
 <section class="max-w-6xl mx-auto px-6 py-16"><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch"><div class="card bg-base-200/30 border border-base-300 hover:border-primary/40 transition-all p-1"><div class="card-body p-6"><h3 class="card-title text-xl font-black text-primary italic">FUNCTIONAL</h3><p class="text-sm opacity-70">No strings. No templates. Pure JS function calls for instant DOM mounting.</p></div></div><div class="card bg-base-200/30 border border-base-300 hover:border-secondary/40 transition-all p-1"><div class="card-body p-6"><h3 class="card-title text-xl font-black text-secondary italic">ATOMIC</h3><p class="text-sm opacity-70">Fine-grained signals update exactly what changes. No V-DOM diffing overhead.</p></div></div><div class="card bg-base-200/30 border border-base-300 hover:border-accent/40 transition-all p-1"><div class="card-body p-6"><h3 class="card-title text-xl font-black text-accent italic">ULTRA-THIN</h3><p class="text-sm opacity-70">Sub-2KB runtime. Infinitely smaller bundle than React, Vue or even Svelte.</p></div></div><div class="card bg-base-200/30 border border-base-300 hover:border-base-content/20 transition-all p-1"><div class="card-body p-6"><h3 class="card-title text-xl font-black italic text-base-content">COMPILER-FREE</h3><p class="text-sm opacity-70">Standard Vanilla JS. What you write is what the browser executes. Period.</p></div></div></div></section></div>
 
-## 🛠️ Functional DOM Construction
+## Functional DOM Construction
 
 SigPro replaces the slow "Template Parsing" with **High-Efficiency Function Calls**. 
 
@@ -15,7 +15,7 @@ While other frameworks force the browser to parse strings of HTML or execute com
 | **Overhead** | High (V-DOM / Parser) | **Zero** |
 | **Reactivity** | Component-wide | **Atomic (Node-level)** |
 
-### ⚡ Less Code, More Power
+### Less Code, More Power
 By sharing a miniscule runtime, your final application bundle is **infinitely smaller**.
 
 * **React/Vue:** You ship a heavy orchestrator (~30-90KB) just to say "Hello World".
@@ -24,7 +24,7 @@ By sharing a miniscule runtime, your final application bundle is **infinitely sm
 
 ---
 
-## 🔬 Precision Engineering
+## Precision Engineering
 
 ### 1. Functional Efficiency
 `Div()`, `Button()`, `Span()`... These aren't just wrappers; they are pre-optimized constructors. When you call `Div({ class: 'btn' }, "Click")`, SigPro creates the element and attaches its reactive listeners in a single, surgical operation.
