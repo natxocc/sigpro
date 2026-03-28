@@ -29,11 +29,7 @@
     "url": "https://github.com/natxocc/sigpro/issues"
   },
   "scripts": {
-    "docs": "bun x serve docs",
-    "build:aggrid": "vite build --config ui/grid/vite.config.js"
-  },
-  "devDependencies": {
-    "terser": "^5.46.1"
+    "docs": "bun x serve docs"
   },
   "keywords": [
     "signals",
