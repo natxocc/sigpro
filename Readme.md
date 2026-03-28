@@ -10,13 +10,16 @@
 
 ## Why SigPro?
 
-While other frameworks "guess" what changed by comparing massive DOM trees (Diffing), **SigPro already knows**.
+While other frameworks "guess" what changed by comparing massive DOM trees (Diffing), **SigPro already knows.**
 
-  * 🎯 **Atomic Precision:** Powered by a *Signal-based* architecture. State is bound directly to DOM nodes—when a value changes, **only that specific node updates**.
-  * 🚀 **Zero-Hydration Bottlenecks:** No 100KB bundles or complex build steps. SigPro is pure, optimized JavaScript tailored for the browser's native engine.
-  * 💎 **Premium DX (Developer Experience):** Forget boilerplate imports. SigPro injects a functional, elegant syntax (`Div()`, `Button()`, `Span()`) directly into your workflow.
-  * 📦 **Fully Loaded:** Built-in Hash Routing, native `localStorage` persistence, and automatic lifecycle management (cleanups) out of the box.
-  * 🌳 **Tree-Shakable:** Optimized for modern bundlers. Import only what you use, or load the full engine for rapid prototyping.
+* 🎯 **Atomic Precision:** Powered by a *Signal-based* architecture. State is bound directly to DOM nodes—when a value changes, **only that specific node updates**.
+* 🚀 **Zero-Hydration Bottlenecks:** No 100KB bundles or complex build steps. SigPro is pure, optimized JavaScript tailored for the browser's native engine.
+* 🍦 **Pure Vanilla JS Performance:** High-octane performance without the need for transpilers or heavy transformations. It runs natively in the browser just as well as it does in complex build pipelines.
+* 🛠️ **Build-Tool Agnostic:** Total freedom. Use it with **Vite, Webpack, or Rollup** for enterprise projects, or simply import it via a **`<script>` tag** for rapid prototyping. No tooling required.
+* 📈 **Zero-Scale Bloat:** Unlike other frameworks where the bundle grows exponentially, SigPro's footprint remains **flat and predictable**. You only pay for the code you write.
+* 💎 **Premium DX (Developer Experience):** Forget boilerplate imports. SigPro injects an elegant, functional syntax (`Div()`, `Button()`, `Span()`) directly into your scope for a **"Zero-Import"** workflow.
+* 📦 **Fully Loaded:** Built-in Hash Routing, native **`localStorage` persistence**, and automatic lifecycle management (cleanups) included in less than 2KB.
+* 🌳 **Tree-Shakable:** Optimized for modern bundlers. Import only what you use, or load the full engine for rapid prototyping.
 
 -----
 
