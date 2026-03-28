@@ -2,12 +2,14 @@
  * SigPro Core 
  */
 (() => {
+
   let activeEffect = null;
   let currentOwner = null;
   const effectQueue = new Set();
   let isFlushing = false;
   const MOUNTED_NODES = new WeakMap();
 
+  /** flush */
   const flush = () => {
     if (isFlushing) return;
     isFlushing = true;
@@ -19,6 +21,7 @@
     isFlushing = false;
   };
 
+  /** track */
   const track = (subs) => {
     if (activeEffect && !activeEffect._deleted) {
       subs.add(activeEffect);
@@ -26,6 +29,7 @@
     }
   };
 
+  /** trigger */
   const trigger = (subs) => {
     for (const eff of subs) {
       if (eff === activeEffect || eff._deleted) continue;
@@ -38,6 +42,56 @@
     }
     if (!isFlushing) queueMicrotask(flush);
   };
+
+  /** sweep */
+  const sweep = (node) => {
+    if (node._cleanups) {
+      node._cleanups.forEach((f) => f());
+      node._cleanups.clear();
+    }
+    node.childNodes?.forEach(sweep);
+  };
+
+  /** _view */
+  const _view = (fn) => {
+    const cleanups = new Set();
+    const prev = currentOwner;
+    const container = document.createElement("div");
+    container.style.display = "contents";
+    currentOwner = { cleanups };
+    try {
+      const res = fn({ onCleanup: (f) => cleanups.add(f) });
+      const process = (n) => {
+        if (!n) return;
+        if (n._isRuntime) {
+          cleanups.add(n.destroy);
+          container.appendChild(n.container);
+        } else if (Array.isArray(n)) n.forEach(process);
+        else container.appendChild(n instanceof Node ? n : document.createTextNode(String(n)));
+      };
+      process(res);
+    } finally { currentOwner = prev; }
+    return {
+      _isRuntime: true,
+      container,
+      destroy: () => {
+        cleanups.forEach((f) => f());
+        sweep(container);
+        container.remove();
+      },
+    };
+  };
+
+  /**
+   * Creates a reactive Signal or a Computed Value.
+   * @param {any|Function} initial - Initial value or a getter function for computed state.
+   * @param {string} [key] - Optional. Key for automatic persistence in localStorage.
+   * @returns {Function} Signal getter/setter. Use `sig()` to read and `sig(val)` to write.
+   * @example
+   * const count = $(0); // Simple signal
+   * const double = $(() => count() * 2); // Computed signal
+   * const name = $("John", "user-name"); // Persisted signal
+   */
 
   const $ = (initial, key = null) => {
     if (typeof initial === "function") {
@@ -92,6 +146,17 @@
     };
   };
 
+  /**
+ * Watches for signal changes and executes a side effect.
+ * Handles automatic cleanup of previous effects.
+ * @param {Function|Array} target - Function to execute or Array of signals for explicit dependency tracking.
+ * @param {Function} [fn] - If the first parameter is an Array, this is the callback function.
+ * @returns {Function} Function to manually stop the watcher.
+ * @example
+ * $watch(() => console.log("Count is:", count()));
+ * $watch([count], () => console.log("Only runs when count changes"));
+ */
+
   const $watch = (target, fn) => {
     const isExplicit = Array.isArray(target);
     const callback = isExplicit ? fn : target;
@@ -145,42 +210,13 @@
     return runner.stop;
   };
 
-  const sweep = (node) => {
-    if (node._cleanups) {
-      node._cleanups.forEach((f) => f());
-      node._cleanups.clear();
-    }
-    node.childNodes?.forEach(sweep);
-  };
-
-  const _view = (fn) => {
-    const cleanups = new Set();
-    const prev = currentOwner;
-    const container = document.createElement("div");
-    container.style.display = "contents";
-    currentOwner = { cleanups };
-    try {
-      const res = fn({ onCleanup: (f) => cleanups.add(f) });
-      const process = (n) => {
-        if (!n) return;
-        if (n._isRuntime) {
-          cleanups.add(n.destroy);
-          container.appendChild(n.container);
-        } else if (Array.isArray(n)) n.forEach(process);
-        else container.appendChild(n instanceof Node ? n : document.createTextNode(String(n)));
-      };
-      process(res);
-    } finally { currentOwner = prev; }
-    return {
-      _isRuntime: true,
-      container,
-      destroy: () => {
-        cleanups.forEach((f) => f());
-        sweep(container);
-        container.remove();
-      },
-    };
-  };
+  /**
+ * DOM element rendering engine with built-in reactivity.
+ * @param {string} tag - HTML tag name (e.g., 'div', 'span').
+ * @param {Object} [props] - Attributes, events (onEvent), or two-way bindings (value, checked).
+ * @param {Array|any} [content] - Children: text, other nodes, or reactive signals.
+ * @returns {HTMLElement} The configured reactive DOM element.
+ */
 
   const $html = (tag, props = {}, content = []) => {
     if (props instanceof Node || Array.isArray(props) || typeof props !== "object") {
@@ -240,6 +276,14 @@
     return el;
   };
 
+  /**
+ * Conditional rendering component.
+ * @param {Function|boolean} condition - Reactive signal or boolean value.
+ * @param {Function|HTMLElement} thenVal - Content to show if true.
+ * @param {Function|HTMLElement} [otherwiseVal] - Content to show if false (optional).
+ * @returns {HTMLElement} A reactive container (display: contents).
+ */
+
   const $if = (condition, thenVal, otherwiseVal = null) => {
     const marker = document.createTextNode("");
     const container = $html("div", { style: "display:contents" }, [marker]);
@@ -260,6 +304,14 @@
   };
 
   $if.not = (condition, thenVal, otherwiseVal) => $if(() => !(typeof condition === "function" ? condition() : condition), thenVal, otherwiseVal);
+
+  /**
+ * Optimized reactive loop with key-based reconciliation.
+ * @param {Function|Array} source - Signal containing an Array of data.
+ * @param {Function} render - Function receiving (item, index) and returning a node.
+ * @param {Function} keyFn - Function to extract a unique key from the item.
+ * @returns {HTMLElement} A reactive container (display: contents).
+ */
 
   const $for = (source, render, keyFn) => {
     const marker = document.createTextNode("");
@@ -284,6 +336,12 @@
     });
     return container;
   };
+
+  /**
+ * Hash-based (#) routing system.
+ * @param {Array<{path: string, component: Function}>} routes - Route definitions.
+ * @returns {HTMLElement} The router outlet container.
+ */
 
   const $router = (routes) => {
     const sPath = $(window.location.hash.replace(/^#/, "") || "/");
@@ -321,6 +379,21 @@
   $router.back = () => window.history.back();
   $router.path = () => window.location.hash.replace(/^#/, "") || "/";
 
+  /**
+   * Mounts a component or node into a DOM target element.
+   * It automatically handles the cleanup of any previously mounted SigPro instances 
+   * in that target to prevent memory leaks and duplicate renders.
+   * * @param {Function|HTMLElement} component - The component function to render or a pre-built DOM node.
+   * @param {string|HTMLElement} target - A CSS selector string or a direct DOM element to mount into.
+   * @returns {Object|undefined} The view instance containing the `container` and `destroy` method, or undefined if target is not found.
+   * * @example
+   * // Mount using a component function
+   * $mount(() => Div({ class: "app" }, "Hello World"), "#root");
+   * * // Mount using a direct element
+   * const myApp = Div("Hello");
+   * $mount(myApp, document.getElementById("app"));
+   */
+
   const $mount = (component, target) => {
     const el = typeof target === "string" ? document.querySelector(target) : target;
     if (!el) return;
@@ -330,6 +403,15 @@
     MOUNTED_NODES.set(el, instance);
     return instance;
   };
+
+  /* * Global API & DOM Tag Helpers Injection
+ * ------------------------------------------------
+ * This block exposes the SigPro core API ($, $if, etc.) and auto-generates 
+ * PascalCase helpers (Div, Span, Button) for all standard HTML tags.
+ * * - Uses Object.defineProperty to prevent accidental overwriting (read-only).
+ * - Enables a "Zero-Import" developer experience by attaching everything to 'window'.
+ * - Maps every helper directly to the $html factory for instant DOM creation.
+ */
 
   const core = { $, $if, $for, $watch, $mount, $router, $html };
 
@@ -341,10 +423,15 @@
     });
   }
 
-  const tags = `div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer address ul ol li dl dt dd a em strong small i b u mark time sub sup pre code blockquote details summary dialog form label input textarea select button option fieldset legend table thead tbody tfoot tr th td caption img video audio canvas svg iframe picture source progress meter`.split(/\s+/);
+  /** HELPER TAGS */
+  const tags = `div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer address 
+  ul ol li dl dt dd a em strong small i b u mark time sub sup pre code blockquote details summary dialog 
+  form label input textarea select button option fieldset legend table thead tbody tfoot tr th td caption 
+  img video audio canvas svg iframe picture source progress meter`.split(/\s+/);
+
   tags.forEach((tagName) => {
     const helperName = tagName.charAt(0).toUpperCase() + tagName.slice(1);
-
+    /** Protect Tags */
     Object.defineProperty(window, helperName, {
       value: (props, content) => $html(tagName, props, content),
       writable: false,
