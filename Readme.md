@@ -1,4 +1,4 @@
-# `SigPro` ⚡
+# `SigPro` 
 
 ### **The Atomic Reactivity Engine for the Modern Web.**
 
@@ -12,18 +12,18 @@
 
 -----
 
-## ✨ The SigPro Manifesto
+## The SigPro Manifesto
 
 SigPro isn't just another framework; it’s a precision tool. While other frameworks try to guess what changed by comparing trees (Diffing), SigPro **already knows**.
 
-  * **🎯 Atomic Reactivity:** Powered by a *Signal-based* architecture, SigPro binds state directly to DOM nodes. When a value changes, only that specific node reacts.
-  * **🚀 Zero Overhead:** Forget hydration bottlenecks and 100KB bundles. SigPro is pure, optimized JavaScript tailored for the browser's engine.
-  * **💎 Next-Gen DX:** Say goodbye to endless imports. SigPro injects smart helpers like `Div()`, `Button()`, and `Span()` directly into your environment for a clean, functional syntax.
-  * **🔋 Batteries Included:** Hash-based Routing, native `localStorage` persistence, and automatic lifecycle management (cleanups) come standard.
+  * ** Atomic Reactivity:** Powered by a *Signal-based* architecture, SigPro binds state directly to DOM nodes. When a value changes, only that specific node reacts.
+  * ** Zero Overhead:** Forget hydration bottlenecks and 100KB bundles. SigPro is pure, optimized JavaScript tailored for the browser's engine.
+  * ** Next-Gen DX:** Say goodbye to endless imports. SigPro injects smart helpers like `Div()`, `Button()`, and `Span()` directly into your environment for a clean, functional syntax.
+  * ** Batteries Included:** Hash-based Routing, native `localStorage` persistence, and automatic lifecycle management (cleanups) come standard.
 
 -----
 
-## 🛠️ A Glimpse of the Code
+## A Glimpse of the Code
 
 Elegance stems from simplicity. Here is how you create a reactive, persistent component:
 
@@ -48,7 +48,7 @@ $mount(Counter, "#app");
 
 -----
 
-## ⚡ Performance Breakdown
+## Performance Breakdown
 
 | Metric | **SigPro** | React / Vue | Svelte |
 | :--- | :--- | :--- | :--- |
@@ -60,7 +60,7 @@ $mount(Counter, "#app");
 
 -----
 
-## 📦 Recommended Architecture
+## Recommended Architecture
 
 SigPro scales beautifully with modern project structures:
 
@@ -75,7 +75,7 @@ app/
 
 -----
 
-## 🚀 Quick Install
+## Quick Install
 
 Install via your preferred package manager:
 
@@ -87,6 +87,6 @@ npm install sigpro
 
 -----
 
-## 📄 License
+## License
 
 MIT © 2026 **SigPro Team**. Engineered for speed, designed for clarity.
