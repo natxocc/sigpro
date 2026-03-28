@@ -529,7 +529,7 @@ export const Colorpicker = (props) => {
 };
 
 /** CHECKBOX */
-export const CheckBox = (props) => {
+export const Checkbox = (props) => {
     const { value, tooltip, toggle, ...rest } = props;
     const checkEl = $html("input", {
         ...rest,
@@ -1110,7 +1110,7 @@ export const UI = (defaultLang = "es") => {
     // Create UI object with all components
     const ui = {
         SetLocale, tt, Button, Input, Select, Autocomplete, Datepicker, Colorpicker,
-        CheckBox, Radio, Range, Modal, Grid, Dropdown, Accordion, Tabs, Badge,
+        Checkbox, Radio, Range, Modal, Grid, Dropdown, Accordion, Tabs, Badge,
         Tooltip, Navbar, Menu, Drawer, Fieldset, List, Stack, Stat, Swap, Indicator,
         Rating, Alert, Timeline, Fab, Toast, Loading
     };
