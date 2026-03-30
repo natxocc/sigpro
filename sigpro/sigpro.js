@@ -128,8 +128,12 @@
 
     let value = initial;
     if (key) {
-      const saved = localStorage.getItem(key);
-      if (saved !== null) try { value = JSON.parse(saved); } catch { value = saved; }
+      try {
+        const saved = localStorage.getItem(key);
+        if (saved !== null) value = JSON.parse(saved);
+      } catch (e) {
+        console.warn("SigPro: LocalStorage locked", e);
+      }
     }
     const subs = new Set();
     return (...args) => {

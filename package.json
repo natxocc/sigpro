@@ -1,14 +1,12 @@
 {
   "name": "sigpro",
-  "version": "1.1.12",
+  "version": "1.1.13",
   "type": "module",
   "license": "MIT",
   "main": "./index.js",
   "module": "./index.js",
   "exports": {
     ".": "./index.js",
-    "./ui": "./ui/index.js",
-    "./ui/*": "./ui/*.js",
     "./vite": "./vite/index.js",
     "./vite/*": "./vite/*.js"
   },
@@ -16,7 +14,6 @@
     "index.js",
     "sigpro",
     "vite",
-    "ui",
     "README.md",
     "LICENSE"
   ],
