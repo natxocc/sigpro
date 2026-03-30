@@ -336,7 +336,6 @@ const $for = (source, render, keyFn) => {
 * @param {Array<{path: string, component: Function}>} routes - Route definitions.
 * @returns {HTMLElement} The router outlet container.
 */
-
 const $router = (routes) => {
   const sPath = $(window.location.hash.replace(/^#/, "") || "/");
   window.addEventListener("hashchange", () => sPath(window.location.hash.replace(/^#/, "") || "/"));
@@ -346,23 +345,31 @@ const $router = (routes) => {
   $watch([sPath], async () => {
     const path = sPath();
     const route = routes.find(r => {
-      const rp = r.path.split("/").filter(Boolean);
-      const pp = path.split("/").filter(Boolean);
+      const rp = r.path.split("/").filter(Boolean), pp = path.split("/").filter(Boolean);
       return rp.length === pp.length && rp.every((p, i) => p.startsWith(":") || p === pp[i]);
     }) || routes.find(r => r.path === "*");
 
     if (route) {
-      const module = await route.component();
-      const component = module?.default || module;
+      let comp = route.component;
+      if (typeof comp === "function" && comp.toString().includes('import')) {
+        comp = (await comp()).default || (await comp());
+      }
+
       const params = {};
       route.path.split("/").filter(Boolean).forEach((p, i) => {
         if (p.startsWith(":")) params[p.slice(1)] = path.split("/").filter(Boolean)[i];
       });
-      if ($router.params) $router.params(params);
 
       if (current) current.destroy();
-      
-      current = _view(() => typeof component === "function" ? component(params) : component);
+      if ($router.params) $router.params(params);
+
+      current = _view(() => {
+        try {
+          return typeof comp === "function" ? comp(params) : comp;
+        } catch (e) {
+          return $html("div", { class: "p-4 text-error" }, "Error loading view");
+        }
+      });
       outlet.appendChild(current.container);
     }
   });
@@ -415,7 +422,7 @@ if (typeof window !== "undefined") {
         window[helperName] = (props, content) => $html(tagName, props, content);
       }
     });
-    
+
     window.SigPro = Object.freeze(registry);
   };
 
