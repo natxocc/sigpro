@@ -91,7 +91,7 @@ const _view = (fn) => {
  * const name = $("John", "user-name"); // Persisted signal
  */
 
-export const $ = (initial, key = null) => {
+const $ = (initial, key = null) => {
   if (typeof initial === "function") {
     const subs = new Set();
     let cached, dirty = true;
@@ -159,7 +159,7 @@ export const $ = (initial, key = null) => {
 * $watch([count], () => console.log("Only runs when count changes"));
 */
 
-export const $watch = (target, fn) => {
+const $watch = (target, fn) => {
   const isExplicit = Array.isArray(target);
   const callback = isExplicit ? fn : target;
   const depsInput = isExplicit ? target : null;
@@ -219,7 +219,7 @@ export const $watch = (target, fn) => {
 * @param {Array|any} [content] - Children: text, other nodes, or reactive signals.
 * @returns {HTMLElement} The configured reactive DOM element.
 */
-export const $html = (tag, props = {}, content = []) => {
+const $html = (tag, props = {}, content = []) => {
   if (props instanceof Node || Array.isArray(props) || typeof props !== "object") {
     content = props; props = {};
   }
@@ -278,7 +278,7 @@ export const $html = (tag, props = {}, content = []) => {
 * @returns {HTMLElement} A reactive container (display: contents).
 */
 
-export const $if = (condition, thenVal, otherwiseVal = null) => {
+const $if = (condition, thenVal, otherwiseVal = null) => {
   const marker = document.createTextNode("");
   const container = $html("div", { style: "display:contents" }, [marker]);
   let current = null, last = null;
@@ -307,7 +307,7 @@ $if.not = (condition, thenVal, otherwiseVal) => $if(() => !(typeof condition ===
 * @returns {HTMLElement} A reactive container (display: contents).
 */
 
-export const $for = (source, render, keyFn) => {
+const $for = (source, render, keyFn) => {
   const marker = document.createTextNode("");
   const container = $html("div", { style: "display:contents" }, [marker]);
   const cache = new Map();
@@ -337,7 +337,7 @@ export const $for = (source, render, keyFn) => {
 * @returns {HTMLElement} The router outlet container.
 */
 
-export const $router = (routes) => {
+const $router = (routes) => {
   const sPath = $(window.location.hash.replace(/^#/, "") || "/");
   window.addEventListener("hashchange", () => sPath(window.location.hash.replace(/^#/, "") || "/"));
   const outlet = $html("div", { class: "router-outlet" });
@@ -389,7 +389,7 @@ $router.path = () => window.location.hash.replace(/^#/, "") || "/";
  * $mount(myApp, document.getElementById("app"));
  */
 
-export const $mount = (component, target) => {
+const $mount = (component, target) => {
   const el = typeof target === "string" ? document.querySelector(target) : target;
   if (!el) return;
   if (MOUNTED_NODES.has(el)) MOUNTED_NODES.get(el).destroy();
