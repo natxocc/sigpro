@@ -1,2 +1,2 @@
 // index.js
-export * from './sigpro/sigpro.js';
+export * from './sigpro/index.js';
