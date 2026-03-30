@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
 <body>
-  <div id="app">Cargando documentación...</div>
+  <div id="app"></div>
 
   <script>
     window.$docsify = {
@@ -31,10 +31,8 @@
   </script>
 
   <script type="module">
-    import * as sigpro from 'https://cdn.jsdelivr.net/npm/sigpro@1.1.11/+esm';
-    window.sigpro = sigpro; // Lo exponemos al objeto window para los scripts de los .md
-    // Opcional: Desestructurar en window para usar $, Div, etc directamente
-    // Object.assign(window, sigpro);
+    import * as sigpro from 'https://cdn.jsdelivr.net/npm/sigpro@latest/+esm';
+    window.sigpro = sigpro;
   </script>
   <script src="//cdn.jsdelivr.net/npm/docsify/lib/docsify.min.js"></script>
   <script src="//cdn.jsdelivr.net/npm/docsify-copy-code/dist/docsify-copy-code.min.js"></script>
