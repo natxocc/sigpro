@@ -400,24 +400,28 @@ export const $mount = (component, target) => {
 };
 
 /** GLOBAL CORE REGISTRY */
+const SigProCore = { $, $watch, $html, $if, $for, $router, $mount };
+
 if (typeof window !== "undefined") {
-  const SigPro = { $, $watch, $html, $if, $for, $router, $mount };
-
-  Object.keys(SigPro).forEach(key => { window[key] = SigPro[key] });
-
-  const tags = `div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer address ul ol li dl dt dd a em strong small i b u mark time sub sup pre code blockquote details summary dialog form label input textarea select button option fieldset legend table thead tbody tfoot tr th td caption img video audio canvas svg iframe picture source progress meter`.split(/\s+/);
-
-  tags.forEach((tagName) => {
-    const helperName = tagName.charAt(0).toUpperCase() + tagName.slice(1);
-    Object.defineProperty(window, helperName, {
-      value: (props, content) => $html(tagName, props, content),
-      writable: false,
-      configurable: true,
-      enumerable: true
+  const install = (registry) => {
+    Object.keys(registry).forEach(key => {
+      window[key] = registry[key];
     });
-  });
 
-  window.SigPro = Object.freeze(SigPro);
+    const tags = `div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer address ul ol li dl dt dd a em strong small i b u mark time sub sup pre code blockquote details summary dialog form label input textarea select button option fieldset legend table thead tbody tfoot tr th td caption img video audio canvas svg iframe picture source progress meter`.split(/\s+/);
+    tags.forEach((tagName) => {
+      const helperName = tagName.charAt(0).toUpperCase() + tagName.slice(1);
+      if (!(helperName in window)) {
+        window[helperName] = (props, content) => $html(tagName, props, content);
+      }
+    });
+    
+    window.SigPro = Object.freeze(registry);
+  };
+
+  install(SigProCore);
 }
 
-export default { $, $watch, $html, $if, $for, $router, $mount };
+export { $, $watch, $html, $if, $for, $router, $mount };
+
+export default SigProCore;
