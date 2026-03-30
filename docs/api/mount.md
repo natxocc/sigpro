@@ -23,7 +23,7 @@ $mount(node: Function | HTMLElement, target?: string | HTMLElement): RuntimeObje
 In a Single Page Application, you typically mount your main component to the body or a root div. SigPro manages the entire view from that point.
 
 ```javascript
-import { $ } from './sigpro.js';
+import SigPro from 'sigpro';
 import App from './App.js';
 
 // Mounts your main App component

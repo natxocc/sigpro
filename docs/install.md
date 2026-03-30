@@ -49,7 +49,7 @@ bun add sigpro
 ```html
 <script type="module">
   // Import the core and UI components
-  import { $ } from "[https://cdn.jsdelivr.net/npm/sigpro@latest/+esm](https://cdn.jsdelivr.net/npm/sigpro@latest/+esm)";
+  import SigPro from "[https://cdn.jsdelivr.net/npm/sigpro@latest/+esm](https://cdn.jsdelivr.net/npm/sigpro@latest/+esm)";
   import { UI } from "[https://cdn.jsdelivr.net/npm/sigpro@latest/ui/+esm](https://cdn.jsdelivr.net/npm/sigpro@latest/ui/+esm)";
 
   // Initialize UI components globally
@@ -64,7 +64,7 @@ bun add sigpro
   <div class="tab-content bg-base-100 border-base-300 rounded-box p-6">
 <pre class="bg-base-200 p-4 rounded-lg"><code class="language-html">&lt;script type="module"&gt;
   // Import the core and UI components
-  import { $ } from 'https://cdn.jsdelivr.net/npm/sigpro@latest/+esm';
+  import SigPro from 'https://cdn.jsdelivr.net/npm/sigpro@latest/+esm';
   import { UI } from 'https://cdn.jsdelivr.net/npm/sigpro@latest/ui/+esm';
   
   // Initialize UI components globally
@@ -85,7 +85,7 @@ SigPro uses **PascalCase** for Tag Helpers (e.g., `Div`, `Button`) to provide a 
 
 ```javascript
 // File: App.js
-import { $ } from "sigpro";
+import SigPro from "sigpro";
 
 export const App = () => {
   const $count = $(0);
@@ -104,7 +104,7 @@ export const App = () => {
 };
 
 // File: main.js
-import { $ } from "sigpro";
+import SigPro from "sigpro";
 import { App } from "./App.js";
 
 $mount(App, "#app");
@@ -122,7 +122,7 @@ $mount(App, "#app");
     <div id="app"></div>
 
     <script type="module">
-      import { $ } from "https://cdn.jsdelivr.net/npm/sigpro@latest/+esm";
+      import SigPro from "https://cdn.jsdelivr.net/npm/sigpro@latest/+esm";
 
       const $name = $("Developer");
 
@@ -151,11 +151,21 @@ $mount(App, "#app");
 
 ## 3. Global by Design
 
-One of SigPro's core strengths is its **Global API**, which eliminates "Import Hell".
+One of SigPro's core strengths is its **Global API**, which eliminates "Import Hell" while remaining ESM-compatible.
 
-- **The `$` Function:** Once loaded, it attaches itself to `window.$`. It handles state, effects, and DOM mounting.
-- **Tag Helpers (PascalCase):** Common HTML tags (`Div`, `Span`, `Button`, `Input`, etc.) are automatically registered in the global scope.
-- **Custom Components:** We recommend using **PascalCase** (e.g., `UserCard`) or prefixes like `_Input` to keep your code organized and distinguish your logic from standard tags.
+* **The "Zero-Config" Import:** By simply adding `import SigPro from "sigpro"`, the framework automatically "hydrates" the global `window` object. 
+    * **Core Functions:** You get immediate access to `$`, `$watch`, `$html`, `$if`, `$for`, and `$router` anywhere in your scripts without using the `SigPro.` prefix.
+    * **Auto-Installation:** This happens instantly upon import thanks to its built-in `install()` routine, making it "Plug & Play" for both local projects and CDN usage.
+
+* **PascalCase Tag Helpers:** Standard HTML tags are pre-registered as global functions (`Div`, `Span`, `Button`, `Section`, etc.). 
+    * **Clean UI Syntax:** This allows you to write UI structures that look like HTML but are pure, reactive JavaScript: `Div({ class: "card" }, [ H1("Title") ])`.
+
+* **Hybrid Tree Shaking:** * For **Maximum Speed**, use `import SigPro from "sigpro"`.
+    * For **Maximum Optimization**, you can still use Named Imports: `import { $, $html } from "sigpro"`. This allows modern bundlers like Vite to prune unused code while keeping your core reactive.
+
+* **Custom Components:** We recommend using **PascalCase** for your own components (e.g., `UserCard()`) to maintain visual consistency with the built-in Tag Helpers and distinguish them from standard logic.
+
+---
 
 ## 4. Why no build step?
 

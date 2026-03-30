@@ -11,7 +11,7 @@ Creating a dedicated file allows you to export only what you need. This modulari
 
 ```javascript
 // auth.js
-import { $ } from "sigpro";
+import SigPro from "sigpro";
 
 // A simple global signal
 export const user = $({ name: "Guest", loggedIn: false });

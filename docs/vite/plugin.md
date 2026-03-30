@@ -51,7 +51,7 @@ Thanks to **SigPro's synchronous initialization**, you no longer need to wrap yo
 
 ```javascript
 // src/main.js
-import { $ } from 'sigpro';
+import SigPro from 'sigpro';
 import { routes } from 'virtual:sigpro-routes';
 
 // The Core already has $router ready
