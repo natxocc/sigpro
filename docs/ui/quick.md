@@ -60,7 +60,7 @@ Unlike **Tag Helpers** (which are just functional mirrors of HTML tags), SigPro 
 | **Forms & Inputs** | `Button`, `Input`, `Select`, `Autocomplete`, `Datepicker`, `Colorpicker`, `CheckBox`, `Radio`, `Range`, `Rating`, `Swap` |
 | **Feedback** | `Alert`, `Toast`, `Modal`, `Loading`, `Badge`, `Tooltip`, `Indicator` |
 | **Navigation** | `Navbar`, `Menu`, `Drawer`, `Tabs`, `Accordion`, `Dropdown` |
-| **Data & Layout** | `Request`, `Response`, `Grid` (AG-Grid), `List`, `Stack`, `Timeline`, `Stat`, `Fieldset`, `Fab` |
+| **Data & Layout** | `Request`, `Response`, `List`, `Stack`, `Timeline`, `Stat`, `Fieldset`, `Fab` |
 
 ---
 
