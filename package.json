@@ -1,17 +1,23 @@
 {
   "name": "sigpro",
-  "version": "1.1.16",
+  "version": "1.1.17",
   "type": "module",
   "license": "MIT",
   "main": "./index.js",
   "module": "./index.js",
+  "unpkg": "./dist/sigpro.min.js",
+  "jsdelivr": "./dist/sigpro.min.js",
   "exports": {
-    ".": "./index.js",
+    ".": {
+      "import": "./index.js",
+      "script": "./dist/sigpro.js"
+    },
     "./vite": "./vite/index.js",
     "./vite/*": "./vite/*.js"
   },
   "files": [
     "index.js",
+    "dist",
     "sigpro",
     "vite",
     "README.md",
@@ -26,6 +32,8 @@
     "url": "https://github.com/natxocc/sigpro/issues"
   },
   "scripts": {
+    "build": "bun build ./index.js --bundle --outfile=./dist/sigpro.js --format=iife --global-name=SigPro && bun build ./index.js --bundle --outfile=./dist/sigpro.min.js --format=iife --global-name=SigPro --minify",
+    "prepublishOnly": "bun run build",
     "docs": "bun x serve docs"
   },
   "keywords": [
