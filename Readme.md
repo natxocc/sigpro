@@ -57,11 +57,14 @@ $mount(Counter, "#app");
 
 | Feature | **SigPro** | React / Vue | Svelte |
 | :--- | :--- | :--- | :--- |
-| **Payload (Gzipped)** | **\< 1.8KB** | \~30KB - 50KB | \~5KB (Compiled Runtime) |
+| **Payload (Gzipped)** | **< 1.8KB** | ~30KB - 50KB | ~5KB (Compiled Runtime) |
 | **State Logic** | **Atomic Signals** | Virtual DOM Diffing | Compiler Dirty Bits |
 | **Update Speed** | **Direct Node Access** | Component Re-render | Block Reconciliation |
 | **Native Persistence** | **Included ($)** | Requires Plugins | Manual |
 | **Dependencies** | **Zero** | Many | Build Toolchain |
+| **Lifecycle Mgmt** | **Automatic (Cleanup Root)** | Manual / Hook-based | Manual / Hook-based |
+| **Routing** | **Reactive Hash ($router)** | Virtual Router (External) | File-based / External |
+| **Learning Curve** | **Zero (Vanilla JS)** | Steep (JSX/Templates) | Medium (Directives) |
 
 -----
 
