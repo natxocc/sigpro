@@ -16,6 +16,7 @@ While other frameworks "guess" what changed by comparing massive DOM trees (Diff
 * 🚀 **Zero-Hydration Bottlenecks:** No 100KB bundles or complex build steps. SigPro is pure, optimized JavaScript tailored for the browser's native engine.
 * 🍦 **Pure Vanilla JS Performance:** High-octane performance without the need for transpilers or heavy transformations. It runs natively in the browser just as well as it does in complex build pipelines.
 * 🛠️ **Build-Tool Agnostic:** Total freedom. Use it with **Vite, Webpack, or Rollup** for enterprise projects, or simply import it via a **`<script>` tag** for rapid prototyping. No tooling required.
+* 🚀 **Vite-Powered DX:** First-class Vite support with **file-based routing** out of the box. The official `sigpro/vite` plugin automatically scans your `src/pages` directory and generates reactive routes—no manual route configuration needed.
 * 📈 **Zero-Scale Bloat:** Unlike other frameworks where the bundle grows exponentially, SigPro's footprint remains **flat and predictable**. You only pay for the code you write.
 * 💎 **Premium DX (Developer Experience):** Forget boilerplate imports. SigPro injects an elegant, functional syntax (`Div()`, `Button()`, `Span()`) directly into your scope for a **"Zero-Import"** workflow.
 * 📦 **Fully Loaded:** Built-in Hash Routing, native **`localStorage` persistence**, and automatic lifecycle management (cleanups) included in less than 2KB.
@@ -38,7 +39,7 @@ const Counter = () => {
   // One-line persistence: state survives page reloads automatically
   const count = $(0, "user-counter-pref");
   // Computed: automatically updated when count() or value() changes
-  const doubleValue = $(()=> value() *count());
+  const doubleValue = $(()=> value() * count());
 
   // Create fast HTML with pure JS
   return Div({ class: "card" }, [
@@ -63,20 +64,46 @@ $mount(Counter, "#app");
 | **Native Persistence** | **Included ($)** | Requires Plugins | Manual |
 | **Dependencies** | **Zero** | Many | Build Toolchain |
 | **Lifecycle Mgmt** | **Automatic (Cleanup Root)** | Manual / Hook-based | Manual / Hook-based |
-| **Routing** | **Reactive Hash ($router)** | Virtual Router (External) | File-based / External |
+| **Routing** | **Reactive Hash ($router) + File-based (Vite)** | Virtual Router (External) | File-based / External |
 | **Learning Curve** | **Zero (Vanilla JS)** | Steep (JSX/Templates) | Medium (Directives) |
 
 -----
 
-## Scalable Architecture
+## Scalable Architecture with Vite
 
-SigPro scales from micro-widgets to full enterprise dashboards:
+SigPro scales from micro-widgets to full enterprise dashboards. With the official Vite plugin, routing becomes effortless:
 
 ```text
 src/
-├── 📂 pages/        # Main Pages (Home.js, Auth.js)
-└── 📄 main.js       # App Entry & Mounting
+├── 📂 pages/              # File-based routing (auto-scanned)
+│   ├── index.js           # → /
+│   ├── about.js           # → /about
+│   ├── blog/
+│   │   ├── index.js       # → /blog
+│   │   └── [slug].js      # → /blog/:slug
+│   └── docs/
+│       └── [...all].js    # → /docs/*
+├── 📂 components/         # Reusable components
+└── 📄 main.js             # App Entry & Mounting
 ```
+
+**Vite Plugin Setup:**
+```javascript
+// vite.config.js
+import { defineConfig } from 'vite';
+import { sigproRouter } from 'sigpro/vite';
+
+export default defineConfig({
+  plugins: [sigproRouter()]
+});
+```
+
+The plugin automatically:
+- Scans your `src/pages` directory recursively
+- Generates route definitions from file paths
+- Supports dynamic segments (`[param]`) and catch-all routes (`[...param]`)
+- Provides automatic 404 fallback
+- Enables lazy-loading out of the box
 
 -----
 
@@ -84,6 +111,18 @@ src/
 
 ```bash
 npm install sigpro
+```
+
+**With Vite (Recommended for larger apps):**
+```bash
+npm create vite@latest my-app -- --template vanilla
+cd my-app
+npm install sigpro
+```
+
+**Or without build tools:**
+```html
+<script src="https://unpkg.com/sigpro"></script>
 ```
 
 -----
