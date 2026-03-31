@@ -38,12 +38,12 @@ const Counter = () => {
   // One-line persistence: state survives page reloads automatically
   const count = $(0, "user-counter-pref");
   // Computed: automatically updated when value changes
-  const doubleValue = (()=> value() *2);
+  const doubleValue = $(()=> value() *2);
 
   // Create fast HTML with pure JS
   return Div({ class: "card" }, [
     H1(`Count: ${count()}`),
-    dobleValue()
+    doubleValue()
     P("Atomic updates. Zero re-renders of the parent tree."),
     Button({ 
       onclick: () => count(c => c + 1),
