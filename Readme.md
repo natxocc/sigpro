@@ -27,13 +27,23 @@ While other frameworks "guess" what changed by comparing massive DOM trees (Diff
 
 Create reactive, persistent components with a syntax that feels like Vanilla JS, but works like magic:
 
+```html
+<div id="app"></div>
+```
+
 ```javascript
 const Counter = () => {
+  // Simple signal
+  const value = $(100);
   // One-line persistence: state survives page reloads automatically
-  const count = $(0, "user-counter-pref"); 
+  const count = $(0, "user-counter-pref");
+  // Computed: automatically updated when value changes
+  const doubleValue = (()=> value() *2);
 
+  // Create fast HTML with pure JS
   return Div({ class: "card" }, [
     H1(`Count: ${count()}`),
+    dobleValue()
     P("Atomic updates. Zero re-renders of the parent tree."),
     Button({ 
       onclick: () => count(c => c + 1),
