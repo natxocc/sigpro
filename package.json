@@ -7,13 +7,11 @@
   "module": "./index.js",
   "unpkg": "./dist/sigpro.min.js",
   "jsdelivr": "./dist/sigpro.min.js",
-  "style": "./dist/sigpro.min.css",
   "exports": {
     ".": {
       "import": "./index.js",
       "script": "./dist/sigpro.js"
     },
-    "./style": "./dist/sigpro.min.css",
     "./vite": "./vite/index.js",
     "./vite/*": "./vite/*.js"
   },
@@ -34,9 +32,7 @@
     "url": "https://github.com/natxocc/sigpro/issues"
   },
   "scripts": {
-    "build:js": "bun build ./index.js --bundle --outfile=./dist/sigpro.js --format=iife --global-name=SigPro && bun build ./index.js --bundle --outfile=./dist/sigpro.min.js --bundle --format=iife --global-name=SigPro --minify",
-    "build:css": "cp sigpro.css ./dist/sigpro.css && bun x esbuild sigpro.css --minify --outfile=./dist/sigpro.min.css",
-    "build": "bun run build:js && bun run build:css",
+    "build": "bun build ./index.js --bundle --outfile=./dist/sigpro.js --format=iife --global-name=SigPro && bun build ./index.js --bundle --outfile=./dist/sigpro.min.js --bundle --format=iife --global-name=SigPro --minify",
     "prepublishOnly": "bun run build",
     "docs": "bun x serve docs"
   },
