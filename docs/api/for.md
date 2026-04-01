@@ -8,7 +8,7 @@ The `$for` function is a high-performance list renderer. It maps an array (or a 
 $for(
   source: Signal<any[]> | Function | any[], 
   render: (item: any, index: number) => HTMLElement, 
-  keyFn: (item: any, index: number) => string | number
+  keyFn?: (item: any, index: number) => string | number
 ): HTMLElement
 ```
 
@@ -16,7 +16,7 @@ $for(
 | :--- | :--- | :--- | :--- |
 | **`source`** | `Signal` | Yes | The reactive array to iterate over. |
 | **`render`** | `Function` | Yes | A function that returns a component or Node for each item. |
-| **`keyFn`** | `Function` | Yes | A function to extract a **unique ID** for each item (crucial for performance). |
+| **`keyFn`** | `Function` | **No** | A function to extract a **unique ID**. If omitted, it defaults to the `index`. |
 
 **Returns:** A `div` element with `display: contents` containing the live list.
 
@@ -24,8 +24,8 @@ $for(
 
 ## Usage Patterns
 
-### 1. Basic Keyed List
-Always use a unique property (like an `id`) as a key to ensure SigPro doesn't recreate nodes unnecessarily.
+### 1. Basic Keyed List (Recommended)
+Always use a unique property (like an `id`) as a key to ensure SigPro doesn't recreate nodes unnecessarily when reordering or filtering.
 
 ```javascript
 const users = $([
@@ -36,19 +36,20 @@ const users = $([
 Ul({ class: "list" }, [
   $for(users, 
     (user) => Li({ class: "p-2" }, user.name),
-    (user) => user.id
+    (user) => user.id // Stable and unique key
   )
 ]);
 ```
 
-### 2. Handling Primitive Arrays
-If your array contains simple strings or numbers, you can use the value itself or the index as a key (though the index is less efficient for reordering).
+### 2. Simplified Usage (Automatic Key)
+If you omit the third parameter, `$for` will automatically use the array index as the key. This is ideal for simple lists that don't change order frequently.
 
 ```javascript
 const tags = $(["Tech", "JS", "Web"]);
 
+// No need to pass keyFn if the index is sufficient
 Div({ class: "flex gap-1" }, [
-  $for(tags, (tag) => Badge(tag), (tag) => tag)
+  $for(tags, (tag) => Badge(tag)) 
 ]);
 ```
 
@@ -60,16 +61,14 @@ When the `source` signal changes, `$for` performs the following steps:
 
 1.  **Key Diffing**: It compares the new keys with the previous ones stored in an internal `Map`.
 2.  **Node Reuse**: If a key already exists, the DOM node is **reused** and moved to its new position. No new elements are created.
-3.  **Cleanup**: If a key disappears from the list, SigPro calls `.destroy()` on that specific item's instance. This stops all its internal watchers and removes its DOM nodes.
-
-
+3.  **Physical Cleanup**: If a key disappears from the list, SigPro calls `.destroy()` to stop reactivity and physically removes the node from the DOM to prevent memory leaks.
 
 ---
 
 ## Performance Tips
 
 * **Stable Keys**: Never use `Math.random()` as a key. This will force SigPro to destroy and recreate the entire list on every update, killing performance.
-* **Component Encapsulation**: If each item in your list has its own complex internal state, `$for` ensures that state is preserved even if the list is reordered, as long as the key remains the same.
+* **State Preservation**: If your list items have internal state (like an input with text), `$for` ensures that state is preserved even if the list is reordered, as long as the key (`id`) remains the same.
 
 ---
 
@@ -81,3 +80,4 @@ When the `source` signal changes, `$for` performs the following steps:
 | **DOM Nodes** | Re-created every time | **Reused via Keys** |
 | **Memory** | Potential leaks | **Automatic Cleanup** |
 | **State** | Lost on re-render | **Preserved per item** |
+| **Ease of Use** | Manual logic required | **Optional (fallback to index)** |

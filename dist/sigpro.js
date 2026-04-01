@@ -316,7 +316,7 @@
     return container;
   };
   $if.not = (condition, thenVal, otherwiseVal) => $if(() => !(typeof condition === "function" ? condition() : condition), thenVal, otherwiseVal);
-  var $for = (source, render, keyFn) => {
+  var $for = (source, render, keyFn = (item, index) => index) => {
     const marker = document.createTextNode("");
     const container = $html("div", { style: "display:contents" }, [marker]);
     const cache = new Map;
@@ -336,6 +336,9 @@
       cache.forEach((run, key) => {
         if (!newKeys.has(key)) {
           run.destroy();
+          if (run.container && run.container.parentNode) {
+            run.container.remove();
+          }
           cache.delete(key);
         }
       });

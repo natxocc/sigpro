@@ -307,27 +307,39 @@ $if.not = (condition, thenVal, otherwiseVal) => $if(() => !(typeof condition ===
 * @returns {HTMLElement} A reactive container (display: contents).
 */
 
-const $for = (source, render, keyFn) => {
+const $for = (source, render, keyFn = (item, index) => index) => {
   const marker = document.createTextNode("");
   const container = $html("div", { style: "display:contents" }, [marker]);
   const cache = new Map();
+
   $watch(() => {
     const items = (typeof source === "function" ? source() : source) || [];
     const newKeys = new Set();
+
     items.forEach((item, index) => {
       const key = keyFn(item, index);
       newKeys.add(key);
+
       let run = cache.get(key);
       if (!run) {
         run = _view(() => render(item, index));
         cache.set(key, run);
       }
+      
       container.insertBefore(run.container, marker);
     });
+
     cache.forEach((run, key) => {
-      if (!newKeys.has(key)) { run.destroy(); cache.delete(key); }
+      if (!newKeys.has(key)) {
+        run.destroy();
+        if (run.container && run.container.parentNode) {
+          run.container.remove();
+        }
+        cache.delete(key);
+      }
     });
   });
+
   return container;
 };
 
