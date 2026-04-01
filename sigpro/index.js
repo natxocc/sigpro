@@ -307,37 +307,46 @@ $if.not = (condition, thenVal, otherwiseVal) => $if(() => !(typeof condition ===
 * @returns {HTMLElement} A reactive container (display: contents).
 */
 
-const $for = (source, render, keyFn = (item, index) => index) => {
+const $for = (source, render, keyFn) => {
   const marker = document.createTextNode("");
   const container = $html("div", { style: "display:contents" }, [marker]);
-  const cache = new Map();
+  let cache = new Map();
 
   $watch(() => {
     const items = (typeof source === "function" ? source() : source) || [];
-    const newKeys = new Set();
+    const newCache = new Map();
+    const newOrder = [];
 
-    items.forEach((item, index) => {
-      const key = keyFn(item, index);
-      newKeys.add(key);
-
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const key = keyFn ? keyFn(item, i) : i;
+      
       let run = cache.get(key);
       if (!run) {
-        run = _view(() => render(item, index));
-        cache.set(key, run);
-      }
-      
-      container.insertBefore(run.container, marker);
-    });
-
-    cache.forEach((run, key) => {
-      if (!newKeys.has(key)) {
-        run.destroy();
-        if (run.container && run.container.parentNode) {
-          run.container.remove();
-        }
+        run = _view(() => render(item, i));
+      } else {
         cache.delete(key);
       }
+
+      newCache.set(key, run);
+      newOrder.push(key);
+    }
+
+    cache.forEach(run => {
+      run.destroy();
+      run.container.remove();
     });
+
+    let anchor = marker;
+    for (let i = newOrder.length - 1; i >= 0; i--) {
+      const run = newCache.get(newOrder[i]);
+      if (run.container.nextSibling !== anchor) {
+        container.insertBefore(run.container, anchor);
+      }
+      anchor = run.container;
+    }
+
+    cache = newCache;
   });
 
   return container;
