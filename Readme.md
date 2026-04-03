@@ -6,6 +6,24 @@
 
 [**Explore the Docs →**](https://natxocc.github.io/sigpro/) | [**View on GitHub**](https://github.com/natxocc/sigpro)
 
+---
+
+## Why SigPro?
+
+After years of building within closed ecosystems like **React, Vue, or Svelte**—spending countless hours mastering their internal rules and extra development time on abstractions—we must face an inevitable truth: all those complex "wrappers" must ultimately be translated back into Pure JavaScript for the browser to understand.
+
+That extra development time and the cognitive load of "learning the framework" instead of "learning the language" is exactly what **SigPro** eliminates. If the final destination is always JS, why not use a Pure JS-based system that drastically simplifies coding with a readable, vanilla, and remarkably fast architecture?
+
+* 🎯 **Atomic Precision:** Powered by a *Signal-based* architecture. State is bound directly to DOM nodes—when a value changes, **only that specific node updates**.
+* 🚀 **Zero-Hydration Bottlenecks:** No 100KB bundles or complex build steps. SigPro is pure, optimized JavaScript tailored for the browser's native engine.
+* 🍦 **Pure Vanilla JS Performance:** High-octane performance without the need for transpilers or heavy transformations. It runs natively in the browser just as well as it does in complex build pipelines.
+* 🛠️ **Build-Tool Agnostic:** Total freedom. Use it with **Vite, Webpack, or Rollup** for enterprise projects, or simply import it via a **`<script>` tag** for rapid prototyping. No tooling required.
+* 🚀 **Vite-Powered DX:** First-class Vite support with **file-based routing** out of the box. The official `sigpro/vite` plugin automatically scans your `src/pages` directory and generates reactive routes—no manual route configuration needed.
+* 📈 **Zero-Scale Bloat:** Unlike other frameworks where the bundle grows exponentially, SigPro's footprint remains **flat and predictable**. You only pay for the code you write.
+* 💎 **Premium DX (Developer Experience):** Forget boilerplate imports. SigPro injects an elegant, functional syntax (`Div()`, `Button()`, `Span()`) directly into your scope for a **"Zero-Import"** workflow.
+* 📦 **Fully Loaded:** Built-in Hash Routing, native **`localStorage` persistence**, and automatic lifecycle management (cleanups) included in less than 2KB.
+* 🌳 **Tree-Shakable:** Optimized for modern bundlers. Import only what you use, or load the full engine for rapid prototyping.
+
 -----
 
 ## ⚡ Real-World Benchmarks
@@ -30,22 +48,6 @@ SigPro isn't just "fast on paper." In the industry-standard **JS Framework Bench
 | **Run Memory** (1k rows) | **4.90 MB** | 4.25 MB | ~10.2 MB | ~28.5 MB |
 
 > **The Verdict:** SigPro delivers **Vanilla-like memory consumption** while maintaining **Surgical reactivity** that rivals (and often beats) SolidJS in granular updates.
-
----
-
-## Why SigPro?
-
-While other frameworks "guess" what changed by comparing massive DOM trees (Diffing), **SigPro already knows.**
-
-* 🎯 **Atomic Precision:** Powered by a *Signal-based* architecture. State is bound directly to DOM nodes—when a value changes, **only that specific node updates**.
-* 🚀 **Zero-Hydration Bottlenecks:** No 100KB bundles or complex build steps. SigPro is pure, optimized JavaScript tailored for the browser's native engine.
-* 🍦 **Pure Vanilla JS Performance:** High-octane performance without the need for transpilers or heavy transformations. It runs natively in the browser just as well as it does in complex build pipelines.
-* 🛠️ **Build-Tool Agnostic:** Total freedom. Use it with **Vite, Webpack, or Rollup** for enterprise projects, or simply import it via a **`<script>` tag** for rapid prototyping. No tooling required.
-* 🚀 **Vite-Powered DX:** First-class Vite support with **file-based routing** out of the box. The official `sigpro/vite` plugin automatically scans your `src/pages` directory and generates reactive routes—no manual route configuration needed.
-* 📈 **Zero-Scale Bloat:** Unlike other frameworks where the bundle grows exponentially, SigPro's footprint remains **flat and predictable**. You only pay for the code you write.
-* 💎 **Premium DX (Developer Experience):** Forget boilerplate imports. SigPro injects an elegant, functional syntax (`Div()`, `Button()`, `Span()`) directly into your scope for a **"Zero-Import"** workflow.
-* 📦 **Fully Loaded:** Built-in Hash Routing, native **`localStorage` persistence**, and automatic lifecycle management (cleanups) included in less than 2KB.
-* 🌳 **Tree-Shakable:** Optimized for modern bundlers. Import only what you use, or load the full engine for rapid prototyping.
 
 -----
 
