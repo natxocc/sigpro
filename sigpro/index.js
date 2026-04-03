@@ -252,19 +252,21 @@ const $html = (tag, props = {}, content = []) => {
 
   const append = (child) => {
     if (Array.isArray(child)) return child.forEach(append);
-    if (typeof child === "function") {
+    if (child instanceof Node) {
+      el.appendChild(child);
+    } else if (typeof child === "function") {
       const marker = document.createTextNode("");
       el.appendChild(marker);
       let nodes = [];
       el._cleanups.add($watch(() => {
-        const result = child(), nextNodes = (Array.isArray(result) ? result : [result]).map((item) =>
-          item?._isRuntime ? item.container : item instanceof Node ? item : document.createTextNode(item ?? "")
+        const res = child(), next = (Array.isArray(res) ? res : [res]).map((i) =>
+          i?._isRuntime ? i.container : i instanceof Node ? i : document.createTextNode(i ?? "")
         );
-        nodes.forEach((node) => { sweep(node); node.remove(); });
-        nextNodes.forEach((node) => marker.parentNode?.insertBefore(node, marker));
-        nodes = nextNodes;
+        nodes.forEach((n) => { sweep(n); n.remove(); });
+        next.forEach((n) => marker.parentNode?.insertBefore(n, marker));
+        nodes = next;
       }));
-    } else el.appendChild(child instanceof Node ? child : document.createTextNode(child ?? ""));
+    } else el.appendChild(document.createTextNode(child ?? ""));
   };
   append(content);
   return el;
@@ -307,43 +309,45 @@ $if.not = (condition, thenVal, otherwiseVal) => $if(() => !(typeof condition ===
 * @returns {HTMLElement} A reactive container (display: contents).
 */
 const $for = (source, render, keyFn) => {
-  const marker = document.createComment("sigpro-for");
+  const marker = document.createComment("sigpro-for-end");
   let cache = new Map();
-
+  
   $watch(() => {
     const items = (typeof source === "function" ? source() : source) || [];
-    const newCache = new Map();
     const parent = marker.parentNode;
-    
     if (!parent) return;
 
-    const newOrder = items.map((item, i) => {
+    const newCache = new Map();
+    const newOrder = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
       const key = keyFn ? keyFn(item, i) : i;
       let cached = cache.get(key);
 
       if (!cached) {
         const view = _view(() => render(item, i));
-        const node = view.container.firstChild || document.createTextNode("");
+        const node = view.container.firstElementChild || view.container.firstChild;
         cached = { node, destroy: view.destroy };
       } else {
         cache.delete(key);
       }
       newCache.set(key, cached);
-      return cached;
-    });
+      newOrder.push(cached.node);
+    }
 
     cache.forEach(c => {
       c.destroy();
       c.node.remove();
     });
 
-    let anchor = marker;
+    let currentAnchor = marker;
     for (let i = newOrder.length - 1; i >= 0; i--) {
-      const { node } = newOrder[i];
-      if (node.nextSibling !== anchor) {
-        parent.insertBefore(node, anchor);
+      const node = newOrder[i];
+      if (node.nextSibling !== currentAnchor) {
+        parent.insertBefore(node, currentAnchor);
       }
-      anchor = node;
+      currentAnchor = node;
     }
 
     cache = newCache;
