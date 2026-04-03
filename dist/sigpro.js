@@ -317,40 +317,42 @@
   };
   $if.not = (condition, thenVal, otherwiseVal) => $if(() => !(typeof condition === "function" ? condition() : condition), thenVal, otherwiseVal);
   var $for = (source, render, keyFn) => {
-    const marker = document.createTextNode("");
-    const container = $html("div", { style: "display:contents" }, [marker]);
+    const marker = document.createComment("sigpro-for");
     let cache = new Map;
     $watch(() => {
       const items = (typeof source === "function" ? source() : source) || [];
       const newCache = new Map;
-      const newOrder = [];
-      for (let i = 0;i < items.length; i++) {
-        const item = items[i];
+      const parent = marker.parentNode;
+      if (!parent)
+        return;
+      const newOrder = items.map((item, i) => {
         const key = keyFn ? keyFn(item, i) : i;
-        let run = cache.get(key);
-        if (!run) {
-          run = _view(() => render(item, i));
+        let cached = cache.get(key);
+        if (!cached) {
+          const view = _view(() => render(item, i));
+          const node = view.container.firstChild || document.createTextNode("");
+          cached = { node, destroy: view.destroy };
         } else {
           cache.delete(key);
         }
-        newCache.set(key, run);
-        newOrder.push(key);
-      }
-      cache.forEach((run) => {
-        run.destroy();
-        run.container.remove();
+        newCache.set(key, cached);
+        return cached;
+      });
+      cache.forEach((c) => {
+        c.destroy();
+        c.node.remove();
       });
       let anchor = marker;
       for (let i = newOrder.length - 1;i >= 0; i--) {
-        const run = newCache.get(newOrder[i]);
-        if (run.container.nextSibling !== anchor) {
-          container.insertBefore(run.container, anchor);
+        const { node } = newOrder[i];
+        if (node.nextSibling !== anchor) {
+          parent.insertBefore(node, anchor);
         }
-        anchor = run.container;
+        anchor = node;
       }
       cache = newCache;
     });
-    return container;
+    return marker;
   };
   var $router = (routes) => {
     const sPath = $(window.location.hash.replace(/^#/, "") || "/");
