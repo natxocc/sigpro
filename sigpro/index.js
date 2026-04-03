@@ -226,6 +226,8 @@ const $html = (tag, props = {}, content = []) => {
   const el = document.createElement(tag), _sanitize = (key, val) => (key === 'src' || key === 'href') && String(val).toLowerCase().includes('javascript:') ? '#' : val;
   el._cleanups = new Set();
 
+  const boolAttrs = ["disabled", "checked", "required", "readonly", "selected", "multiple", "autofocus"];
+
   for (let [key, val] of Object.entries(props)) {
     if (key === "ref") { (typeof val === "function" ? val(el) : (val.current = el)); continue; }
     const isSignal = typeof val === "function", isInput = ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName), isBindAttr = (key === "value" || key === "checked");
@@ -242,11 +244,32 @@ const $html = (tag, props = {}, content = []) => {
     } else if (isSignal) {
       el._cleanups.add($watch(() => {
         const currentVal = _sanitize(key, val());
-        if (key === "class") el.className = currentVal || "";
-        else currentVal == null ? el.removeAttribute(key) : el.setAttribute(key, currentVal);
+        if (key === "class") {
+          el.className = currentVal || "";
+        } else if (boolAttrs.includes(key)) {
+          if (currentVal) {
+            el.setAttribute(key, "");
+            el[key] = true;
+          } else {
+            el.removeAttribute(key);
+            el[key] = false;
+          }
+        } else {
+          currentVal == null ? el.removeAttribute(key) : el.setAttribute(key, currentVal);
+        }
       }));
     } else {
-      el.setAttribute(key, _sanitize(key, val));
+      if (boolAttrs.includes(key)) {
+        if (val) {
+          el.setAttribute(key, "");
+          el[key] = true;
+        } else {
+          el.removeAttribute(key);
+          el[key] = false;
+        }
+      } else {
+        el.setAttribute(key, _sanitize(key, val));
+      }
     }
   }
 
@@ -262,7 +285,7 @@ const $html = (tag, props = {}, content = []) => {
         const res = child(), next = (Array.isArray(res) ? res : [res]).map((i) =>
           i?._isRuntime ? i.container : i instanceof Node ? i : document.createTextNode(i ?? "")
         );
-        nodes.forEach((n) => { sweep(n); n.remove(); });
+        nodes.forEach((n) => { sweep?.(n); n.remove(); });
         next.forEach((n) => marker.parentNode?.insertBefore(n, marker));
         nodes = next;
       }));
@@ -308,52 +331,49 @@ $if.not = (condition, thenVal, otherwiseVal) => $if(() => !(typeof condition ===
 * @param {Function} keyFn - Function to extract a unique key from the item.
 * @returns {HTMLElement} A reactive container (display: contents).
 */
-const $for = (source, render, keyFn) => {
-  const marker = document.createComment("sigpro-for-end");
+const $for = (source, render, keyFn, tag = "div", props = { style: "display:contents" }) => {
+  const marker = document.createTextNode("");
+  const container = $html(tag, props, [marker]);
   let cache = new Map();
-  
+
   $watch(() => {
     const items = (typeof source === "function" ? source() : source) || [];
-    const parent = marker.parentNode;
-    if (!parent) return;
-
     const newCache = new Map();
     const newOrder = [];
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       const key = keyFn ? keyFn(item, i) : i;
-      let cached = cache.get(key);
-
-      if (!cached) {
-        const view = _view(() => render(item, i));
-        const node = view.container.firstElementChild || view.container.firstChild;
-        cached = { node, destroy: view.destroy };
+      
+      let run = cache.get(key);
+      if (!run) {
+        run = _view(() => render(item, i));
       } else {
         cache.delete(key);
       }
-      newCache.set(key, cached);
-      newOrder.push(cached.node);
+
+      newCache.set(key, run);
+      newOrder.push(key);
     }
 
-    cache.forEach(c => {
-      c.destroy();
-      c.node.remove();
+    cache.forEach(run => {
+      run.destroy();
+      run.container.remove();
     });
 
-    let currentAnchor = marker;
+    let anchor = marker;
     for (let i = newOrder.length - 1; i >= 0; i--) {
-      const node = newOrder[i];
-      if (node.nextSibling !== currentAnchor) {
-        parent.insertBefore(node, currentAnchor);
+      const run = newCache.get(newOrder[i]);
+      if (run.container.nextSibling !== anchor) {
+        container.insertBefore(run.container, anchor);
       }
-      currentAnchor = node;
+      anchor = run.container;
     }
 
     cache = newCache;
   });
 
-  return marker;
+  return container;
 };
 
 /**
