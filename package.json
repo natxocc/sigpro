@@ -4,12 +4,13 @@
   "type": "module",
   "license": "MIT",
   "main": "./index.js",
-  "module": "./index.js",
+  "module": "./dist/sigpro.esm.min.js",
   "unpkg": "./dist/sigpro.min.js",
   "jsdelivr": "./dist/sigpro.min.js",
   "exports": {
     ".": {
-      "import": "./index.js",
+      "import": "./dist/sigpro.esm.min.js",
+      "require": "./index.js",
       "script": "./dist/sigpro.js",
       "types": "./sigpro/sigpro.d.ts"
     },
@@ -33,9 +34,15 @@
     "url": "https://github.com/natxocc/sigpro/issues"
   },
   "scripts": {
-    "build": "bun build ./index.js --bundle --outfile=./dist/sigpro.js --format=iife --global-name=SigPro && bun build ./index.js --bundle --outfile=./dist/sigpro.min.js --bundle --format=iife --global-name=SigPro --minify",
-    "prepublishOnly": "bun run build",
-    "docs": "bun x serve docs"
+    "clean": "rm -rf dist",
+    "prebuild": "npm run clean",
+    "build:iife": "bun build ./index.js --bundle --outfile=./dist/sigpro.js --format=iife --global-name=SigPro",
+    "build:iife:min": "bun build ./index.js --bundle --outfile=./dist/sigpro.min.js --format=iife --global-name=SigPro --minify",
+    "build:esm": "bun build ./index.js --bundle --outfile=./dist/sigpro.esm.js --format=esm",
+    "build:esm:min": "bun build ./index.js --bundle --outfile=./dist/sigpro.esm.min.js --format=esm --minify",
+    "build": "npm run build:iife && npm run build:iife:min && npm run build:esm && npm run build:esm:min",
+    "docs": "bun x serve docs",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "signals",
