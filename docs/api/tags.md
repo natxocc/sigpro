@@ -126,6 +126,62 @@ const UserStatus = (name, online) => (
 );
 ```
 
+---
+
+## 6. Custom Tags with `$html`
+
+Create reusable components using `$html`. All reactivity auto-cleans itself.
+
+### Basic Example
+
+```javascript
+const UserCard = (props, children) => 
+  $html('div', { class: 'card p-4', 'data-id': props.id }, children);
+
+UserCard({ id: 123 }, [H3("John Doe"), P("john@example.com")]);
+```
+
+### Reactive Component (Auto-Cleaned)
+
+```javascript
+const Counter = (initial = 0) => {
+  const count = $(initial);
+  return $html('div', { class: 'flex gap-2' }, [
+    Button({ onclick: () => count(count() - 1) }, '-'),
+    Span(() => count()),
+    Button({ onclick: () => count(count() + 1) }, '+')
+  ]);
+};
+```
+
+### When Manual Cleanup is Needed
+
+Only for external resources (intervals, sockets, third-party libs):
+
+```javascript
+const Timer = () => {
+  const time = $(new Date().toLocaleTimeString());
+  const el = $html('span', {}, () => time());
+  
+  const interval = setInterval(() => time(new Date().toLocaleTimeString()), 1000);
+  el._cleanups.add(() => clearInterval(interval)); // Manual cleanup
+  
+  return el;
+};
+```
+
+### `$html` vs Tag Helpers
+
+| Use | Recommendation |
+|:---|:---|
+| Standard tags (`div`, `span`) | `Div()`, `Span()` helpers |
+| Reusable components | Function returning `$html` |
+| Dynamic tag names | `$html(tagName, props, children)` |
+
+> **Auto-cleanup**: `$html` automatically destroys watchers, events, and nested components. Only add to `_cleanups` for external resources.
+
+---
+
 | State (`online`) | Rendered HTML | Memory Management |
 | :--- | :--- | :--- |
 | **`true`** | `<div class="flex..."><span class="w-3..."></span><p class="text-bold">John</p></div>` | Watcher active |

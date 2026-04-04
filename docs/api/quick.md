@@ -2,6 +2,22 @@
 
 SigPro is a high-performance micro-framework that updates the **Real DOM** surgically. No Virtual DOM, no unnecessary re-renders, and built-in **Cleanup** (memory cleanup).
 
+<div class="text-center my-8">
+  <div class="flex justify-center gap-2 flex-wrap mb-4">
+    <span class="badge badge-primary badge-lg font-mono text-lg">$-$$</span>
+    <span class="badge badge-secondary badge-lg font-mono text-lg">$watch</span>
+    <span class="badge badge-accent badge-lg font-mono text-lg">$html</span>
+    <span class="badge badge-info badge-lg font-mono text-lg">$if</span>
+    <span class="badge badge-success badge-lg font-mono text-lg">$for</span>
+    <span class="badge badge-warning badge-lg font-mono text-lg">$router</span>
+    <span class="badge badge-error badge-lg font-mono text-lg">$mount</span>
+  </div>
+  <h1 class="text-5xl font-black bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
+    ⚡ All the power! ⚡
+  </h1>
+  <p class="text-xl opacity-70 mt-2">6 functions that will change the way you code</p>
+</div>
+
 ## Core Functions
 
 Explore the reactive building blocks of SigPro.
@@ -73,8 +89,8 @@ SigPro provides **PascalCase** wrappers for all standard HTML5 tags (e.g., `Div`
 
 ### Syntax Pattern
 
-<div class="mockup-code bg-base-300 text-base-content my-6">
-  <pre data-prefix=">"><code>Tag({ attributes }, [children])</code></pre>
+<div class="mockup-code bg-base-300 text-base-content">
+  <pre data-prefix=""><code>Tag({ attributes }, [children])</code></pre>
 </div>
 
 ### Special Attributes & Routing
