@@ -137,11 +137,9 @@ $mount(PersistDemo, '#demo-persist');
 ```
 
 <script>
-  // Esta función envuelve todo para que Docsify lo ejecute correctamente
   (function() {
     const initExamples = () => {
       
-      // 1. Counter
       const counterTarget = document.querySelector('#demo-counter');
       if (counterTarget && !counterTarget.hasChildNodes()) {
         const Counter = () => {

@@ -85,7 +85,7 @@ SigPro uses **PascalCase** for Tag Helpers (e.g., `Div`, `Button`) to provide a 
 
 ```javascript
 // File: App.js
-import SigPro from "sigpro";
+import "sigpro";
 
 export const App = () => {
   const $count = $(0);
@@ -104,7 +104,7 @@ export const App = () => {
 };
 
 // File: main.js
-import SigPro from "sigpro";
+import "sigpro";
 import { App } from "./App.js";
 
 $mount(App, "#app");

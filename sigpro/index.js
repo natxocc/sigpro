@@ -7,7 +7,6 @@ const effectQueue = new Set();
 let isFlushing = false;
 const MOUNTED_NODES = new WeakMap();
 
-/** flush */
 const flush = () => {
   if (isFlushing) return;
   isFlushing = true;
@@ -19,7 +18,6 @@ const flush = () => {
   isFlushing = false;
 };
 
-/** track */
 const track = (subs) => {
   if (activeEffect && !activeEffect._deleted) {
     subs.add(activeEffect);
@@ -27,7 +25,6 @@ const track = (subs) => {
   }
 };
 
-/** trigger */
 const trigger = (subs) => {
   for (const eff of subs) {
     if (eff === activeEffect || eff._deleted) continue;
@@ -41,7 +38,6 @@ const trigger = (subs) => {
   if (!isFlushing) queueMicrotask(flush);
 };
 
-/** sweep */
 const sweep = (node) => {
   if (node._cleanups) {
     node._cleanups.forEach((f) => f());
@@ -50,7 +46,6 @@ const sweep = (node) => {
   node.childNodes?.forEach(sweep);
 };
 
-/** _view */
 const _view = (fn) => {
   const cleanups = new Set();
   const prev = currentOwner;
@@ -79,17 +74,6 @@ const _view = (fn) => {
     },
   };
 };
-
-/**
- * Creates a reactive Signal or a Computed Value.
- * @param {any|Function} initial - Initial value or a getter function for computed state.
- * @param {string} [key] - Optional. Key for automatic persistence in localStorage.
- * @returns {Function} Signal getter/setter. Use `sig()` to read and `sig(val)` to write.
- * @example
- * const count = $(0); // Simple signal
- * const double = $(() => count() * 2); // Computed signal
- * const name = $("John", "user-name"); // Persisted signal
- */
 
 const $ = (initial, key = null) => {
   if (typeof initial === "function") {
@@ -148,16 +132,39 @@ const $ = (initial, key = null) => {
   };
 };
 
-/**
-* Watches for signal changes and executes a side effect.
-* Handles automatic cleanup of previous effects.
-* @param {Function|Array} target - Function to execute or Array of signals for explicit dependency tracking.
-* @param {Function} [fn] - If the first parameter is an Array, this is the callback function.
-* @returns {Function} Function to manually stop the watcher.
-* @example
-* $watch(() => console.log("Count is:", count()));
-* $watch([count], () => console.log("Only runs when count changes"));
-*/
+const $$ = (obj, cache = new WeakMap()) => {
+  if (typeof obj !== "object" || obj === null) return obj;
+  if (cache.has(obj)) return cache.get(obj);
+
+  const subs = {};
+
+  const proxy = new Proxy(obj, {
+    get(target, key) {
+      if (activeEffect)
+        track(subs[key] ??= new Set());
+
+      const value = Reflect.get(target, key);
+
+      return (typeof value === "object" && value !== null)
+        ? $$(value, cache)
+        : value;
+    },
+
+    set(target, key, value) {
+      if (Object.is(target[key], value)) return true;
+
+      const res = Reflect.set(target, key, value);
+
+      if (subs[key])
+        trigger(subs[key]);
+
+      return res;
+    }
+  });
+
+  cache.set(obj, proxy);
+  return proxy;
+};
 
 const $watch = (target, fn) => {
   const isExplicit = Array.isArray(target);
@@ -212,18 +219,18 @@ const $watch = (target, fn) => {
   return runner.stop;
 };
 
-/**
-* DOM element rendering engine with built-in reactivity.
-* @param {string} tag - HTML tag name (e.g., 'div', 'span').
-* @param {Object} [props] - Attributes, events (onEvent), or two-way bindings (value, checked).
-* @param {Array|any} [content] - Children: text, other nodes, or reactive signals.
-* @returns {HTMLElement} The configured reactive DOM element.
-*/
 const $html = (tag, props = {}, content = []) => {
   if (props instanceof Node || Array.isArray(props) || typeof props !== "object") {
     content = props; props = {};
   }
-  const el = document.createElement(tag), _sanitize = (key, val) => (key === 'src' || key === 'href') && String(val).toLowerCase().includes('javascript:') ? '#' : val;
+  
+  const svgTags = ["svg","path","circle","rect","line","polyline","polygon","g","defs","text","tspan","use"];
+  const isSVG = svgTags.includes(tag);
+  const el = isSVG 
+    ? document.createElementNS("http://www.w3.org/2000/svg", tag)
+    : document.createElement(tag);
+    
+  const _sanitize = (key, val) => (key === 'src' || key === 'href') && String(val).toLowerCase().includes('javascript:') ? '#' : val;
   el._cleanups = new Set();
 
   const boolAttrs = ["disabled", "checked", "required", "readonly", "selected", "multiple", "autofocus"];
@@ -255,7 +262,13 @@ const $html = (tag, props = {}, content = []) => {
             el[key] = false;
           }
         } else {
-          currentVal == null ? el.removeAttribute(key) : el.setAttribute(key, currentVal);
+          if (currentVal == null) {
+            el.removeAttribute(key);
+          } else if (isSVG && typeof currentVal === 'number') {
+            el.setAttribute(key, currentVal);
+          } else {
+            el.setAttribute(key, currentVal);
+          }
         }
       }));
     } else {
@@ -295,42 +308,41 @@ const $html = (tag, props = {}, content = []) => {
   return el;
 };
 
-/**
-* Conditional rendering component.
-* @param {Function|boolean} condition - Reactive signal or boolean value.
-* @param {Function|HTMLElement} thenVal - Content to show if true.
-* @param {Function|HTMLElement} [otherwiseVal] - Content to show if false (optional).
-* @returns {HTMLElement} A reactive container (display: contents).
-*/
-
-const $if = (condition, thenVal, otherwiseVal = null) => {
+const $if = (condition, thenVal, otherwiseVal = null, transition = null) => {
   const marker = document.createTextNode("");
   const container = $html("div", { style: "display:contents" }, [marker]);
   let current = null, last = null;
+  
   $watch(() => {
     const state = !!(typeof condition === "function" ? condition() : condition);
-    if (state !== last) {
-      last = state;
+    if (state === last) return;
+    last = state;
+    
+    if (current && !state && transition?.out) {
+      transition.out(current.container, () => {
+        current.destroy();
+        current = null;
+      });
+    } else {
       if (current) current.destroy();
+      current = null;
+    }
+    
+    if (state || (!state && otherwiseVal)) {
       const branch = state ? thenVal : otherwiseVal;
       if (branch) {
         current = _view(() => typeof branch === "function" ? branch() : branch);
         container.insertBefore(current.container, marker);
+        if (state && transition?.in) transition.in(current.container);
       }
     }
   });
+  
   return container;
 };
 
 $if.not = (condition, thenVal, otherwiseVal) => $if(() => !(typeof condition === "function" ? condition() : condition), thenVal, otherwiseVal);
 
-/**
-* Optimized reactive loop with key-based reconciliation.
-* @param {Function|Array} source - Signal containing an Array of data.
-* @param {Function} render - Function receiving (item, index) and returning a node.
-* @param {Function} keyFn - Function to extract a unique key from the item.
-* @returns {HTMLElement} A reactive container (display: contents).
-*/
 const $for = (source, render, keyFn, tag = "div", props = { style: "display:contents" }) => {
   const marker = document.createTextNode("");
   const container = $html(tag, props, [marker]);
@@ -344,7 +356,7 @@ const $for = (source, render, keyFn, tag = "div", props = { style: "display:cont
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       const key = keyFn ? keyFn(item, i) : i;
-      
+
       let run = cache.get(key);
       if (!run) {
         run = _view(() => render(item, i));
@@ -376,11 +388,6 @@ const $for = (source, render, keyFn, tag = "div", props = { style: "display:cont
   return container;
 };
 
-/**
-* Hash-based (#) routing system.
-* @param {Array<{path: string, component: Function}>} routes - Route definitions.
-* @returns {HTMLElement} The router outlet container.
-*/
 const $router = (routes) => {
   const sPath = $(window.location.hash.replace(/^#/, "") || "/");
   window.addEventListener("hashchange", () => sPath(window.location.hash.replace(/^#/, "") || "/"));
@@ -426,21 +433,6 @@ $router.to = (path) => (window.location.hash = path.replace(/^#?\/?/, "#/"));
 $router.back = () => window.history.back();
 $router.path = () => window.location.hash.replace(/^#/, "") || "/";
 
-/**
- * Mounts a component or node into a DOM target element.
- * It automatically handles the cleanup of any previously mounted SigPro instances 
- * in that target to prevent memory leaks and duplicate renders.
- * * @param {Function|HTMLElement} component - The component function to render or a pre-built DOM node.
- * @param {string|HTMLElement} target - A CSS selector string or a direct DOM element to mount into.
- * @returns {Object|undefined} The view instance containing the `container` and `destroy` method, or undefined if target is not found.
- * * @example
- * // Mount using a component function
- * $mount(() => Div({ class: "app" }, "Hello World"), "#root");
- * * // Mount using a direct element
- * const myApp = Div("Hello");
- * $mount(myApp, document.getElementById("app"));
- */
-
 const $mount = (component, target) => {
   const el = typeof target === "string" ? document.querySelector(target) : target;
   if (!el) return;
@@ -451,7 +443,6 @@ const $mount = (component, target) => {
   return instance;
 };
 
-/** GLOBAL CORE REGISTRY */
 const SigProCore = { $, $watch, $html, $if, $for, $router, $mount };
 
 if (typeof window !== "undefined") {

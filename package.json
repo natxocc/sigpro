@@ -10,7 +10,8 @@
   "exports": {
     ".": {
       "import": "./index.js",
-      "script": "./dist/sigpro.js"
+      "script": "./dist/sigpro.js",
+      "types": "./sigpro/sigpro.d.ts"
     },
     "./vite": "./vite/index.js",
     "./vite/*": "./vite/*.js"
