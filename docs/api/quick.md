@@ -67,39 +67,6 @@ Explore the reactive building blocks of SigPro.
 
 ---
 
-## Reactive Proxies ($$)
-
-The `$$()` function creates a deep reactive proxy that automatically tracks nested property access.
-
-```javascript
-// Create a reactive object
-const state = $$({
-  user: {
-    name: "John",
-    address: { city: "Madrid" }
-  },
-  count: 0
-});
-
-// Watch changes automatically
-$watch(() => {
-  console.log(state.user.name); // Auto-tracked
-  console.log(state.count);     // Auto-tracked
-});
-
-// Mutations trigger updates
-state.count = 5;        // Triggers re-render
-state.user.name = "Ana"; // Deep property also tracked!
-```
-
-**Benefits over manual signals:**
-- No need for `$()` wrappers on every property
-- Deep nesting works automatically
-- Cleaner, more natural syntax
-- Perfect for complex state objects
-
----
-
 ## Element Constructors (Tags)
 
 SigPro provides **PascalCase** wrappers for all standard HTML5 tags (e.g., `Div`, `Span`, `Button`).
