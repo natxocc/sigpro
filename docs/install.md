@@ -42,7 +42,6 @@ bun add sigpro
 ```
 
   </div>
-
   <input type="radio" name="install_method" class="tab border-base-300 whitespace-nowrap" aria-label="CDN (ESM)" />
   <div class="tab-content bg-base-100 border-base-300 rounded-box p-6">
 
@@ -153,17 +152,17 @@ $mount(App, "#app");
 
 One of SigPro's core strengths is its **Global API**, which eliminates "Import Hell" while remaining ESM-compatible.
 
-* **The "Zero-Config" Import:** By simply adding `import SigPro from "sigpro"`, the framework automatically "hydrates" the global `window` object. 
-    * **Core Functions:** You get immediate access to `$`, `$watch`, `$html`, `$if`, `$for`, and `$router` anywhere in your scripts without using the `SigPro.` prefix.
-    * **Auto-Installation:** This happens instantly upon import thanks to its built-in `install()` routine, making it "Plug & Play" for both local projects and CDN usage.
+- **The "Zero-Config" Import:** By simply adding `import SigPro from "sigpro"`, the framework automatically "hydrates" the global `window` object.
+  - **Core Functions:** You get immediate access to `$`, `$watch`, `$html`, `$if`, `$for`, and `$router` anywhere in your scripts without using the `SigPro.` prefix.
+  - **Auto-Installation:** This happens instantly upon import thanks to its built-in `install()` routine, making it "Plug & Play" for both local projects and CDN usage.
 
-* **PascalCase Tag Helpers:** Standard HTML tags are pre-registered as global functions (`Div`, `Span`, `Button`, `Section`, etc.). 
-    * **Clean UI Syntax:** This allows you to write UI structures that look like HTML but are pure, reactive JavaScript: `Div({ class: "card" }, [ H1("Title") ])`.
+- **PascalCase Tag Helpers:** Standard HTML tags are pre-registered as global functions (`Div`, `Span`, `Button`, `Section`, etc.).
+  - **Clean UI Syntax:** This allows you to write UI structures that look like HTML but are pure, reactive JavaScript: `Div({ class: "card" }, [ H1("Title") ])`.
 
-* **Hybrid Tree Shaking:** * For **Maximum Speed**, use `import SigPro from "sigpro"`.
-    * For **Maximum Optimization**, you can still use Named Imports: `import { $, $html } from "sigpro"`. This allows modern bundlers like Vite to prune unused code while keeping your core reactive.
+- **Hybrid Tree Shaking:** \* For **Maximum Speed**, use `import SigPro from "sigpro"`.
+  - For **Maximum Optimization**, you can still use Named Imports: `import { $, $html } from "sigpro"`. This allows modern bundlers like Vite to prune unused code while keeping your core reactive.
 
-* **Custom Components:** We recommend using **PascalCase** for your own components (e.g., `UserCard()`) to maintain visual consistency with the built-in Tag Helpers and distinguish them from standard logic.
+- **Custom Components:** We recommend using **PascalCase** for your own components (e.g., `UserCard()`) to maintain visual consistency with the built-in Tag Helpers and distinguish them from standard logic.
 
 ---
 

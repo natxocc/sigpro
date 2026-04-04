@@ -30,6 +30,7 @@
   // index.js
   var exports_sigpro = {};
   __export(exports_sigpro, {
+    Fragment: () => Fragment,
     $watch: () => $watch,
     $router: () => $router,
     $mount: () => $mount,
@@ -447,7 +448,8 @@
     MOUNTED_NODES.set(el, instance);
     return instance;
   };
-  var SigProCore = { $, $watch, $html, $if, $for, $router, $mount };
+  var Fragment = ({ children }) => children;
+  var SigProCore = { $, $watch, $html, $if, $for, $router, $mount, Fragment };
   if (typeof window !== "undefined") {
     const install = (registry) => {
       Object.keys(registry).forEach((key) => {
@@ -460,6 +462,7 @@
           window[helperName] = (props, content) => $html(tagName, props, content);
         }
       });
+      window.Fragment = Fragment;
       window.SigPro = Object.freeze(registry);
     };
     install(SigProCore);

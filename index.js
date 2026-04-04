@@ -1,2 +1,2 @@
 // index.js
-export * from './dist/sigpro.esm.js'; 
+export * from './sigpro/index.js'; 

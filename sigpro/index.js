@@ -223,13 +223,13 @@ const $html = (tag, props = {}, content = []) => {
   if (props instanceof Node || Array.isArray(props) || typeof props !== "object") {
     content = props; props = {};
   }
-  
-  const svgTags = ["svg","path","circle","rect","line","polyline","polygon","g","defs","text","tspan","use"];
+
+  const svgTags = ["svg", "path", "circle", "rect", "line", "polyline", "polygon", "g", "defs", "text", "tspan", "use"];
   const isSVG = svgTags.includes(tag);
-  const el = isSVG 
+  const el = isSVG
     ? document.createElementNS("http://www.w3.org/2000/svg", tag)
     : document.createElement(tag);
-    
+
   const _sanitize = (key, val) => (key === 'src' || key === 'href') && String(val).toLowerCase().includes('javascript:') ? '#' : val;
   el._cleanups = new Set();
 
@@ -312,12 +312,12 @@ const $if = (condition, thenVal, otherwiseVal = null, transition = null) => {
   const marker = document.createTextNode("");
   const container = $html("div", { style: "display:contents" }, [marker]);
   let current = null, last = null;
-  
+
   $watch(() => {
     const state = !!(typeof condition === "function" ? condition() : condition);
     if (state === last) return;
     last = state;
-    
+
     if (current && !state && transition?.out) {
       transition.out(current.container, () => {
         current.destroy();
@@ -327,7 +327,7 @@ const $if = (condition, thenVal, otherwiseVal = null, transition = null) => {
       if (current) current.destroy();
       current = null;
     }
-    
+
     if (state || (!state && otherwiseVal)) {
       const branch = state ? thenVal : otherwiseVal;
       if (branch) {
@@ -337,7 +337,7 @@ const $if = (condition, thenVal, otherwiseVal = null, transition = null) => {
       }
     }
   });
-  
+
   return container;
 };
 
@@ -443,7 +443,9 @@ const $mount = (component, target) => {
   return instance;
 };
 
-const SigProCore = { $, $watch, $html, $if, $for, $router, $mount };
+export const Fragment = ({ children }) => children;
+
+const SigProCore = { $, $watch, $html, $if, $for, $router, $mount, Fragment };
 
 if (typeof window !== "undefined") {
   const install = (registry) => {
@@ -458,7 +460,8 @@ if (typeof window !== "undefined") {
         window[helperName] = (props, content) => $html(tagName, props, content);
       }
     });
-
+    
+    window.Fragment = Fragment;
     window.SigPro = Object.freeze(registry);
   };
 

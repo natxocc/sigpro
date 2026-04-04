@@ -406,7 +406,8 @@ var $mount = (component, target) => {
   MOUNTED_NODES.set(el, instance);
   return instance;
 };
-var SigProCore = { $, $watch, $html, $if, $for, $router, $mount };
+var Fragment = ({ children }) => children;
+var SigProCore = { $, $watch, $html, $if, $for, $router, $mount, Fragment };
 if (typeof window !== "undefined") {
   const install = (registry) => {
     Object.keys(registry).forEach((key) => {
@@ -419,11 +420,13 @@ if (typeof window !== "undefined") {
         window[helperName] = (props, content) => $html(tagName, props, content);
       }
     });
+    window.Fragment = Fragment;
     window.SigPro = Object.freeze(registry);
   };
   install(SigProCore);
 }
 export {
+  Fragment,
   $watch,
   $router,
   $mount,
