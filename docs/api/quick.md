@@ -27,6 +27,11 @@ Explore the reactive building blocks of SigPro.
         <td>Creates a <b>Computed Signal</b> that auto-updates when dependencies change.</td>
       </tr>
       <tr>
+        <td><code class="text-primary font-bold">$$(obj)</code></td>
+        <td class="font-mono text-xs opacity-70">(object) => Proxy</td>
+        <td>Creates a <b>Deep Reactive Proxy</b>. Track nested property access automatically. No need for manual signals.</td>
+      </tr>
+      <tr>
         <td><code class="text-secondary font-bold">$watch(fn)</code></td>
         <td class="font-mono text-xs opacity-70">(function) => stopFn</td>
         <td><b>Auto Mode:</b> Tracks any signal touched inside. Returns a stop function.</td>
@@ -59,6 +64,39 @@ Explore the reactive building blocks of SigPro.
     </tbody>
   </table>
 </div>
+
+---
+
+## Reactive Proxies ($$)
+
+The `$$()` function creates a deep reactive proxy that automatically tracks nested property access.
+
+```javascript
+// Create a reactive object
+const state = $$({
+  user: {
+    name: "John",
+    address: { city: "Madrid" }
+  },
+  count: 0
+});
+
+// Watch changes automatically
+$watch(() => {
+  console.log(state.user.name); // Auto-tracked
+  console.log(state.count);     // Auto-tracked
+});
+
+// Mutations trigger updates
+state.count = 5;        // Triggers re-render
+state.user.name = "Ana"; // Deep property also tracked!
+```
+
+**Benefits over manual signals:**
+- No need for `$()` wrappers on every property
+- Deep nesting works automatically
+- Cleaner, more natural syntax
+- Perfect for complex state objects
 
 ---
 
@@ -113,5 +151,9 @@ SigPro provides **PascalCase** wrappers for all standard HTML5 tags (e.g., `Div`
 > [!IMPORTANT]
 > **Performance Hint:** For lists (`$for`), always provide a unique key function `(item) => item.id` to prevent unnecessary node creation and enable reordering.
 
->  [!TIP]
+> [!TIP]
+> **Pro Tip:** Use `$$()` for complex nested state objects instead of multiple `$()` signals. It's cleaner and automatically tracks deep properties.
+
+> [!TIP]
 > **Performance Hint:** Always use functions `() => signal()` for dynamic children to ensure SigPro only updates the specific node and not the whole container.
+```
