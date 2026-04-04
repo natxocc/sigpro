@@ -115,6 +115,103 @@ SigPro provides **PascalCase** wrappers for all standard HTML5 tags (e.g., `Div`
 
 ---
 
+## Custom API BYOS (Bring Your Own Syntax)
+
+SigPro's core functions are intentionally simple and can be easily renamed in **one line** to match your preferred coding style.
+
+### One-Line Renaming
+
+```javascript
+import { $ as signal, $mount as render, $html as tag, $if as when, $for as each, $watch as effect } from 'sigpro';
+
+// Now use your custom names
+const count = signal(0);
+effect(() => console.log(count()));
+
+render(() => 
+  tag('div', {}, [
+    when(count, 
+      () => tag('span', {}, 'Positive'),
+      () => tag('span', {}, 'Zero or negative')
+    )
+  ]), 
+  '#app'
+);
+```
+
+### Create React-like Hooks
+
+```javascript
+import * as SigPro from 'sigpro';
+
+const useState = (initial) => {
+  const signal = SigPro.$(initial);
+  return [signal, (value) => signal(value)];
+};
+
+const useEffect = (fn, deps) => {
+  deps ? SigPro.$watch(deps, fn) : SigPro.$watch(fn);
+};
+
+// Usage
+const Counter = () => {
+  const [count, setCount] = useState(0);
+  useEffect(() => console.log(count()), [count]);
+  return SigPro.$html('button', { onClick: () => setCount(count() + 1) }, count);
+};
+```
+
+### Create Vue-like API
+
+```javascript
+import { $ as ref, $watch as watch, $mount as mount } from 'sigpro';
+
+const computed = (fn) => ref(fn);
+const createApp = (component) => ({ mount: (selector) => mount(component, selector) });
+
+// Usage
+const count = ref(0);
+const double = computed(() => count() * 2);
+watch([count], () => console.log(count()));
+```
+
+### Global Custom API with sigpro.config.js
+
+Create a central configuration file to reuse your custom naming across the entire project:
+
+```javascript
+// config/sigpro.config.js
+import { $ as signal, $mount as render, $html as tag, $if as when, $for as each, $watch as effect } from 'sigpro';
+
+// Re-export everything with your custom names
+export { signal, render, tag, when, each, effect };
+
+// Also re-export the original functions if needed
+export * from 'sigpro';
+```
+
+```javascript
+// app.js - Import your custom API globally
+import { signal, render, tag, when, each, effect } from './config/sigpro.config.js';
+
+// Use your preferred syntax everywhere
+const count = signal(0);
+const double = signal(() => count() * 2);
+
+effect(() => console.log(`Count: ${count()}, Double: ${double()}`));
+
+const App = () =>
+  tag('div', { class: 'p-4' }, [
+    tag('h1', {}, () => `Count: ${count()}`),
+    tag('button', { onclick: () => count(count() + 1) }, 'Increment')
+  ]);
+
+render(App, '#app');
+```
+
+> [!TIP]
+> **Why rename?** Team preferences, framework migration, or just personal taste. SigPro adapts to you, not the other way around.
+
 > [!IMPORTANT]
 > **Performance Hint:** For lists (`$for`), always provide a unique key function `(item) => item.id` to prevent unnecessary node creation and enable reordering.
 

@@ -3,14 +3,14 @@
   "version": "1.1.20",
   "type": "module",
   "license": "MIT",
-  "main": "./index.js",
+  "main": "./dist/sigpro.esm.min.js",
   "module": "./dist/sigpro.esm.min.js",
   "unpkg": "./dist/sigpro.min.js",
   "jsdelivr": "./dist/sigpro.min.js",
   "exports": {
     ".": {
+      "development": "./index.js",
       "import": "./dist/sigpro.esm.min.js",
-      "require": "./index.js",
       "script": "./dist/sigpro.js",
       "types": "./sigpro/sigpro.d.ts"
     },
