@@ -10,10 +10,9 @@
   "types": "./sigpro.d.ts",
   "exports": {
     ".": {
-      "development": "./index.js",
       "import": "./dist/sigpro.esm.min.js",
       "script": "./dist/sigpro.js",
-      "types": "./sigpro/sigpro.d.ts"
+      "types": "./sigpro.d.ts"
     },
     "./vite": "./vite/index.js",
     "./vite/*": "./vite/*.js"

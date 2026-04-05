@@ -429,5 +429,5 @@ if (typeof window !== "undefined") {
   window.SigPro = Object.freeze(SigPro);
 }
 
-export { $, $$, Render, Watch, Tag, If, For, Router, Mount, Fragment };
+export { $, $$, Render, Watch, Tag, If, For, Router, Mount };
 export default SigPro;
