@@ -7,7 +7,6 @@ const effectQueue = new Set();
 let isFlushing = false;
 const MOUNTED_NODES = new WeakMap();
 
-// Utilidades internas para reducir repetición de lógica
 const runWithContext = (effect, callback) => {
   const previousEffect = activeEffect;
   activeEffect = effect;
@@ -396,7 +395,6 @@ const $router = (routes) => {
   return outlet;
 };
 
-// Extensiones y exportaciones
 $router.params = $({});
 $router.to = (path) => (window.location.hash = path.replace(/^#?\/?/, "#/"));
 $router.back = () => window.history.back();
