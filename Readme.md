@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/sigpro.svg)](https://www.npmjs.com/package/sigpro)
 [![bundle size](https://img.shields.io/bundlephobia/minzip/sigpro)](https://bundlephobia.com/package/sigpro)
-[![size](https://badge-size.herokuapp.com/natxocc/sigpro/main/index.js?compression=gzip)](https://github.com/natxocc/sigpro)
+[![size](https://img.badgesize.io/natxocc/sigpro/main/index.js?compression=gzip)](https://github.com/natxocc/sigpro)
 [![license](https://img.shields.io/npm/l/sigpro)](https://github.com/natxocc/sigpro/blob/main/LICENSE)
 
 ### **The Atomic Reactivity Engine for the Modern Web.**
