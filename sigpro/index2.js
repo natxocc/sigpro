@@ -234,6 +234,7 @@ const Tag = (tag, props = {}, children = []) => {
     : createEl(tag);
 
   element._cleanups = new Set();
+  element.onUnmount = (fn) => element._cleanups.add(fn);
   const booleanAttributes = ["disabled", "checked", "required", "readonly", "selected", "multiple", "autofocus"];
 
   const updateAttribute = (name, value) => {
