@@ -60,7 +60,7 @@ const triggerUpdate = (subscribers) => {
   if (!isFlushing) queueMicrotask(flushEffects);
 };
 
-const _view = (renderFn) => {
+const Render = (renderFn) => {
   const cleanups = new Set();
   const previousOwner = currentOwner;
   const container = createEl("div");
@@ -176,7 +176,7 @@ const $$ = (object, cache = new WeakMap()) => {
   return proxy;
 };
 
-const $watch = (target, callbackFn) => {
+const Watch = (target, callbackFn) => {
   const isExplicit = isArr(target);
   const callback = isExplicit ? callbackFn : target;
   if (!isFunc(callback)) return () => {};
@@ -223,7 +223,7 @@ const $watch = (target, callbackFn) => {
   return runner.stop;
 };
 
-const $html = (tag, props = {}, children = []) => {
+const Tag = (tag, props = {}, children = []) => {
   if (props instanceof Node || isArr(props) || !isObj(props)) {
     children = props; props = {};
   }
@@ -255,7 +255,7 @@ const $html = (tag, props = {}, children = []) => {
       element.addEventListener(eventName, value);
       element._cleanups.add(() => element.removeEventListener(eventName, value));
     } else if (isSignal) {
-      element._cleanups.add($watch(() => {
+      element._cleanups.add(Watch(() => {
         const currentVal = value();
         key === "class" ? (element.className = currentVal || "") : updateAttribute(key, currentVal);
       }));
@@ -276,7 +276,7 @@ const $html = (tag, props = {}, children = []) => {
       const marker = createText("");
       element.appendChild(marker);
       let currentNodes = [];
-      element._cleanups.add($watch(() => {
+      element._cleanups.add(Watch(() => {
         const result = child();
         const nextNodes = (isArr(result) ? result : [result]).map((node) =>
           node?._isRuntime ? node.container : node instanceof Node ? node : createText(node)
@@ -294,12 +294,12 @@ const $html = (tag, props = {}, children = []) => {
   return element;
 };
 
-const $if = (condition, thenVal, otherwiseVal = null, transition = null) => {
+const If = (condition, thenVal, otherwiseVal = null, transition = null) => {
   const marker = createText("");
-  const container = $html("div", { style: "display:contents" }, [marker]);
+  const container = Tag("div", { style: "display:contents" }, [marker]);
   let currentView = null, lastState = null;
 
-  $watch(() => {
+  Watch(() => {
     const state = !!(isFunc(condition) ? condition() : condition);
     if (state === lastState) return;
     lastState = state;
@@ -314,7 +314,7 @@ const $if = (condition, thenVal, otherwiseVal = null, transition = null) => {
 
     const branch = state ? thenVal : otherwiseVal;
     if (branch) {
-      currentView = _view(() => isFunc(branch) ? branch() : branch);
+      currentView = Render(() => isFunc(branch) ? branch() : branch);
       container.insertBefore(currentView.container, marker);
       if (state && transition?.in) transition.in(currentView.container);
     }
@@ -323,12 +323,12 @@ const $if = (condition, thenVal, otherwiseVal = null, transition = null) => {
   return container;
 };
 
-const $for = (source, renderFn, keyFn, tag = "div", props = { style: "display:contents" }) => {
+const For = (source, renderFn, keyFn, tag = "div", props = { style: "display:contents" }) => {
   const marker = createText("");
-  const container = $html(tag, props, [marker]);
+  const container = Tag(tag, props, [marker]);
   let viewCache = new Map();
 
-  $watch(() => {
+  Watch(() => {
     const items = (isFunc(source) ? source() : source) || [];
     const nextCache = new Map();
     const order = [];
@@ -336,7 +336,7 @@ const $for = (source, renderFn, keyFn, tag = "div", props = { style: "display:co
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       const key = keyFn ? keyFn(item, i) : i;
-      let view = viewCache.get(key) || _view(() => renderFn(item, i));
+      let view = viewCache.get(key) || Render(() => renderFn(item, i));
       viewCache.delete(key);
       nextCache.set(key, view);
       order.push(key);
@@ -358,13 +358,13 @@ const $for = (source, renderFn, keyFn, tag = "div", props = { style: "display:co
   return container;
 };
 
-const $router = (routes) => {
+const Router = (routes) => {
   const currentPath = $(window.location.hash.replace(/^#/, "") || "/");
   window.addEventListener("hashchange", () => currentPath(window.location.hash.replace(/^#/, "") || "/"));
-  const outlet = $html("div", { class: "router-outlet" });
+  const outlet = Tag("div", { class: "router-outlet" });
   let currentView = null;
 
-  $watch([currentPath], async () => {
+  Watch([currentPath], async () => {
     const path = currentPath();
     const route = routes.find(r => {
       const routeParts = r.path.split("/").filter(Boolean);
@@ -384,13 +384,13 @@ const $router = (routes) => {
       });
 
       if (currentView) currentView.destroy();
-      if ($router.params) $router.params(params);
+      if (Router.params) Router.params(params);
 
-      currentView = _view(() => {
+      currentView = Render(() => {
         try {
           return isFunc(component) ? component(params) : component;
         } catch (e) {
-          return $html("div", { class: "p-4 text-error" }, "Error loading view");
+          return Tag("div", { class: "p-4 text-error" }, "Error loading view");
         }
       });
       outlet.appendChild(currentView.container);
@@ -399,16 +399,16 @@ const $router = (routes) => {
   return outlet;
 };
 
-$router.params = $({});
-$router.to = (path) => (window.location.hash = path.replace(/^#?\/?/, "#/"));
-$router.back = () => window.history.back();
-$router.path = () => window.location.hash.replace(/^#/, "") || "/";
+Router.params = $({});
+Router.to = (path) => (window.location.hash = path.replace(/^#?\/?/, "#/"));
+Router.back = () => window.history.back();
+Router.path = () => window.location.hash.replace(/^#/, "") || "/";
 
-const $mount = (component, target) => {
+const Mount = (component, target) => {
   const targetEl = typeof target === "string" ? doc.querySelector(target) : target;
   if (!targetEl) return;
   if (MOUNTED_NODES.has(targetEl)) MOUNTED_NODES.get(targetEl).destroy();
-  const instance = _view(isFunc(component) ? component : () => component);
+  const instance = Render(isFunc(component) ? component : () => component);
   targetEl.replaceChildren(instance.container);
   MOUNTED_NODES.set(targetEl, instance);
   return instance;
@@ -416,17 +416,17 @@ const $mount = (component, target) => {
 
 export const Fragment = ({ children }) => children;
 
-const SigProCore = { $, $watch, $html, $if, $for, $router, $mount, Fragment };
+const SigPro = { $, $$, Render, Watch, Tag, If, For, Router, Mount, Fragment };
 
 if (typeof window !== "undefined") {
-  assign(window, SigProCore);
+  assign(window, SigPro);
   const tags = `div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer address ul ol li dl dt dd a em strong small i b u mark time sub sup pre code blockquote details summary dialog form label input textarea select button option fieldset legend table thead tbody tfoot tr th td caption img video audio canvas svg iframe picture source progress meter`.split(" ");
   tags.forEach((tag) => {
     const helper = tag[0].toUpperCase() + tag.slice(1);
-    if (!(helper in window)) window[helper] = (p, c) => $html(tag, p, c);
+    if (!(helper in window)) window[helper] = (p, c) => Tag(tag, p, c);
   });
-  window.SigPro = Object.freeze(SigProCore);
+  window.SigPro = Object.freeze(SigPro);
 }
 
-export { $, $watch, $html, $if, $for, $router, $mount };
-export default SigProCore;
+export { $, $$, Render, Watch, Tag, If, For, Router, Mount, Fragment };
+export default SigPro;
