@@ -1,5 +1,9 @@
 # `SigPro` ⚛️
 
+[![npm version](https://img.shields.io/npm/v/sigpro.svg)](https://www.npmjs.com/package/sigpro)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/sigpro)](https://bundlephobia.com/package/sigpro)
+[![license](https://img.shields.io/npm/l/sigpro)](https://github.com/natxocc/sigpro/blob/main/LICENSE)
+
 ### **The Atomic Reactivity Engine for the Modern Web.**
 
 **SigPro** is an ultra-lightweight rendering engine designed for extreme performance. By eliminating the Virtual DOM and heavy compilers, it achieves **surgical reactivity** in less than 2KB.
