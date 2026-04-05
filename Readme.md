@@ -2,6 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/sigpro.svg)](https://www.npmjs.com/package/sigpro)
 [![bundle size](https://img.shields.io/bundlephobia/minzip/sigpro)](https://bundlephobia.com/package/sigpro)
+[![install size](https://packagephobia.now.sh/badge?p=sigpro)](https://packagephobia.now.sh/result?p=sigpro)
 [![license](https://img.shields.io/npm/l/sigpro)](https://github.com/natxocc/sigpro/blob/main/LICENSE)
 
 ### **The Atomic Reactivity Engine for the Modern Web.**
