@@ -1,11 +1,16 @@
-/**
- * SigPro Core - Refactorizado para eficiencia de compresión
- */
 let activeEffect = null;
 let currentOwner = null;
 const effectQueue = new Set();
 let isFlushing = false;
 const MOUNTED_NODES = new WeakMap();
+
+const doc = document;
+const isArr = Array.isArray;
+const assign = Object.assign;
+const createEl = (t) => doc.createElement(t);
+const createText = (t) => doc.createTextNode(String(t ?? ""));
+const isFunc = (f) => typeof f === "function";
+const isObj = (o) => typeof o === "object" && o !== null;
 
 const runWithContext = (effect, callback) => {
   const previousEffect = activeEffect;
@@ -58,7 +63,7 @@ const triggerUpdate = (subscribers) => {
 const _view = (renderFn) => {
   const cleanups = new Set();
   const previousOwner = currentOwner;
-  const container = document.createElement("div");
+  const container = createEl("div");
   container.style.display = "contents";
   currentOwner = { cleanups };
 
@@ -67,10 +72,10 @@ const _view = (renderFn) => {
     if (result._isRuntime) {
       cleanups.add(result.destroy);
       container.appendChild(result.container);
-    } else if (Array.isArray(result)) {
+    } else if (isArr(result)) {
       result.forEach(processResult);
     } else {
-      container.appendChild(result instanceof Node ? result : document.createTextNode(String(result)));
+      container.appendChild(result instanceof Node ? result : createText(result));
     }
   };
 
@@ -92,7 +97,7 @@ const _view = (renderFn) => {
 const $ = (initialValue, storageKey = null) => {
   const subscribers = new Set();
 
-  if (typeof initialValue === "function") {
+  if (isFunc(initialValue)) {
     let cachedValue, isDirty = true;
     const effect = () => {
       if (effect._deleted) return;
@@ -109,7 +114,7 @@ const $ = (initialValue, storageKey = null) => {
       });
     };
 
-    Object.assign(effect, {
+    assign(effect, {
       _deps: new Set(),
       _isComputed: true,
       _subs: subscribers,
@@ -136,7 +141,7 @@ const $ = (initialValue, storageKey = null) => {
 
   return (...args) => {
     if (args.length) {
-      const nextValue = typeof args[0] === "function" ? args[0](value) : args[0];
+      const nextValue = isFunc(args[0]) ? args[0](value) : args[0];
       if (!Object.is(value, nextValue)) {
         value = nextValue;
         if (storageKey) localStorage.setItem(storageKey, JSON.stringify(value));
@@ -149,7 +154,7 @@ const $ = (initialValue, storageKey = null) => {
 };
 
 const $$ = (object, cache = new WeakMap()) => {
-  if (typeof object !== "object" || object === null) return object;
+  if (!isObj(object)) return object;
   if (cache.has(object)) return cache.get(object);
 
   const keySubscribers = {};
@@ -157,7 +162,7 @@ const $$ = (object, cache = new WeakMap()) => {
     get(target, key) {
       if (activeEffect) trackSubscription(keySubscribers[key] ??= new Set());
       const value = Reflect.get(target, key);
-      return (typeof value === "object" && value !== null) ? $$(value, cache) : value;
+      return isObj(value) ? $$(value, cache) : value;
     },
     set(target, key, value) {
       if (Object.is(target[key], value)) return true;
@@ -172,9 +177,9 @@ const $$ = (object, cache = new WeakMap()) => {
 };
 
 const $watch = (target, callbackFn) => {
-  const isExplicit = Array.isArray(target);
+  const isExplicit = isArr(target);
   const callback = isExplicit ? callbackFn : target;
-  if (typeof callback !== "function") return () => {};
+  if (!isFunc(callback)) return () => {};
 
   const owner = currentOwner;
   const runner = () => {
@@ -191,7 +196,7 @@ const $watch = (target, callbackFn) => {
       currentOwner = { cleanups: runner._cleanups };
       if (isExplicit) {
         runWithContext(null, callback);
-        target.forEach((dep) => typeof dep === "function" && dep());
+        target.forEach((dep) => isFunc(dep) && dep());
       } else {
         callback();
       }
@@ -199,7 +204,7 @@ const $watch = (target, callbackFn) => {
     });
   };
 
-  Object.assign(runner, {
+  assign(runner, {
     _deps: new Set(),
     _cleanups: new Set(),
     _deleted: false,
@@ -219,15 +224,14 @@ const $watch = (target, callbackFn) => {
 };
 
 const $html = (tag, props = {}, children = []) => {
-  if (props instanceof Node || Array.isArray(props) || typeof props !== "object") {
+  if (props instanceof Node || isArr(props) || !isObj(props)) {
     children = props; props = {};
   }
 
-  const svgTags = /^(svg|path|circle|rect|line|polyline|polygon|g|defs|text|tspan|use)$/;
-  const isSVG = svgTags.test(tag);
+  const isSVG = /^(svg|path|circle|rect|line|polyline|polygon|g|defs|text|tspan|use)$/.test(tag);
   const element = isSVG 
-    ? document.createElementNS("http://www.w3.org/2000/svg", tag) 
-    : document.createElement(tag);
+    ? doc.createElementNS("http://www.w3.org/2000/svg", tag) 
+    : createEl(tag);
 
   element._cleanups = new Set();
   const booleanAttributes = ["disabled", "checked", "required", "readonly", "selected", "multiple", "autofocus"];
@@ -243,9 +247,9 @@ const $html = (tag, props = {}, children = []) => {
   };
 
   for (let [key, value] of Object.entries(props)) {
-    if (key === "ref") { (typeof value === "function" ? value(element) : (value.current = element)); continue; }
+    if (key === "ref") { (isFunc(value) ? value(element) : (value.current = element)); continue; }
     
-    const isSignal = typeof value === "function";
+    const isSignal = isFunc(value);
     if (key.startsWith("on")) {
       const eventName = key.slice(2).toLowerCase().split(".")[0];
       element.addEventListener(eventName, value);
@@ -266,37 +270,37 @@ const $html = (tag, props = {}, children = []) => {
     }
   }
 
-  const appendChild = (child) => {
-    if (Array.isArray(child)) return child.forEach(appendChild);
-    if (typeof child === "function") {
-      const marker = document.createTextNode("");
+  const appendChildNode = (child) => {
+    if (isArr(child)) return child.forEach(appendChildNode);
+    if (isFunc(child)) {
+      const marker = createText("");
       element.appendChild(marker);
       let currentNodes = [];
       element._cleanups.add($watch(() => {
         const result = child();
-        const nextNodes = (Array.isArray(result) ? result : [result]).map((node) =>
-          node?._isRuntime ? node.container : node instanceof Node ? node : document.createTextNode(node ?? "")
+        const nextNodes = (isArr(result) ? result : [result]).map((node) =>
+          node?._isRuntime ? node.container : node instanceof Node ? node : createText(node)
         );
         currentNodes.forEach((node) => { cleanupNode(node); node.remove(); });
         nextNodes.forEach((node) => marker.parentNode?.insertBefore(node, marker));
         currentNodes = nextNodes;
       }));
     } else {
-      element.appendChild(child instanceof Node ? child : document.createTextNode(child ?? ""));
+      element.appendChild(child instanceof Node ? child : createText(child));
     }
   };
 
-  appendChild(children);
+  appendChildNode(children);
   return element;
 };
 
 const $if = (condition, thenVal, otherwiseVal = null, transition = null) => {
-  const marker = document.createTextNode("");
+  const marker = createText("");
   const container = $html("div", { style: "display:contents" }, [marker]);
   let currentView = null, lastState = null;
 
   $watch(() => {
-    const state = !!(typeof condition === "function" ? condition() : condition);
+    const state = !!(isFunc(condition) ? condition() : condition);
     if (state === lastState) return;
     lastState = state;
 
@@ -310,7 +314,7 @@ const $if = (condition, thenVal, otherwiseVal = null, transition = null) => {
 
     const branch = state ? thenVal : otherwiseVal;
     if (branch) {
-      currentView = _view(() => typeof branch === "function" ? branch() : branch);
+      currentView = _view(() => isFunc(branch) ? branch() : branch);
       container.insertBefore(currentView.container, marker);
       if (state && transition?.in) transition.in(currentView.container);
     }
@@ -320,12 +324,12 @@ const $if = (condition, thenVal, otherwiseVal = null, transition = null) => {
 };
 
 const $for = (source, renderFn, keyFn, tag = "div", props = { style: "display:contents" }) => {
-  const marker = document.createTextNode("");
+  const marker = createText("");
   const container = $html(tag, props, [marker]);
   let viewCache = new Map();
 
   $watch(() => {
-    const items = (typeof source === "function" ? source() : source) || [];
+    const items = (isFunc(source) ? source() : source) || [];
     const nextCache = new Map();
     const order = [];
 
@@ -370,7 +374,7 @@ const $router = (routes) => {
 
     if (route) {
       let component = route.component;
-      if (typeof component === "function" && component.toString().includes('import')) {
+      if (isFunc(component) && component.toString().includes('import')) {
         component = (await component()).default || (await component());
       }
 
@@ -384,7 +388,7 @@ const $router = (routes) => {
 
       currentView = _view(() => {
         try {
-          return typeof component === "function" ? component(params) : component;
+          return isFunc(component) ? component(params) : component;
         } catch (e) {
           return $html("div", { class: "p-4 text-error" }, "Error loading view");
         }
@@ -401,10 +405,10 @@ $router.back = () => window.history.back();
 $router.path = () => window.location.hash.replace(/^#/, "") || "/";
 
 const $mount = (component, target) => {
-  const targetEl = typeof target === "string" ? document.querySelector(target) : target;
+  const targetEl = typeof target === "string" ? doc.querySelector(target) : target;
   if (!targetEl) return;
   if (MOUNTED_NODES.has(targetEl)) MOUNTED_NODES.get(targetEl).destroy();
-  const instance = _view(typeof component === "function" ? component : () => component);
+  const instance = _view(isFunc(component) ? component : () => component);
   targetEl.replaceChildren(instance.container);
   MOUNTED_NODES.set(targetEl, instance);
   return instance;
@@ -414,9 +418,8 @@ export const Fragment = ({ children }) => children;
 
 const SigProCore = { $, $watch, $html, $if, $for, $router, $mount, Fragment };
 
-// Registro Global
 if (typeof window !== "undefined") {
-  Object.assign(window, SigProCore);
+  assign(window, SigProCore);
   const tags = `div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer address ul ol li dl dt dd a em strong small i b u mark time sub sup pre code blockquote details summary dialog form label input textarea select button option fieldset legend table thead tbody tfoot tr th td caption img video audio canvas svg iframe picture source progress meter`.split(" ");
   tags.forEach((tag) => {
     const helper = tag[0].toUpperCase() + tag.slice(1);
