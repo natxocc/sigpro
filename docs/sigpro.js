@@ -408,7 +408,7 @@
   var Router = (routes) => {
     const currentPath = $(window.location.hash.replace(/^#/, "") || "/");
     window.addEventListener("hashchange", () => currentPath(window.location.hash.replace(/^#/, "") || "/"));
-    const outlet = Tag("div", { class: "router-outlet" });
+    const outlet = Tag("div", { class: "router-transition" });
     let currentView = null;
     Watch([currentPath], async () => {
       const path = currentPath();

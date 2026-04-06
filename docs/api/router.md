@@ -19,7 +19,7 @@ Router(routes: Route[]): HTMLElement
 ## Usage Patterns
 
 ### 1. Defining Routes
-The `Router` returns a `div` element with the class `.router-outlet`. When the hash changes, the router destroys the previous view and mounts the new one inside this container.
+The `Router` returns a `div` element with the class `.router-transition`. When the hash changes, the router destroys the previous view and mounts the new one inside this container.
 
 ```javascript
 const App = () => Div({ class: "app-layout" }, [
@@ -79,11 +79,11 @@ Watch(() => {
 
 ---
 
-## Styling the Outlet
-The router returns a standard `div` with the `.router-outlet` class. You can easily style it or add transitions:
+## Styling the transition of Router
+The router returns a standard `div` with the `.router-transition` class. You can easily style it or add transitions:
 
 ```css
-.router-outlet {
+.router-transition {
   display: block;
   min-height: 100vh;
   animation: fadeIn 0.3s ease;
