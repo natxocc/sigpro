@@ -1,24 +1,12 @@
-// sigpro.d.ts
-
-export declare module 'sigpro' {
+declare module 'sigpro' {
   type Signal<T> = {
     (): T;
-    (value: T | ((prev: T) => T)): void;
+    (value: T | ((prev: T) => T)): T;
   };
 
-  type ComputedSignal<T> = {
-    (): T;
-  };
-
-  type ReactiveObject<T extends object> = T;
-
-  type DeepReactive<T> = T extends object
-    ? { [K in keyof T]: DeepReactive<T[K]> }
-    : T;
+  type ComputedSignal<T> = () => T;
 
   type Unsubscribe = () => void;
-
-  type CleanupFn = () => void;
 
   type ViewInstance = {
     _isRuntime: true;
@@ -60,53 +48,46 @@ export declare module 'sigpro' {
     component: ComponentFunction | (() => Promise<ComponentFunction>);
   }
 
-  interface RouterOutlet extends HTMLElement {
+  interface RouterOutlet {
     params: Signal<Record<string, string>>;
     to: (path: string) => void;
     back: () => void;
     path: () => string;
   }
 
-  function $<T>(initial: T, key?: string): Signal<T>;
-  function $<T>(computed: () => T): ComputedSignal<T>;
-  function $$<T extends object>(obj: T): T;
-
-  function $watch(
-    target: () => any,
-    fn?: never
-  ): Unsubscribe;
-  function $watch(
-    target: Array<() => any>,
-    fn: () => void
-  ): Unsubscribe;
-
-  function $html(
-    tag: string,
-    props?: HtmlProps | ComponentChildren,
-    content?: ComponentChildren
-  ): HTMLElement;
-
   interface Transition {
     in: (el: HTMLElement) => void;
     out: (el: HTMLElement, done: () => void) => void;
   }
 
-  function $if(
+  function $<T>(initial: T, storageKey?: string): Signal<T>;
+  function $<T>(computed: () => T): ComputedSignal<T>;
+  
+  function $$<T extends object>(obj: T): T;
+
+  function Watch(
+    target: () => any,
+    callback?: never
+  ): Unsubscribe;
+  function Watch(
+    target: Array<() => any>,
+    callback: () => void
+  ): Unsubscribe;
+
+  function Tag(
+    tag: string,
+    props?: HtmlProps | ComponentChildren,
+    children?: ComponentChildren
+  ): HTMLElement;
+
+  function If(
     condition: boolean | (() => boolean),
     thenVal: ComponentFunction | ComponentChild,
     otherwiseVal?: ComponentFunction | ComponentChild,
     transition?: Transition
   ): HTMLDivElement;
 
-  namespace $if {
-    function not(
-      condition: boolean | (() => boolean),
-      thenVal: ComponentFunction | ComponentChild,
-      otherwiseVal?: ComponentFunction | ComponentChild
-    ): HTMLDivElement;
-  }
-
-  function $for<T>(
+  function For<T>(
     source: T[] | (() => T[]),
     render: (item: T, index: number) => ComponentChild,
     keyFn?: (item: T, index: number) => string | number,
@@ -114,70 +95,115 @@ export declare module 'sigpro' {
     props?: HtmlProps
   ): HTMLElement;
 
-  function $router(routes: Route[]): RouterOutlet;
+  function Router(routes: Route[]): RouterOutlet;
 
-  function $mount(
+  function Mount(
     component: ComponentFunction | HTMLElement,
     target: string | HTMLElement
   ): ViewInstance | undefined;
 
-  const Div: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Span: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const P: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const H1: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const H2: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const H3: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const H4: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const H5: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const H6: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Button: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Input: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Textarea: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Select: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Option: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Label: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Form: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const A: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Img: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Ul: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Ol: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Li: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Nav: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Header: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Footer: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Section: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Article: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Aside: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Main: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Table: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Thead: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Tbody: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Tr: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Th: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
-  const Td: (props?: HtmlProps | ComponentChildren, content?: ComponentChildren) => HTMLElement;
+  const Div: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Span: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const P: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const H1: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const H2: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const H3: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const H4: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const H5: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const H6: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Button: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Input: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Textarea: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Select: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Option: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Label: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Form: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const A: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Img: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Ul: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Ol: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Li: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Nav: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Header: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Footer: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Section: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Article: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Aside: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Main: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Table: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Thead: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Tbody: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Tr: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Th: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
+  const Td: (props?: HtmlProps | ComponentChildren, children?: ComponentChildren) => HTMLElement;
 
   const SigPro: {
     $: typeof $;
-    $$: typeof $$; 
-    $watch: typeof $watch;
-    $html: typeof $html;
-    $if: typeof $if;
-    $for: typeof $for;
-    $router: typeof $router;
-    $mount: typeof $mount;
+    $$: typeof $$;
+    Watch: typeof Watch;
+    Tag: typeof Tag;
+    If: typeof If;
+    For: typeof For;
+    Router: typeof Router;
+    Mount: typeof Mount;
+  };
+
+  export default SigPro;
+  export {
+    $,
+    $$,
+    Watch,
+    Tag,
+    If,
+    For,
+    Router,
+    Mount,
+    Div,
+    Span,
+    P,
+    H1,
+    H2,
+    H3,
+    H4,
+    H5,
+    H6,
+    Button,
+    Input,
+    Textarea,
+    Select,
+    Option,
+    Label,
+    Form,
+    A,
+    Img,
+    Ul,
+    Ol,
+    Li,
+    Nav,
+    Header,
+    Footer,
+    Section,
+    Article,
+    Aside,
+    Main,
+    Table,
+    Thead,
+    Tbody,
+    Tr,
+    Th,
+    Td,
   };
 }
 
-export declare global {
+declare global {
   const $: typeof import('sigpro').$;
   const $$: typeof import('sigpro').$$;
-  const $watch: typeof import('sigpro').$watch;
-  const $html: typeof import('sigpro').$html;
-  const $if: typeof import('sigpro').$if;
-  const $for: typeof import('sigpro').$for;
-  const $router: typeof import('sigpro').$router;
-  const $mount: typeof import('sigpro').$mount;
-  
+  const Watch: typeof import('sigpro').Watch;
+  const Tag: typeof import('sigpro').Tag;
+  const If: typeof import('sigpro').If;
+  const For: typeof import('sigpro').For;
+  const Router: typeof import('sigpro').Router;
+  const Mount: typeof import('sigpro').Mount;
   const Div: typeof import('sigpro').Div;
   const Span: typeof import('sigpro').Span;
   const P: typeof import('sigpro').P;
@@ -212,16 +238,16 @@ export declare global {
   const Tr: typeof import('sigpro').Tr;
   const Th: typeof import('sigpro').Th;
   const Td: typeof import('sigpro').Td;
-  
+
   interface Window {
     $: typeof $;
     $$: typeof $$;
-    $watch: typeof $watch;
-    $html: typeof $html;
-    $if: typeof $if;
-    $for: typeof $for;
-    $router: typeof $router;
-    $mount: typeof $mount;
+    Watch: typeof Watch;
+    Tag: typeof Tag;
+    If: typeof If;
+    For: typeof For;
+    Router: typeof Router;
+    Mount: typeof Mount;
     SigPro: typeof import('sigpro').default;
     Div: typeof Div;
     Span: typeof Span;

@@ -94,7 +94,7 @@ $$<T extends object>(obj: T): T
 ```javascript
 const state = $$({ count: 0, name: "Juan" });
 
-$watch(() => state.count, () => {
+Watch(() => state.count, () => {
   console.log(`Count is now ${state.count}`);
 });
 
@@ -118,7 +118,7 @@ const user = $$({
 });
 
 // This works! Tracks deep property access
-$watch(() => user.profile.address.city, () => {
+Watch(() => user.profile.address.city, () => {
   console.log("City changed");
 });
 
@@ -135,7 +135,7 @@ const todos = $$([
   { id: 2, text: "Build an app", done: false }
 ]);
 
-$watch(() => todos.length, () => {
+Watch(() => todos.length, () => {
   console.log(`You have ${todos.length} todos`);
 });
 
@@ -164,7 +164,7 @@ const canSubmit = $(() =>
   form.fields.password.length > 6
 );
 
-$watch(canSubmit, (valid) => {
+Watch(canSubmit, (valid) => {
   form.isValid(valid); // Update signal inside reactive object
 });
 ```
@@ -224,8 +224,8 @@ state.user.name = "Ana";
 todos.push(newItem);
 
 // Track in effects
-$watch(() => state.count, () => {});
-$watch(() => state.user.name, () => {});
+Watch(() => state.count, () => {});
+Watch(() => state.user.name, () => {});
 ```
 
 ### ❌ DON'T:
@@ -248,7 +248,7 @@ Like all SigPro reactive primitives, `$$()` integrates with the cleanup system:
 
 - Effects tracking reactive properties are automatically disposed
 - No manual cleanup needed
-- Works with `$watch`, `$if`, and `$for`
+- Works with `Watch`, `If`, and `For`
 
 ---
 
@@ -302,7 +302,7 @@ const app = {
 // UI component
 const UserProfile = () => {
   return Div({}, [
-    $if(() => app.isLoggedIn(),
+    If(() => app.isLoggedIn(),
       () => Div({}, [
         H2(`Welcome ${app.user.name}`),
         P(`Email: ${app.user.email}`),

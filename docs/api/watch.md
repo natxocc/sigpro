@@ -1,15 +1,15 @@
-# Reactivity Control: `$watch( )`
+# Reactivity Control: `Watch( )`
 
-The `$watch` function is the reactive engine of SigPro. It allows you to execute code automatically when signals change. `$watch` is **polymorphic**: it can track dependencies automatically or follow an explicit list.
+The `Watch` function is the reactive engine of SigPro. It allows you to execute code automatically when signals change. `Watch` is **polymorphic**: it can track dependencies automatically or follow an explicit list.
 
 ## Function Signature
 
 ```typescript
 // Automatic Mode (Magic Tracking)
-$watch(callback: Function): StopFunction
+Watch(callback: Function): StopFunction
 
 // Explicit Mode (Isolated Dependencies)
-$watch(deps: Signal[], callback: Function): StopFunction
+Watch(deps: Signal[], callback: Function): StopFunction
 ```
 
 | Parameter | Type | Required | Description |
@@ -29,7 +29,7 @@ Any signal you "touch" inside the callback becomes a dependency. SigPro tracks t
 ```javascript
 const count = $(0);
 
-$watch(() => {
+Watch(() => {
   // Re-runs every time 'count' changes
   console.log(`Count is: ${count()}`);
 });
@@ -42,7 +42,7 @@ This mode **isolates** execution. The callback only triggers when the signals in
 const sPath = $("/home");
 const user = $("Admin");
 
-$watch([sPath], () => {
+Watch([sPath], () => {
   // Only triggers when 'sPath' changes.
   // Changes to 'user' will NOT trigger this, preventing accidental re-renders.
   console.log(`Navigating to ${sPath()} as ${user()}`);
@@ -53,11 +53,11 @@ $watch([sPath], () => {
 If your logic creates timers, event listeners, or other reactive effects, SigPro tracks them as "children" of the current watch. When the watcher re-runs or stops, it kills everything inside automatically.
 
 ```javascript
-$watch(() => {
+Watch(() => {
   const timer = setInterval(() => console.log("Tick"), 1000);
   
   // Register a manual cleanup if needed
-  // Or simply rely on SigPro to kill nested $watch() calls
+  // Or simply rely on SigPro to kill nested Watch() calls
   return () => clearInterval(timer);
 });
 ```
@@ -68,7 +68,7 @@ $watch(() => {
 Call the returned function to manually kill the watcher. This is essential for manual DOM injections (like Toasts) or long-lived background processes.
 
 ```javascript
-const stop = $watch(() => console.log(count()));
+const stop = Watch(() => console.log(count()));
 
 // Later...
 stop(); // The link between the signal and this code is physically severed.
@@ -83,7 +83,7 @@ SigPro batches updates. If you update multiple signals in the same execution blo
 const a = $(0);
 const b = $(0);
 
-$watch(() => console.log(a(), b()));
+Watch(() => console.log(a(), b()));
 
 // This triggers only ONE re-run.
 a(1);

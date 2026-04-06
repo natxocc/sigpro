@@ -1,11 +1,11 @@
-# Application Mounter: `$mount( )`
+# Application Mounter: `Mount( )`
 
-The `$mount` function is the entry point of your reactive world. It bridges the gap between your SigPro logic and the browser's Real DOM by injecting a component into the document and initializing its reactive lifecycle.
+The `Mount` function is the entry point of your reactive world. It bridges the gap between your SigPro logic and the browser's Real DOM by injecting a component into the document and initializing its reactive lifecycle.
 
 ## Function Signature
 
 ```typescript
-$mount(node: Function | HTMLElement, target?: string | HTMLElement): RuntimeObject
+Mount(node: Function | HTMLElement, target?: string | HTMLElement): RuntimeObject
 ```
 
 | Parameter | Type | Default | Description |
@@ -27,7 +27,7 @@ import SigPro from 'sigpro';
 import App from './App.js';
 
 // Mounts your main App component
-$mount(App, '#app-root'); 
+Mount(App, '#app-root'); 
 ```
 
 ### 2. Reactive "Islands"
@@ -42,17 +42,17 @@ const Counter = () => {
 };
 
 // Mount only the counter into a specific sidebar div
-$mount(Counter, '#sidebar-widget');
+Mount(Counter, '#sidebar-widget');
 ```
 
 ---
 
 ## How it Works (Lifecycle & Cleanup)
 
-When `$mount` is executed, it performs these critical steps to ensure a leak-free environment:
+When `Mount` is executed, it performs these critical steps to ensure a leak-free environment:
 
-1.  **Duplicate Detection**: If you call `$mount` on a target that already has a SigPro instance, it automatically calls `.destroy()` on the previous instance. This prevents "Zombie Effects" from stacking in memory.
-2.  **Internal Scoping**: It executes the component function inside an internal **Reactive Owner**. This captures every `$watch` and event listener created during the render.
+1.  **Duplicate Detection**: If you call `Mount` on a target that already has a SigPro instance, it automatically calls `.destroy()` on the previous instance. This prevents "Zombie Effects" from stacking in memory.
+2.  **Internal Scoping**: It executes the component function inside an internal **Reactive Owner**. This captures every `Watch` and event listener created during the render.
 3.  **Target Injection**: It clears the target using `replaceChildren()` and appends the new component.
 4.  **Runtime Creation**: It returns a control object:
     * `container`: The actual DOM element created.
@@ -62,10 +62,10 @@ When `$mount` is executed, it performs these critical steps to ensure a leak-fre
 
 ## Manual Unmounting
 
-While SigPro handles most cleanups automatically (via `$if`, `$for`, and `$router`), you can manually destroy any mounted instance. This is vital for imperatively managed UI like **Toasts** or **Modals**.
+While SigPro handles most cleanups automatically (via `If`, `For`, and `Router`), you can manually destroy any mounted instance. This is vital for imperatively managed UI like **Toasts** or **Modals**.
 
 ```javascript
-const instance = $mount(MyToast, '#toast-container');
+const instance = Mount(MyToast, '#toast-container');
 
 // Later, to remove the toast and kill its reactivity:
 instance.destroy();
@@ -77,9 +77,9 @@ instance.destroy();
 
 | Goal | Code Pattern |
 | :--- | :--- |
-| **Mount to body** | `$mount(App)` |
-| **Mount to CSS Selector** | `$mount(App, '#root')` |
-| **Mount to DOM Node** | `$mount(App, myElement)` |
-| **Clean & Re-mount** | Calling `$mount` again on the same target |
-| **Total Cleanup** | `const app = $mount(App); app.destroy();` |
+| **Mount to body** | `Mount(App)` |
+| **Mount to CSS Selector** | `Mount(App, '#root')` |
+| **Mount to DOM Node** | `Mount(App, myElement)` |
+| **Clean & Re-mount** | Calling `Mount` again on the same target |
+| **Total Cleanup** | `const app = Mount(App); app.destroy();` |
 

@@ -1,11 +1,11 @@
-# Reactive Branching: `$if( )`
+# Reactive Branching: `If( )`
 
-The `$if` function is a reactive control flow operator. It manages the conditional rendering of components with optional smooth transitions, ensuring that only the active branch exists in the DOM and in memory.
+The `If` function is a reactive control flow operator. It manages the conditional rendering of components with optional smooth transitions, ensuring that only the active branch exists in the DOM and in memory.
 
 ## Function Signature
 
 ```typescript
-$if(
+If(
   condition: Signal<boolean> | Function, 
   thenVal: Component | Node, 
   otherwiseVal?: Component | Node,
@@ -53,7 +53,7 @@ const fade = {
   }
 };
 
-$if(show, Modal, null, fade);
+If(show, Modal, null, fade);
 ```
 
 ---
@@ -68,7 +68,7 @@ const isVisible = $(false);
 Div([
   Button({ onclick: () => isVisible(!isVisible()) }, "Toggle Message"),
   
-  $if(isVisible, 
+  If(isVisible, 
     P("Now you see me!"), 
     P("Now you don't...")
   )
@@ -83,7 +83,7 @@ const showModal = $(false);
 Div([
   Button({ onclick: () => showModal(true) }, "Open Modal"),
   
-  $if(showModal, 
+  If(showModal, 
     () => Modal({ onClose: () => showModal(false) }),
     null,
     fade  // ← Smooth enter/exit animation
@@ -93,10 +93,10 @@ Div([
 
 ### 3. Lazy Component Loading
 
-Unlike CSS `display: none`, `$if` is **lazy**. The inactive branch is never created, saving memory.
+Unlike CSS `display: none`, `If` is **lazy**. The inactive branch is never created, saving memory.
 
 ```javascript
-$if(() => user.isLogged(), 
+If(() => user.isLogged(), 
   () => Dashboard(), // Only executed if logged in
   () => LoginGate()  // Only executed if guest
 )
@@ -105,15 +105,15 @@ $if(() => user.isLogged(),
 ### 4. Complex Conditions
 
 ```javascript
-$if(() => count() > 10 && status() === 'ready', 
+If(() => count() > 10 && status() === 'ready', 
   Span("Threshold reached!")
 )
 ```
 
-### 5. $if.not Helper
+### 5. If.not Helper
 
 ```javascript
-$if.not(loading, 
+If.not(loading, 
   () => Content(),  // Shows when loading is FALSE
   () => Spinner()   // Shows when loading is TRUE
 )
@@ -123,10 +123,10 @@ $if.not(loading,
 
 ## Automatic Cleanup
 
-One of the core strengths of `$if` is its integrated **Cleanup** logic. SigPro ensures that when a branch is swapped out, it is completely purged.
+One of the core strengths of `If` is its integrated **Cleanup** logic. SigPro ensures that when a branch is swapped out, it is completely purged.
 
-1. **Stop Watchers**: All `$watch` calls inside the inactive branch are permanently stopped.
-2. **Unbind Events**: Event listeners attached via `$html` are removed.
+1. **Stop Watchers**: All `Watch` calls inside the inactive branch are permanently stopped.
+2. **Unbind Events**: Event listeners attached via `Tag` are removed.
 3. **Recursive Sweep**: SigPro performs a deep "sweep" of the removed branch.
 4. **Transition Respect**: When using transitions, destruction only happens AFTER the `out` animation completes.
 
@@ -142,7 +142,7 @@ One of the core strengths of `$if` is its integrated **Cleanup** logic. SigPro e
 
 ## Technical Comparison
 
-| Feature | Standard CSS `hidden` | SigPro `$if` |
+| Feature | Standard CSS `hidden` | SigPro `If` |
 | :--- | :--- | :--- |
 | **DOM Presence** | Always present | Only if active |
 | **Reactivity** | Still processing | **Paused/Destroyed** |

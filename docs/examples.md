@@ -24,7 +24,7 @@ const Counter = () => {
     Button({ class: 'btn btn-circle btn-primary', onclick: () => $count(c => c + 1) }, "+")
   ]);
 };
-$mount(Counter, '#demo-counter');
+Mount(Counter, '#demo-counter');
 ```
 
 ---
@@ -48,12 +48,12 @@ const ComputedDemo = () => {
     P({ class: 'text-center' }, ["Base: ", $count, " ⮕ ", Span({class: 'text-primary font-bold'}, ["Double: ", $double])])
   ]);
 };
-$mount(ComputedDemo, '#demo-computed');
+Mount(ComputedDemo, '#demo-computed');
 ```
 
 ---
 
-## 3. Lists and Loops ($for)
+## 3. Lists and Loops (For)
 SigPro handles lists efficiently, only updating specific DOM nodes.
 
 <div class="card bg-base-200 border border-base-300 shadow-sm my-6">
@@ -79,16 +79,16 @@ const ListDemo = () => {
       Button({ class: 'btn btn-primary', onclick: addTodo }, "Add")
     ]),
     Ul({ class: 'menu bg-base-200 rounded-box p-2' }, 
-      $for($todos, (item) => Li([A(item)]), (item) => item)
+      For($todos, (item) => Li([A(item)]), (item) => item)
     )
   ]);
 };
-$mount(ListDemo, '#demo-list');
+Mount(ListDemo, '#demo-list');
 ```
 
 ---
 
-## 4. Conditional Rendering ($if)
+## 4. Conditional Rendering (If)
 Toggle visibility without re-rendering the entire parent.
 
 <div class="card bg-base-200 border border-base-300 shadow-sm my-6">
@@ -103,13 +103,13 @@ const ConditionalDemo = () => {
   const $isVisible = $(false);
   return Div({ class: 'text-center w-full' }, [
     Button({ class: 'btn btn-outline mb-4', onclick: () => $isVisible(! $isVisible()) }, "Toggle Secret"),
-    $if($isVisible, 
+    If($isVisible, 
       () => Div({ class: 'p-4 bg-warning text-warning-content rounded-lg shadow-inner' }, "🤫 SigPro is Awesome!"),
       () => Div({ class: 'p-4 opacity-50' }, "Nothing to see here...")
     )
   ]);
 };
-$mount(ConditionalDemo, '#demo-if');
+Mount(ConditionalDemo, '#demo-if');
 ```
 
 ---
@@ -133,7 +133,7 @@ const PersistDemo = () => {
     P({ class: 'text-xs opacity-50' }, "Refresh the page to see magic!")
   ]);
 };
-$mount(PersistDemo, '#demo-persist');
+Mount(PersistDemo, '#demo-persist');
 ```
 
 <script>
@@ -150,7 +150,7 @@ $mount(PersistDemo, '#demo-persist');
             Button({ class: 'btn btn-circle btn-primary', onclick: () => $count(c => c + 1) }, "+")
           ]);
         };
-        $mount(Counter, counterTarget);
+        Mount(Counter, counterTarget);
       }
 
       // 2. Computed
@@ -164,7 +164,7 @@ $mount(PersistDemo, '#demo-persist');
             P({ class: 'text-center' }, ["Base: ", $count, " ⮕ ", Span({class: 'text-primary font-bold'}, ["Double: ", $double])])
           ]);
         };
-        $mount(ComputedDemo, computedTarget);
+        Mount(ComputedDemo, computedTarget);
       }
 
       // 3. List
@@ -179,10 +179,10 @@ $mount(PersistDemo, '#demo-persist');
               Input({ class: 'input input-bordered flex-1', value: $input, placeholder: 'New task...' }),
               Button({ class: 'btn btn-primary', onclick: addTodo }, "Add")
             ]),
-            Ul({ class: 'menu bg-base-200 rounded-box p-2' }, $for($todos, (item) => Li([A(item)]), (item) => item))
+            Ul({ class: 'menu bg-base-200 rounded-box p-2' }, For($todos, (item) => Li([A(item)]), (item) => item))
           ]);
         };
-        $mount(ListDemo, listTarget);
+        Mount(ListDemo, listTarget);
       }
 
       // 4. If
@@ -192,13 +192,13 @@ $mount(PersistDemo, '#demo-persist');
           const $isVisible = $(false);
           return Div({ class: 'text-center w-full' }, [
             Button({ class: 'btn btn-outline mb-4', onclick: () => $isVisible(! $isVisible()) }, "Toggle Secret"),
-            $if($isVisible, 
+            If($isVisible, 
               () => Div({ class: 'p-4 bg-warning text-warning-content rounded-lg' }, "🤫 SigPro is Awesome!"),
               () => Div({ class: 'p-4 opacity-50' }, "Nothing to see here...")
             )
           ]);
         };
-        $mount(ConditionalDemo, ifTarget);
+        Mount(ConditionalDemo, ifTarget);
       }
 
       // 5. Persist
@@ -212,7 +212,7 @@ $mount(PersistDemo, '#demo-persist');
             P({ class: 'text-xs opacity-50' }, "Refresh the page!")
           ]);
         };
-        $mount(PersistDemo, persistTarget);
+        Mount(PersistDemo, persistTarget);
       }
     };
 

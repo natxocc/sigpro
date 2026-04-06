@@ -1,11 +1,11 @@
-# Routing: `$router()` & Utilities
+# Routing: `Router()` & Utilities
 
 SigPro includes a built-in, lightweight **Hash Router** to create Single Page Applications (SPA). It manages the URL state, matches components to paths, and handles the lifecycle of your pages automatically.
 
 ## Router Signature
 
 ```typescript
-$router(routes: Route[]): HTMLElement
+Router(routes: Route[]): HTMLElement
 ```
 
 ### Route Object
@@ -19,13 +19,13 @@ $router(routes: Route[]): HTMLElement
 ## Usage Patterns
 
 ### 1. Defining Routes
-The `$router` returns a `div` element with the class `.router-outlet`. When the hash changes, the router destroys the previous view and mounts the new one inside this container.
+The `Router` returns a `div` element with the class `.router-outlet`. When the hash changes, the router destroys the previous view and mounts the new one inside this container.
 
 ```javascript
 const App = () => Div({ class: "app-layout" }, [
   Navbar(),
   // The router outlet is placed here
-  $router([
+  Router([
     { path: "/", component: Home },
     { path: "/profile/:id", component: (params) => UserProfile(params.id) },
     { path: "*", component: () => H1("404 Not Found") }
@@ -34,7 +34,7 @@ const App = () => Div({ class: "app-layout" }, [
 ```
 
 ### 2. Dynamic Segments (`:id`)
-The router automatically parses URL parameters (like `:id`) and passes them as an object to the component function. You can also access them globally via `$router.params()`.
+The router automatically parses URL parameters (like `:id`) and passes them as an object to the component function. You can also access them globally via `Router.params()`.
 
 ```javascript
 // If the URL is #/profile/42
@@ -49,23 +49,23 @@ const UserProfile = (params) => {
 
 SigPro provides a set of programmatic methods to control the history and read the state.
 
-### `$router.to(path)`
+### `Router.to(path)`
 Navigates to a specific path. It automatically formats the hash (e.g., `/home` becomes `#/home`).
 ```javascript
-Button({ onclick: () => $router.to("/dashboard") }, "Go to Dashboard")
+Button({ onclick: () => Router.to("/dashboard") }, "Go to Dashboard")
 ```
 
-### `$router.back()`
+### `Router.back()`
 Goes back to the previous page in the browser history.
 ```javascript
-Button({ onclick: () => $router.back() }, "Back")
+Button({ onclick: () => Router.back() }, "Back")
 ```
 
-### `$router.path()`
+### `Router.path()`
 Returns the current path (without the `#`).
 ```javascript
-$watch(() => {
-  console.log("Current path is:", $router.path());
+Watch(() => {
+  console.log("Current path is:", Router.path());
 });
 ```
 
@@ -74,7 +74,7 @@ $watch(() => {
 ## Technical Behavior
 
 * **Automatic Cleanup**: Every time you navigate, the router calls `.destroy()` on the previous view. This ensures that all **signals, effects, and event listeners** from the old page are purged from memory.
-* **Reactive Params**: `$router.params` is a signal (`$`). You can react to parameter changes without re-mounting the entire router outlet.
+* **Reactive Params**: `Router.params` is a signal (`$`). You can react to parameter changes without re-mounting the entire router outlet.
 * **Hash-Based**: By using `window.location.hash`, SigPro works out-of-the-box on any static hosting (like GitHub Pages or Vercel) without needing server-side redirects.
 
 ---

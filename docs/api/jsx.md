@@ -11,7 +11,7 @@ SigPro works seamlessly with JSX.
 {
   "compilerOptions": {
     "jsx": "react",
-    "jsxFactory": "$html",
+    "jsxFactory": "Tag",
     "jsxFragmentFactory": "Fragment"
   }
 }
@@ -25,7 +25,7 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   esbuild: {
-    jsxFactory: '$html',
+    jsxFactory: 'Tag',
     jsxFragmentFactory: 'Fragment'
   }
 })
@@ -38,7 +38,7 @@ export default defineConfig({
 export default {
   plugins: [
     ['@babel/plugin-transform-react-jsx', {
-      pragma: '$html',
+      pragma: 'Tag',
       pragmaFrag: 'Fragment'
     }]
   ]
@@ -49,7 +49,7 @@ export default {
 
 ```jsx
 // App.jsx
-import { $, $mount, Fragment } from 'sigpro';
+import { $, Mount, Fragment } from 'sigpro';
 
 const Button = ({ onClick, children }) => (
   <button class="btn btn-primary" onclick={onClick}>
@@ -76,7 +76,7 @@ const App = () => {
   );
 };
 
-$mount(App, '#app');
+Mount(App, '#app');
 ```
 
 ## What Gets Compiled
@@ -90,8 +90,8 @@ Your JSX:
 
 Compiles to:
 ```javascript
-$html('div', { class: "container" },
-  $html(Button, {}, "Click")
+Tag('div', { class: "container" },
+  Tag(Button, {}, "Click")
 )
 ```
 
@@ -109,7 +109,7 @@ SigPro automatically injects `Div()`, `Button()`, `Span()`, and all other HTML t
   <div id="app"></div>
 
   <script>
-    const { $, $mount, Fragment } = SigPro;
+    const { $, Mount, Fragment } = SigPro;
 
     const App = () => {
       const count = $(0);
@@ -127,7 +127,7 @@ SigPro automatically injects `Div()`, `Button()`, `Span()`, and all other HTML t
       ]);
     };
 
-    $mount(App, '#app');
+    Mount(App, '#app');
   </script>
 </body>
 </html>
@@ -138,10 +138,10 @@ SigPro automatically injects `Div()`, `Button()`, `Span()`, and all other HTML t
 For a JSX-like syntax without a build step, use `htm`:
 
 ```javascript
-import { $, $mount } from 'https://unpkg.com/sigpro';
+import { $, Mount } from 'https://unpkg.com/sigpro';
 import htm from 'https://esm.sh/htm';
 
-const html = htm.bind($html);
+const html = htm.bind(Tag);
 
 const App = () => {
   const count = $(0);
@@ -156,7 +156,7 @@ const App = () => {
   `;
 };
 
-$mount(App, '#app');
+Mount(App, '#app');
 ```
 
 ## Summary

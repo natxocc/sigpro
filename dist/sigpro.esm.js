@@ -337,15 +337,19 @@ var For = (source, renderFn, keyFn, tag = "div", props = { style: "display:conte
     for (let i = 0;i < items.length; i++) {
       const item = items[i];
       const key = keyFn ? keyFn(item, i) : i;
-      let view = viewCache.get(key) || Render(() => renderFn(item, i));
+      let view = viewCache.get(key);
+      if (!view) {
+        const result = renderFn(item, i);
+        view = result instanceof Node ? { container: result, destroy: () => {
+          cleanupNode(result);
+          result.remove();
+        } } : Render(() => result);
+      }
       viewCache.delete(key);
       nextCache.set(key, view);
       order.push(key);
     }
-    viewCache.forEach((view) => {
-      view.destroy();
-      view.container.remove();
-    });
+    viewCache.forEach((v) => v.destroy());
     let anchor = marker;
     for (let i = order.length - 1;i >= 0; i--) {
       const view = nextCache.get(order[i]);
@@ -411,8 +415,7 @@ var Mount = (component, target) => {
   MOUNTED_NODES.set(targetEl, instance);
   return instance;
 };
-var Fragment = ({ children }) => children;
-var SigPro = { $, $$, Render, Watch, Tag, If, For, Router, Mount, Fragment };
+var SigPro = { $, $$, Render, Watch, Tag, If, For, Router, Mount };
 if (typeof window !== "undefined") {
   assign(window, SigPro);
   const tags = `div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer address ul ol li dl dt dd a em strong small i b u mark time sub sup pre code blockquote details summary dialog form label input textarea select button option fieldset legend table thead tbody tfoot tr th td caption img video audio canvas svg iframe picture source progress meter`.split(" ");
@@ -430,7 +433,6 @@ export {
   Render,
   Mount,
   If,
-  Fragment,
   For,
   $$,
   $

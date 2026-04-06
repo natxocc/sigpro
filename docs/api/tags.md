@@ -1,12 +1,12 @@
 # Global Tag Helpers
 
-In **SigPro**, you don't need to manually type `$html('div', ...)` for every element. To keep your code declarative and readable, the engine automatically generates **Global Helper Functions** for all standard HTML5 tags upon initialization.
+In **SigPro**, you don't need to manually type `Tag('div', ...)` for every element. To keep your code declarative and readable, the engine automatically generates **Global Helper Functions** for all standard HTML5 tags upon initialization.
 
 ## 1. How it Works
 
 SigPro iterates through a manifest of standard HTML tags and attaches a wrapper function for each one directly to the `window` object. This creates a specialized **DSL** (Domain Specific Language) that looks like a template engine but is **100% standard JavaScript**.
 
-* **Under the hood:** `$html('button', { onclick: ... }, 'Click')`
+* **Under the hood:** `Tag('button', { onclick: ... }, 'Click')`
 * **SigPro Style:** `Button({ onclick: ... }, 'Click')`
 
 ---
@@ -51,10 +51,10 @@ Section([
 
 ## 4. Reactive Power
 
-These helpers are natively wired into SigPro's **`$watch`** engine.
+These helpers are natively wired into SigPro's **`Watch`** engine.
 
 ### Reactive Attributes (One-Way)
-Simply pass a Signal (function) to any attribute. SigPro creates an internal `$watch` to keep the DOM in sync.
+Simply pass a Signal (function) to any attribute. SigPro creates an internal `Watch` to keep the DOM in sync.
 ```javascript
 const theme = $("light");
 
@@ -80,12 +80,12 @@ Input({
 > **Pro Tip:** If you want an input to be **read-only** but still reactive, wrap the signal in an anonymous function: `value: () => search()`. This prevents the "backwards" synchronization.
 
 ### Dynamic Flow & Cleanup
-Combine tags with Core controllers. SigPro automatically cleans up the `$watch` instances and event listeners when nodes are removed from the DOM.
+Combine tags with Core controllers. SigPro automatically cleans up the `Watch` instances and event listeners when nodes are removed from the DOM.
 ```javascript
 const items = $(["Apple", "Banana", "Cherry"]);
 
 Ul({ class: "list-disc" }, [
-  $for(items, (item) => Li(item), (item) => item)
+  For(items, (item) => Li(item), (item) => item)
 ]);
 ```
 
@@ -128,15 +128,15 @@ const UserStatus = (name, online) => (
 
 ---
 
-## 6. Custom Tags with `$html`
+## 6. Custom Tags with `Tag`
 
-Create reusable components using `$html`. All reactivity auto-cleans itself.
+Create reusable components using `Tag`. All reactivity auto-cleans itself.
 
 ### Basic Example
 
 ```javascript
 const UserCard = (props, children) => 
-  $html('div', { class: 'card p-4', 'data-id': props.id }, children);
+  Tag('div', { class: 'card p-4', 'data-id': props.id }, children);
 
 UserCard({ id: 123 }, [H3("John Doe"), P("john@example.com")]);
 ```
@@ -146,7 +146,7 @@ UserCard({ id: 123 }, [H3("John Doe"), P("john@example.com")]);
 ```javascript
 const Counter = (initial = 0) => {
   const count = $(initial);
-  return $html('div', { class: 'flex gap-2' }, [
+  return Tag('div', { class: 'flex gap-2' }, [
     Button({ onclick: () => count(count() - 1) }, '-'),
     Span(() => count()),
     Button({ onclick: () => count(count() + 1) }, '+')
@@ -161,7 +161,7 @@ Only for external resources (intervals, sockets, third-party libs):
 ```javascript
 const Timer = () => {
   const time = $(new Date().toLocaleTimeString());
-  const el = $html('span', {}, () => time());
+  const el = Tag('span', {}, () => time());
   
   const interval = setInterval(() => time(new Date().toLocaleTimeString()), 1000);
   el._cleanups.add(() => clearInterval(interval)); // Manual cleanup
@@ -170,15 +170,15 @@ const Timer = () => {
 };
 ```
 
-### `$html` vs Tag Helpers
+### `Tag` vs Tag Helpers
 
 | Use | Recommendation |
 |:---|:---|
 | Standard tags (`div`, `span`) | `Div()`, `Span()` helpers |
-| Reusable components | Function returning `$html` |
-| Dynamic tag names | `$html(tagName, props, children)` |
+| Reusable components | Function returning `Tag` |
+| Dynamic tag names | `Tag(tagName, props, children)` |
 
-> **Auto-cleanup**: `$html` automatically destroys watchers, events, and nested components. Only add to `_cleanups` for external resources.
+> **Auto-cleanup**: `Tag` automatically destroys watchers, events, and nested components. Only add to `_cleanups` for external resources.
 
 ---
 

@@ -37,10 +37,11 @@
     "clean": "rm -rf dist",
     "prebuild": "npm run clean",
     "build:iife": "bun build ./index.js --bundle --outfile=./dist/sigpro.js --format=iife --global-name=SigPro",
+    "build:docs": "bun build ./index.js --bundle --outfile=./docs/sigpro.js --format=iife --global-name=SigPro",
     "build:iife:min": "bun build ./index.js --bundle --outfile=./dist/sigpro.min.js --format=iife --global-name=SigPro --minify",
     "build:esm": "bun build ./index.js --bundle --outfile=./dist/sigpro.esm.js --format=esm",
     "build:esm:min": "bun build ./index.js --bundle --outfile=./dist/sigpro.esm.min.js --format=esm --minify",
-    "build": "npm run build:iife && npm run build:iife:min && npm run build:esm && npm run build:esm:min",
+    "build": "bun run build:iife && bun run build:iife:min && bun run build:esm && bun run build:esm:min && bun run build:docs",
     "docs": "bun x serve docs",
     "prepublishOnly": "npm run build"
   },

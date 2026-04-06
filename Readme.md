@@ -81,7 +81,7 @@ const Counter = () => {
   ]);
 };
 
-$mount(Counter, "#app");
+Mount(Counter, "#app");
 ```
 
 -----
@@ -96,7 +96,7 @@ $mount(Counter, "#app");
 | **Native Persistence** | **Included ($)** | Requires Plugins | Manual |
 | **Dependencies** | **Zero** | Many | Build Toolchain |
 | **Lifecycle Mgmt** | **Automatic (Cleanup Root)** | Manual / Hook-based | Manual / Hook-based |
-| **Routing** | **Reactive Hash ($router) + File-based (Vite)** | Virtual Router (External) | File-based / External |
+| **Routing** | **Reactive Hash (Router) + File-based (Vite)** | Virtual Router (External) | File-based / External |
 | **Learning Curve** | **Zero (Vanilla JS)** | Steep (JSX/Templates) | Medium (Directives) |
 
 -----
