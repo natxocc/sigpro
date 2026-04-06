@@ -187,7 +187,7 @@ export function $<T>(initial: T | (() => T), storageKey?: string): Signal<T> {
         if (storageKey) {
           try {
             localStorage.setItem(storageKey, JSON.stringify(value));
-          } catch (e) {}
+          } catch (e) { }
         }
         triggerUpdate(subscribers);
       }
@@ -229,7 +229,7 @@ export function $$<T extends object>(object: T, cache = new WeakMap()): T {
 export function Watch(target: (() => any) | any[], callback?: () => void): CleanupFn {
   const isExplicit = isArr(target);
   const cb = isExplicit ? callback! : (target as () => void);
-  if (!isFunc(cb)) return () => {};
+  if (!isFunc(cb)) return () => { };
 
   const owner = currentOwner;
   const runner = (() => {
@@ -407,7 +407,6 @@ export function Tag(tag: string, props: any = {}, children: any = []): HTMLEleme
   return el;
 }
 
-// Componente If con soporte de transiciones
 export function If(
   condition: (() => boolean) | boolean,
   thenVal: any,
@@ -448,7 +447,6 @@ export function If(
   return container;
 }
 
-// Componente For con keyed rendering
 export function For<T>(
   source: (() => T[]) | T[],
   renderFn: (item: T, index: number) => any,
@@ -472,8 +470,8 @@ export function For<T>(
 
       if (!view) {
         const result = renderFn(item, i);
-        view = result instanceof Node 
-          ? { container: result, destroy: () => { cleanupNode(result); result.remove(); } } 
+        view = result instanceof Node
+          ? { container: result, destroy: () => { cleanupNode(result); result.remove(); } }
           : Render(() => result);
       }
 
@@ -498,17 +496,12 @@ export function For<T>(
   return container;
 }
 
-// Router con soporte mejorado
-export const Router = {
-  params: $({} as Record<string, string>),
-  to: (path: string) => { window.location.hash = path.replace(/^#?\/?/, "#/"); },
-  back: () => window.history.back(),
-  path: () => window.location.hash.replace(/^#/, "") || "/",
-  outlet: (routes: Array<{ path: string; component: Component }>) => {
+export const Router = Object.assign(
+  (routes) => {
     const currentPath = $(Router.path());
     window.addEventListener("hashchange", () => currentPath(Router.path()));
     const outlet = Tag("div", { class: "router-outlet" });
-    let currentView: Runtime | null = null;
+    let currentView = null;
 
     Watch(currentPath, async () => {
       const path = currentPath();
@@ -521,9 +514,9 @@ export const Router = {
       if (route) {
         let comp = route.component;
         if (isFunc(comp) && comp.toString().includes('import')) {
-          comp = (await (comp as any)()).default || (await (comp as any)());
+          comp = (await comp()).default || (await comp());
         }
-        const params: Record<string, string> = {};
+        const params = {};
         route.path.split("/").filter(Boolean).forEach((part, i) => {
           if (part.startsWith(":")) params[part.slice(1)] = path.split("/").filter(Boolean)[i];
         });
@@ -535,7 +528,13 @@ export const Router = {
     });
     return outlet;
   },
-};
+  {
+    params: $({}),
+    to: (path) => { window.location.hash = path.replace(/^#?\/?/, "#/"); },
+    back: () => window.history.back(),
+    path: () => window.location.hash.replace(/^#/, "") || "/",
+  }
+);
 
 export function Mount(component: Component | (() => any), target: string | HTMLElement): Runtime | undefined {
   const targetEl = typeof target === "string" ? doc.querySelector(target) : target;
