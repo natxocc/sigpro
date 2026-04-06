@@ -1,25 +1,26 @@
-// SigPro.ts - Versión simplificada (sin If/For) y tipada
+// SigPro.ts
 
-type EffectFn = {
+type CleanupFn = () => void;
+
+interface EffectFn {
   (): void;
   _deps: Set<Set<EffectFn>>;
+  _cleanups?: Set<CleanupFn>;
   _deleted?: boolean;
   _isComputed?: boolean;
   _subs?: Set<EffectFn>;
   depth?: number;
-  stop?: () => void;
-  _cleanups?: Set<() => void>;
-};
+  stop?: CleanupFn;
+  _dirty?: boolean;
+}
 
-type Owner = { cleanups: Set<() => void> } | null;
+type Owner = { cleanups: Set<CleanupFn> } | null;
 
 type Signal<T> = {
   (): T;
   (next: T | ((prev: T) => T)): T;
-  _isSignal?: boolean;
+  readonly [SIGNAL]: true;
 };
-
-type ComputedSignal<T> = Signal<T> & { stop: () => void };
 
 type Runtime = {
   _isRuntime: true;
@@ -29,16 +30,14 @@ type Runtime = {
 
 type Component = (props?: Record<string, any>, children?: any[]) => any;
 
-type TagFunction = (props?: any, children?: any) => HTMLElement;
+const SIGNAL = Symbol("signal");
 
-// --- Estado interno ---
 let activeEffect: EffectFn | null = null;
 let currentOwner: Owner = null;
 const effectQueue = new Set<EffectFn>();
 let isFlushing = false;
 const MOUNTED_NODES = new WeakMap<Element, Runtime>();
 
-// --- Helpers ---
 const doc = document;
 const isArr = Array.isArray;
 const assign = Object.assign;
@@ -59,7 +58,7 @@ const runWithContext = <T>(effect: EffectFn | null, callback: () => T): T => {
 
 const cleanupNode = (node: Node) => {
   if ((node as any)._cleanups) {
-    (node as any)._cleanups.forEach((dispose: () => void) => dispose());
+    (node as any)._cleanups.forEach((dispose: CleanupFn) => dispose());
     (node as any)._cleanups.clear();
   }
   node.childNodes?.forEach(cleanupNode);
@@ -68,14 +67,17 @@ const cleanupNode = (node: Node) => {
 const flushEffects = () => {
   if (isFlushing) return;
   isFlushing = true;
-  while (effectQueue.size) {
-    const sorted = Array.from(effectQueue).sort((a, b) => (a.depth || 0) - (b.depth || 0));
-    effectQueue.clear();
-    for (const eff of sorted) {
-      if (!eff._deleted) eff();
-    }
+  for (const effect of effectQueue) {
+    if (!effect._deleted) effect();
   }
+  effectQueue.clear();
   isFlushing = false;
+};
+
+const scheduleEffect = (effect: EffectFn) => {
+  if (effect._deleted) return;
+  effectQueue.add(effect);
+  if (!isFlushing) queueMicrotask(flushEffects);
 };
 
 const trackSubscription = (subscribers: Set<EffectFn>) => {
@@ -86,30 +88,35 @@ const trackSubscription = (subscribers: Set<EffectFn>) => {
 };
 
 const triggerUpdate = (subscribers: Set<EffectFn>) => {
-  subscribers.forEach(effect => {
-    if (effect === activeEffect || effect._deleted) return;
+  for (const effect of subscribers) {
+    if (effect === activeEffect || effect._deleted) continue;
     if (effect._isComputed) {
-      (effect as any).markDirty?.();
+      effect._dirty = true;
       if (effect._subs) triggerUpdate(effect._subs);
     } else {
-      effectQueue.add(effect);
+      scheduleEffect(effect);
     }
-  });
-  if (!isFlushing) queueMicrotask(flushEffects);
+  }
 };
 
-// --- API pública ---
+const isJavascriptURL = (url: string): boolean => {
+  try {
+    const parsed = new URL(url, location.origin);
+    return parsed.protocol === "javascript:";
+  } catch {
+    return false;
+  }
+};
 
-/**
- * Crea una señal reactiva o un valor computado.
- * @param initial - Valor inicial o función computada
- * @param storageKey - Opcional, persistencia en localStorage
- */
+const sanitizeURL = (url: string): string => {
+  if (isJavascriptURL(url)) return "#";
+  return url;
+};
+
 export function $<T>(initial: T | (() => T), storageKey?: string): Signal<T> {
   const subscribers = new Set<EffectFn>();
 
   if (isFunc(initial)) {
-    // Computado
     let cachedValue: T;
     let isDirty = true;
 
@@ -126,38 +133,35 @@ export function $<T>(initial: T | (() => T), storageKey?: string): Signal<T> {
           triggerUpdate(subscribers);
         }
       });
-    }) as EffectFn & { markDirty: () => void; stop: () => void };
+    }) as EffectFn & { stop: CleanupFn };
 
     assign(effect, {
       _deps: new Set<Set<EffectFn>>(),
       _isComputed: true,
       _subs: subscribers,
       _deleted: false,
-      markDirty: () => { isDirty = true; },
+      _dirty: false,
       stop: () => {
         effect._deleted = true;
         effect._deps.forEach(dep => dep.delete(effect));
         subscribers.clear();
-      }
+      },
     });
 
     if (currentOwner) currentOwner.cleanups.add(effect.stop);
 
     const signal = ((...args: [] | [T | ((prev: T) => T)]) => {
       if (args.length === 0) {
-        if (isDirty) effect();
+        if (effect._dirty) effect();
         trackSubscription(subscribers);
         return cachedValue;
-      } else {
-        // Los computados no tienen setter
-        return cachedValue;
       }
+      return cachedValue;
     }) as Signal<T>;
-    signal._isSignal = true;
+    signal[SIGNAL] = true;
     return signal;
   }
 
-  // Señal normal
   let value = initial as T;
   if (storageKey) {
     try {
@@ -173,20 +177,22 @@ export function $<T>(initial: T | (() => T), storageKey?: string): Signal<T> {
       const next = isFunc(args[0]) ? (args[0] as (prev: T) => T)(value) : args[0];
       if (!Object.is(value, next)) {
         value = next;
-        if (storageKey) localStorage.setItem(storageKey, JSON.stringify(value));
+        if (storageKey) {
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(value));
+          } catch (e) {}
+        }
         triggerUpdate(subscribers);
       }
+      return value;
     }
     trackSubscription(subscribers);
     return value;
   }) as Signal<T>;
-  signal._isSignal = true;
+  signal[SIGNAL] = true;
   return signal;
 }
 
-/**
- * Convierte un objeto en un proxy reactivo profundo.
- */
 export function $$<T extends object>(object: T, cache = new WeakMap()): T {
   if (!isObj(object)) return object;
   if (cache.has(object)) return cache.get(object);
@@ -206,19 +212,14 @@ export function $$<T extends object>(object: T, cache = new WeakMap()): T {
       const success = Reflect.set(target, key, value, receiver);
       if (keySubscribers[key]) triggerUpdate(keySubscribers[key]);
       return success;
-    }
+    },
   });
 
   cache.set(object, proxy);
   return proxy;
 }
 
-/**
- * Ejecuta un efecto que se re-ejecuta cuando sus dependencias cambian.
- * @param target - Función o array de señales/dependencias
- * @param callback - Si target es array, callback a ejecutar
- */
-export function Watch(target: (() => any) | any[], callback?: () => void): () => void {
+export function Watch(target: (() => any) | any[], callback?: () => void): CleanupFn {
   const isExplicit = isArr(target);
   const cb = isExplicit ? callback! : (target as () => void);
   if (!isFunc(cb)) return () => {};
@@ -244,11 +245,11 @@ export function Watch(target: (() => any) | any[], callback?: () => void): () =>
       }
       currentOwner = prevOwner;
     });
-  }) as EffectFn & { _cleanups?: Set<() => void>; stop: () => void };
+  }) as EffectFn & { _cleanups?: Set<CleanupFn>; stop: CleanupFn };
 
   assign(runner, {
     _deps: new Set<Set<EffectFn>>(),
-    _cleanups: new Set<() => void>(),
+    _cleanups: new Set<CleanupFn>(),
     _deleted: false,
     stop: () => {
       if (runner._deleted) return;
@@ -257,7 +258,7 @@ export function Watch(target: (() => any) | any[], callback?: () => void): () =>
       runner._deps.forEach(dep => dep.delete(runner));
       runner._cleanups?.forEach(clean => clean());
       if (owner) owner.cleanups.delete(runner.stop);
-    }
+    },
   });
 
   if (owner) owner.cleanups.add(runner.stop);
@@ -265,11 +266,8 @@ export function Watch(target: (() => any) | any[], callback?: () => void): () =>
   return runner.stop;
 }
 
-/**
- * Renderiza un componente reactivo con ciclo de vida.
- */
-export function Render(renderFn: (ctx: { onCleanup: (fn: () => void) => void }) => any): Runtime {
-  const cleanups = new Set<() => void>();
+export function Render(renderFn: (ctx: { onCleanup: (fn: CleanupFn) => void }) => any): Runtime {
+  const cleanups = new Set<CleanupFn>();
   const prevOwner = currentOwner;
   const container = createEl("div");
   container.style.display = "contents";
@@ -300,13 +298,10 @@ export function Render(renderFn: (ctx: { onCleanup: (fn: () => void) => void }) 
       cleanups.forEach(fn => fn());
       cleanupNode(container);
       container.remove();
-    }
+    },
   };
 }
 
-/**
- * Crea un elemento DOM con atributos e hijos reactivos.
- */
 export function Tag(tag: string, props: any = {}, children: any = []): HTMLElement {
   if (props instanceof Node || isArr(props) || !isObj(props)) {
     children = props;
@@ -318,18 +313,25 @@ export function Tag(tag: string, props: any = {}, children: any = []): HTMLEleme
     ? doc.createElementNS("http://www.w3.org/2000/svg", tag)
     : createEl(tag) as HTMLElement;
 
-  (el as any)._cleanups = new Set<() => void>();
-  (el as any).onUnmount = (fn: () => void) => (el as any)._cleanups.add(fn);
+  (el as any)._cleanups = new Set<CleanupFn>();
+  (el as any).onUnmount = (fn: CleanupFn) => (el as any)._cleanups.add(fn);
 
   const booleanAttrs = ["disabled", "checked", "required", "readonly", "selected", "multiple", "autofocus"];
 
   const updateAttr = (name: string, value: any) => {
-    const safe = (name === 'src' || name === 'href') && String(value).includes('javascript:') ? '#' : value;
+    let safeValue = value;
+    if ((name === "href" || name === "src") && typeof value === "string") {
+      safeValue = sanitizeURL(value);
+    }
     if (booleanAttrs.includes(name)) {
-      (el as any)[name] = !!safe;
-      safe ? el.setAttribute(name, "") : el.removeAttribute(name);
+      (el as any)[name] = !!safeValue;
+      safeValue ? el.setAttribute(name, "") : el.removeAttribute(name);
     } else {
-      safe == null ? el.removeAttribute(name) : el.setAttribute(name, String(safe));
+      if (safeValue == null || safeValue === false) {
+        el.removeAttribute(name);
+      } else {
+        el.setAttribute(name, String(safeValue));
+      }
     }
   };
 
@@ -340,7 +342,7 @@ export function Tag(tag: string, props: any = {}, children: any = []): HTMLEleme
       continue;
     }
 
-    const isReactive = isFunc(val) && (val as any)._isSignal === true;
+    const isReactive = isFunc(val) && (val as any)[SIGNAL] === true;
     if (key.startsWith("on")) {
       const eventName = key.slice(2).toLowerCase().split(".")[0];
       el.addEventListener(eventName, val);
@@ -364,7 +366,7 @@ export function Tag(tag: string, props: any = {}, children: any = []): HTMLEleme
 
   const appendChildNode = (child: any) => {
     if (isArr(child)) return child.forEach(appendChildNode);
-    if (isFunc(child) && (child as any)._isSignal !== true) {
+    if (isFunc(child) && (child as any)[SIGNAL] !== true) {
       const marker = createText("");
       el.appendChild(marker);
       let currentNodes: Node[] = [];
@@ -373,9 +375,21 @@ export function Tag(tag: string, props: any = {}, children: any = []): HTMLEleme
         const nextNodes = (isArr(result) ? result : [result]).map((node: any) =>
           node?._isRuntime ? node.container : (node instanceof Node ? node : createText(node))
         );
-        currentNodes.forEach(n => { cleanupNode(n); n.remove(); });
-        nextNodes.forEach(n => marker.parentNode?.insertBefore(n, marker));
-        currentNodes = nextNodes;
+        if (currentNodes.length === nextNodes.length && currentNodes.every((n, i) => n.nodeType === nextNodes[i].nodeType)) {
+          for (let i = 0; i < currentNodes.length; i++) {
+            if (currentNodes[i].nodeType === 3 && nextNodes[i].nodeType === 3) {
+              currentNodes[i].textContent = (nextNodes[i] as Text).textContent;
+            } else if (currentNodes[i] !== nextNodes[i]) {
+              currentNodes[i].parentNode?.replaceChild(nextNodes[i], currentNodes[i]);
+              cleanupNode(currentNodes[i]);
+              currentNodes[i] = nextNodes[i];
+            }
+          }
+        } else {
+          currentNodes.forEach(n => { cleanupNode(n); n.remove(); });
+          nextNodes.forEach(n => marker.parentNode?.insertBefore(n, marker));
+          currentNodes = nextNodes;
+        }
       }));
     } else {
       el.appendChild(child instanceof Node ? child : createText(child));
@@ -386,7 +400,6 @@ export function Tag(tag: string, props: any = {}, children: any = []): HTMLEleme
   return el;
 }
 
-// --- Router simple ---
 export const Router = {
   params: $({} as Record<string, string>),
   to: (path: string) => { window.location.hash = path.replace(/^#?\/?/, "#/"); },
@@ -422,12 +435,9 @@ export const Router = {
       }
     });
     return outlet;
-  }
+  },
 };
 
-/**
- * Monta un componente en el DOM, limpiando montajes previos.
- */
 export function Mount(component: Component | (() => any), target: string | HTMLElement): Runtime | undefined {
   const targetEl = typeof target === "string" ? doc.querySelector(target) : target;
   if (!targetEl) return;
@@ -438,7 +448,6 @@ export function Mount(component: Component | (() => any), target: string | HTMLE
   return instance;
 }
 
-// --- Registro automático de tags JSX y exportación global ---
 const sigPro = { $, $$, Render, Watch, Tag, Router, Mount };
 if (typeof window !== "undefined") {
   Object.assign(window, sigPro);
