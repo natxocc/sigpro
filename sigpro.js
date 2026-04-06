@@ -15,7 +15,7 @@ const isObj = (o) => typeof o === "object" && o !== null;
 const runWithContext = (effect, callback) => {
   const previousEffect = activeEffect;
   activeEffect = effect;
-  try { return callback(); } 
+  try { return callback(); }
   finally { activeEffect = previousEffect; }
 };
 
@@ -103,7 +103,7 @@ const $ = (initialValue, storageKey = null) => {
       if (effect._deleted) return;
       effect._deps.forEach((dep) => dep.delete(effect));
       effect._deps.clear();
-      
+
       runWithContext(effect, () => {
         const newValue = initialValue();
         if (!Object.is(cachedValue, newValue) || isDirty) {
@@ -179,7 +179,7 @@ const $$ = (object, cache = new WeakMap()) => {
 const Watch = (target, callbackFn) => {
   const isExplicit = isArr(target);
   const callback = isExplicit ? callbackFn : target;
-  if (!isFunc(callback)) return () => {};
+  if (!isFunc(callback)) return () => { };
 
   const owner = currentOwner;
   const runner = () => {
@@ -191,7 +191,7 @@ const Watch = (target, callbackFn) => {
 
     const previousOwner = currentOwner;
     runner.depth = activeEffect ? activeEffect.depth + 1 : 0;
-    
+
     runWithContext(runner, () => {
       currentOwner = { cleanups: runner._cleanups };
       if (isExplicit) {
@@ -229,8 +229,8 @@ const Tag = (tag, props = {}, children = []) => {
   }
 
   const isSVG = /^(svg|path|circle|rect|line|polyline|polygon|g|defs|text|tspan|use)$/.test(tag);
-  const element = isSVG 
-    ? doc.createElementNS("http://www.w3.org/2000/svg", tag) 
+  const element = isSVG
+    ? doc.createElementNS("http://www.w3.org/2000/svg", tag)
     : createEl(tag);
 
   element._cleanups = new Set();
@@ -249,7 +249,7 @@ const Tag = (tag, props = {}, children = []) => {
 
   for (let [key, value] of Object.entries(props)) {
     if (key === "ref") { (isFunc(value) ? value(element) : (value.current = element)); continue; }
-    
+
     const isSignal = isFunc(value);
     if (key.startsWith("on")) {
       const eventName = key.slice(2).toLowerCase().split(".")[0];
@@ -337,14 +337,22 @@ const For = (source, renderFn, keyFn, tag = "div", props = { style: "display:con
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       const key = keyFn ? keyFn(item, i) : i;
-      let view = viewCache.get(key) || Render(() => renderFn(item, i));
+      let view = viewCache.get(key);
+
+      if (!view) {
+        const result = renderFn(item, i);
+        view = result instanceof Node 
+          ? { container: result, destroy: () => { cleanupNode(result); result.remove(); } } 
+          : Render(() => result);
+      }
+
       viewCache.delete(key);
       nextCache.set(key, view);
       order.push(key);
     }
 
-    viewCache.forEach((view) => { view.destroy(); view.container.remove(); });
-    
+    viewCache.forEach(v => v.destroy());
+
     let anchor = marker;
     for (let i = order.length - 1; i >= 0; i--) {
       const view = nextCache.get(order[i]);
@@ -415,9 +423,8 @@ const Mount = (component, target) => {
   return instance;
 };
 
-export const Fragment = ({ children }) => children;
 
-const SigPro = { $, $$, Render, Watch, Tag, If, For, Router, Mount, Fragment };
+const SigPro = { $, $$, Render, Watch, Tag, If, For, Router, Mount };
 
 if (typeof window !== "undefined") {
   assign(window, SigPro);
