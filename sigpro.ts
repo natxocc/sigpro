@@ -29,6 +29,10 @@ type Runtime = {
 };
 
 type Component = (props?: Record<string, any>, children?: any[]) => any;
+type Transition = {
+  in?: (el: HTMLElement) => void;
+  out?: (el: HTMLElement, done: () => void) => void;
+};
 
 const SIGNAL = Symbol("signal");
 
@@ -67,10 +71,13 @@ const cleanupNode = (node: Node) => {
 const flushEffects = () => {
   if (isFlushing) return;
   isFlushing = true;
-  for (const effect of effectQueue) {
-    if (!effect._deleted) effect();
+  while (effectQueue.size > 0) {
+    const sortedEffects = Array.from(effectQueue).sort((a, b) => (a.depth || 0) - (b.depth || 0));
+    effectQueue.clear();
+    for (const effect of sortedEffects) {
+      if (!effect._deleted) effect();
+    }
   }
-  effectQueue.clear();
   isFlushing = false;
 };
 
@@ -400,6 +407,98 @@ export function Tag(tag: string, props: any = {}, children: any = []): HTMLEleme
   return el;
 }
 
+// Componente If con soporte de transiciones
+export function If(
+  condition: (() => boolean) | boolean,
+  thenVal: any,
+  otherwiseVal: any = null,
+  transition: Transition | null = null
+): HTMLElement {
+  const marker = createText("");
+  const container = Tag("div", { style: "display:contents" }, [marker]);
+  let currentView: Runtime | null = null;
+  let lastState: boolean | null = null;
+
+  Watch(() => {
+    const state = !!(isFunc(condition) ? condition() : condition);
+    if (state === lastState) return;
+    lastState = state;
+
+    const dispose = () => {
+      if (currentView) {
+        currentView.destroy();
+        currentView = null;
+      }
+    };
+
+    if (currentView && !state && transition?.out) {
+      transition.out(currentView.container, dispose);
+    } else {
+      dispose();
+    }
+
+    const branch = state ? thenVal : otherwiseVal;
+    if (branch) {
+      currentView = Render(() => isFunc(branch) ? branch() : branch);
+      container.insertBefore(currentView.container, marker);
+      if (state && transition?.in) transition.in(currentView.container);
+    }
+  });
+
+  return container;
+}
+
+// Componente For con keyed rendering
+export function For<T>(
+  source: (() => T[]) | T[],
+  renderFn: (item: T, index: number) => any,
+  keyFn?: (item: T, index: number) => string | number,
+  tag: string = "div",
+  props: Record<string, any> = { style: "display:contents" }
+): HTMLElement {
+  const marker = createText("");
+  const container = Tag(tag, props, [marker]);
+  let viewCache = new Map<string | number, Runtime | { container: Node; destroy: () => void }>();
+
+  Watch(() => {
+    const items = (isFunc(source) ? source() : source) || [];
+    const nextCache = new Map();
+    const order: (string | number)[] = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const key = keyFn ? keyFn(item, i) : i;
+      let view = viewCache.get(key);
+
+      if (!view) {
+        const result = renderFn(item, i);
+        view = result instanceof Node 
+          ? { container: result, destroy: () => { cleanupNode(result); result.remove(); } } 
+          : Render(() => result);
+      }
+
+      viewCache.delete(key);
+      nextCache.set(key, view);
+      order.push(key);
+    }
+
+    viewCache.forEach(v => v.destroy());
+    viewCache = nextCache;
+
+    let anchor = marker;
+    for (let i = order.length - 1; i >= 0; i--) {
+      const view = nextCache.get(order[i]);
+      if (view.container.nextSibling !== anchor) {
+        container.insertBefore(view.container, anchor);
+      }
+      anchor = view.container;
+    }
+  });
+
+  return container;
+}
+
+// Router con soporte mejorado
 export const Router = {
   params: $({} as Record<string, string>),
   to: (path: string) => { window.location.hash = path.replace(/^#?\/?/, "#/"); },
@@ -448,7 +547,8 @@ export function Mount(component: Component | (() => any), target: string | HTMLE
   return instance;
 }
 
-const sigPro = { $, $$, Render, Watch, Tag, Router, Mount };
+const sigPro = { $, $$, Render, Watch, Tag, If, For, Router, Mount };
+
 if (typeof window !== "undefined") {
   Object.assign(window, sigPro);
   const tags = "div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer address ul ol li dl dt dd a em strong small i b u mark time sub sup pre code blockquote details summary dialog form label input textarea select button option fieldset legend table thead tbody tfoot tr th td caption img video audio canvas svg iframe picture source progress meter".split(" ");
