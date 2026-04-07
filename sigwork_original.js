@@ -1,12 +1,17 @@
 const isFn = (v) => typeof v === 'function';
 const isNode = (v) => v instanceof Node;
+const DANGEROUS = /^(javascript|data|vbscript):/i;
+const sanitize = v => DANGEROUS.test(String(v)) ? '#' : v;
 
 let isScheduled = false, activeEffect = null, context = null;
 const queue = new Set(), reactiveCache = new WeakMap();
 
 const tick = () => {
-    queue.forEach(fn => fn());
-    queue.clear();
+    while (queue.size) {
+        const runs = [...queue];
+        queue.clear();
+        runs.forEach(fn => fn());
+    }
     isScheduled = false;
 }
 
@@ -160,26 +165,33 @@ export const h = (tag, props = {}, ...children) => {
         else if (k === "ref") isFn(v) ? v(el) : v.value = el;
         else if (k === "on") el.$on = v;
         else if (k === "off") el.$off = v;
-        else if (isFn(v) || v?._isSig) effect(() => el[k] = unwrap(v));
-        else el[k] = v;
+        else if (isFn(v) || v?._isSig) effect(() => {
+            const val = unwrap(v);
+            const attr = (k === 'href' || k === 'src') ? sanitize(val) : val;
+            el[k] = attr;
+        });
+        else {
+            const attr = (k === 'href' || k === 'src') ? sanitize(v) : v;
+            el[k] = attr;
+        }
     }
     children.forEach(c => append(el, c));
     return el;
 }
 
 const append = (p, c) => {
-    if (c == null) return;
+    if (c == null || c === false || c === true) return;
     if (isFn(c) || c?._isSig) {
         const anchor = document.createTextNode('');
         p.appendChild(anchor);
         let nodes = [];
         effect(async () => {
-            const raw = [unwrap(c)].flat(Infinity).filter(n => n != null);
+            const raw = [unwrap(c)].flat(Infinity).filter(n => n != null && n !== false && n !== true);
             const next = raw.map(n => isNode(n) ? n : document.createTextNode(String(n)));
             for (const n of nodes) { if (!next.includes(n)) await remove(n); }
             next.forEach((n, i) => {
                 if (!nodes.includes(n)) {
-                    p.insertBefore(n, next[i+1] || anchor);
+                    p.insertBefore(n, next[i + 1] || anchor);
                     if (n.$on) n.$on(n);
                     if (n.$c) n.$c.m.forEach(f => f());
                 }
@@ -243,7 +255,7 @@ export const Router = (routes, trans = {}) => {
 
 export const mount = (root, target, props = {}) => {
     const container = typeof target === 'string' ? document.querySelector(target) : target;
-    if (container.firstElementChild) remove(container.firstElementChild);
+    container.replaceChildren(); // Limpieza rápida moderna
     const el = h(root, props);
     container.appendChild(el);
     if (el.$on) el.$on(el);
