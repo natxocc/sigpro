@@ -255,7 +255,7 @@ export const Router = (routes, trans = {}) => {
 
 export const mount = (root, target, props = {}) => {
     const container = typeof target === 'string' ? document.querySelector(target) : target;
-    container.replaceChildren(); // Limpieza rápida moderna
+    container.replaceChildren();
     const el = h(root, props);
     container.appendChild(el);
     if (el.$on) el.$on(el);
