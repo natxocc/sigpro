@@ -13,6 +13,33 @@ type Signal<T> = {
 
 type CleanupFn = () => void;
 
+
+const DANGEROUS_PROTOCOLS = /^(javascript|data|vbscript):/i;
+const DANGEROUS_ATTRIBUTES = /^on/i;
+
+const sanitizeUrl = (url: unknown): string => {
+    const str = String(url ?? '').trim().toLowerCase();
+    if (DANGEROUS_PROTOCOLS.test(str)) return '#';
+    return str;
+};
+
+const sanitizeAttribute = (name: string, value: unknown): string | null => {
+    if (value == null) return null;
+
+    const strValue = String(value);
+
+    if (DANGEROUS_ATTRIBUTES.test(name)) {
+        console.warn(`[SigPro] XSS prevention: blocked attribute "${name}"`);
+        return null;
+    }
+
+    if (name === 'src' || name === 'href') {
+        return sanitizeUrl(strValue);
+    }
+
+    return strValue;
+};
+
 let activeEffect: EffectFn | null = null;
 let isScheduled = false;
 const queue = new Set<EffectFn>();
@@ -44,7 +71,7 @@ const depend = (subs: Set<EffectFn>): void => {
 
 export const effect = (fn: () => any, isScope: boolean = false): CleanupFn => {
     let cleanup: CleanupFn | null = null;
-    
+
     const run = () => {
         if (run.d) return;
         const prev = activeEffect;
@@ -53,7 +80,7 @@ export const effect = (fn: () => any, isScope: boolean = false): CleanupFn => {
         if (typeof result === 'function') cleanup = result;
         activeEffect = prev;
     };
-    
+
     const stop = () => {
         if (run.d) return;
         run.d = true;
@@ -62,14 +89,14 @@ export const effect = (fn: () => any, isScope: boolean = false): CleanupFn => {
         cleanup?.();
         run.c?.forEach(f => f());
     };
-    
+
     run.e = new Set();
     run.d = false;
     if (isScope) run.c = [];
-    
+
     run();
     activeEffect?.c?.push(stop);
-    
+
     return stop;
 };
 
@@ -85,24 +112,24 @@ export function $<T>(initial: T, storageKey?: string): Signal<T>;
 export function $<T>(fn: () => T, storageKey?: string): Signal<T>;
 export function $<T>(initial: T | (() => T), storageKey?: string): Signal<T> {
     const isComputed = typeof initial === 'function';
-    
+
     if (!isComputed) {
         let value = initial as T;
         const subs = new Set<EffectFn>();
-        
+
         if (storageKey) {
             try {
                 const saved = localStorage.getItem(storageKey);
                 if (saved !== null) value = JSON.parse(saved);
             } catch { }
         }
-        
+
         const signalFn = ((...args: [] | [T | ((prev: T) => T)]) => {
             if (args.length === 0) {
                 return value;
             }
-            const next = typeof args[0] === 'function' 
-                ? (args[0] as (prev: T) => T)(value) 
+            const next = typeof args[0] === 'function'
+                ? (args[0] as (prev: T) => T)(value)
                 : args[0];
             if (Object.is(value, next)) return value;
             value = next;
@@ -114,20 +141,20 @@ export function $<T>(initial: T | (() => T), storageKey?: string): Signal<T> {
             subs.forEach(fn => schedule(fn));
             return value;
         }) as Signal<T>;
-        
+
         signalFn.react = () => {
             depend(subs);
             return value;
         };
-        
+
         return signalFn;
     }
-    
+
     let cached: T;
     let dirty = true;
     const subs = new Set<EffectFn>();
     const fn = initial as () => T;
-    
+
     effect(() => {
         const newValue = fn();
         if (!Object.is(cached, newValue) || dirty) {
@@ -136,16 +163,16 @@ export function $<T>(initial: T | (() => T), storageKey?: string): Signal<T> {
             subs.forEach(fn => schedule(fn));
         }
     });
-    
+
     const computedFn = (() => {
         return cached;
     }) as Signal<T>;
-    
+
     computedFn.react = () => {
         depend(subs);
         return cached;
     };
-    
+
     return computedFn;
 }
 
@@ -159,7 +186,7 @@ export const watch = <T>(
 ): CleanupFn => {
     let first = true;
     let oldValue: T;
-    
+
     return effect(() => {
         const newValue = source();
         if (!first) {
@@ -177,9 +204,9 @@ export function $$<T extends object>(obj: T): T {
     if (reactiveCache.has(obj)) {
         return reactiveCache.get(obj) as T;
     }
-    
+
     const subs: Record<string | symbol, Set<EffectFn>> = {};
-    
+
     const proxy = new Proxy(obj, {
         get(target, key: string | symbol, receiver) {
             const subsForKey = subs[key] ??= new Set();
@@ -200,7 +227,7 @@ export function $$<T extends object>(obj: T): T {
             return success;
         }
     });
-    
+
     reactiveCache.set(obj, proxy);
     return proxy;
 }
@@ -230,6 +257,65 @@ export const use = (key: string | symbol, defaultValue?: any): any => {
     return defaultValue;
 };
 
+export function createContext<T>(defaultValue?: T): {
+    Provider: (props: { value: T; children?: any }) => any;
+    use: () => T;
+} {
+    const key = Symbol('context');
+    
+    const useContext = (): T => {
+        // Buscar en el stack de contextos
+        let current = context;
+        while (current) {
+            if (key in current.p) {
+                return current.p[key] as T;
+            }
+            // Subir al contexto padre (si existiera)
+            current = null; // Por ahora, solo contexto actual
+        }
+        if (defaultValue !== undefined) return defaultValue;
+        throw new Error(`Context not found: ${String(key)}`);
+    };
+    
+    const Provider = ({ value, children }: { value: T; children?: any }) => {
+        // Guardar contexto anterior
+        const prevContext = context;
+        
+        // Crear nuevo contexto o extender el existente
+        if (!context) {
+            context = { m: [], u: [], p: {} };
+        }
+        
+        // Guardar valor
+        context.p[key] = value;
+        
+        // Renderizar hijos
+        const result = h('div', { style: 'display: contents' }, children);
+        
+        // Restaurar contexto anterior
+        context = prevContext;
+        
+        return result;
+    };
+    
+    return { Provider, use: useContext };
+}
+
+export function createSharedContext<T>(key: string | symbol, initialValue: T): {
+    set: (value: T) => void;
+    get: () => T;
+} {
+    // Inicializar si estamos en un componente
+    if (context && !(key in context.p)) {
+        share(key, initialValue);
+    }
+    
+    return {
+        set: (value: T) => share(key, value),
+        get: () => use(key) as T
+    };
+}
+
 type Component<P = Record<string, any>> = (
     props: P,
     ctx: { children?: any[]; emit: (event: string, ...args: any[]) => any }
@@ -246,12 +332,12 @@ const isNode = (v: unknown): v is Node => v instanceof Node;
 
 const append = (parent: Node, child: any): void => {
     if (child === null) return;
-    
+
     if (isFn(child)) {
         const anchor = document.createTextNode('');
         parent.appendChild(anchor);
         let nodes: Node[] = [];
-        
+
         effect(() => {
             effect(() => {
                 const newNodes = [child()]
@@ -260,19 +346,19 @@ const append = (parent: Node, child: any): void => {
                     .flat(Infinity)
                     .filter((node: any) => node !== null)
                     .map((node: any) => isNode(node) ? node : document.createTextNode(String(node)));
-                
+
                 const oldNodes = nodes.filter(node => {
                     const keep = newNodes.includes(node);
                     if (!keep) remove(node);
                     return keep;
                 });
-                
+
                 const oldIdxs = new Map(oldNodes.map((node, i) => [node, i]));
-                
+
                 for (let i = newNodes.length - 1, p = oldNodes.length - 1; i >= 0; i--) {
                     const node = newNodes[i];
                     const ref = newNodes[i + 1] || anchor;
-                    
+
                     if (!oldIdxs.has(node)) {
                         anchor.parentNode?.insertBefore(node, ref);
                         (node as ElementWithLifecycle).$c?.m.forEach(fn => fn());
@@ -318,35 +404,35 @@ const render = (fn: Function, ...data: any[]): Node => {
 export const h = (tag: any, props?: any, ...children: any[]): any => {
     props = props || {};
     children = children.flat(Infinity);
-    
+
     if (isFn(tag)) {
         const prev = context;
         context = { m: [], u: [], p: { ...(prev?.p || {}) } };
         let el: any;
-        
+
         const stop = effect(() => {
             el = tag(props, {
                 children,
-                emit: (evt: string, ...args: any[]) => 
+                emit: (evt: string, ...args: any[]) =>
                     props[`on${evt[0].toUpperCase()}${evt.slice(1)}`]?.(...args),
             });
             return () => el.$c.u.forEach((fn: CleanupFn) => fn());
         }, true);
-        
+
         if (isNode(el) || isFn(el)) {
             el.$c = context;
             el.$s = stop;
         }
-        
+
         context = prev;
         return el;
     }
-    
+
     if (!tag) return () => children;
-    
+
     let el: ElementWithLifecycle;
     let is_svg = false;
-    
+
     try {
         el = document.createElement(tag);
         if (el instanceof HTMLUnknownElement) {
@@ -357,7 +443,10 @@ export const h = (tag: any, props?: any, ...children: any[]): any => {
         is_svg = true;
         el = document.createElementNS("http://www.w3.org/2000/svg", tag);
     }
-    
+
+    // Código MEJORADO
+    const booleanAttributes = ["disabled", "checked", "required", "readonly", "selected", "multiple", "autofocus"];
+
     for (const key in props) {
         if (key.startsWith('on')) {
             const eventName = key.slice(2).toLowerCase();
@@ -366,27 +455,41 @@ export const h = (tag: any, props?: any, ...children: any[]): any => {
             if (isFn(props[key])) {
                 props[key](el);
             } else {
-                props[key].value = el;
+                props[key].current = el;
             }
         } else if (isFn(props[key])) {
             effect(() => {
-                if (key in el && !is_svg) {
-                    (el as any)[key] = props[key]();
+                const val = props[key]();
+                if (key === 'className') {
+                    el.setAttribute('class', String(val ?? ''));
+                } else if (booleanAttributes.includes(key)) {
+                    (el as any)[key] = !!val;
+                    val ? el.setAttribute(key, '') : el.removeAttribute(key);
+                } else if (key in el && !is_svg) {
+                    (el as any)[key] = val;
                 } else {
-                    el.setAttribute(key, props[key]());
+                    const safeVal = sanitizeAttribute(key, val);
+                    if (safeVal !== null) el.setAttribute(key, safeVal);
                 }
             });
         } else {
-            if (key in el && !is_svg) {
-                (el as any)[key] = props[key];
+            const value = props[key];
+            if (key === 'className') {
+                el.setAttribute('class', String(value ?? ''));
+            } else if (booleanAttributes.includes(key)) {
+                (el as any)[key] = !!value;
+                value ? el.setAttribute(key, '') : el.removeAttribute(key);
+            } else if (key in el && !is_svg) {
+                (el as any)[key] = value;
             } else {
-                el.setAttribute(key, props[key]);
+                const safeVal = sanitizeAttribute(key, value);
+                if (safeVal !== null) el.setAttribute(key, safeVal);
             }
         }
     }
-    
+
     children.forEach((child: any) => append(el, child));
-    
+
     return el;
 };
 
@@ -397,7 +500,7 @@ export const If = (
 ): (() => any) => {
     let cached: any;
     let current: boolean | null = null;
-    
+
     return () => {
         const show = isFn(cond) ? cond() : cond;
         if (show !== current) {
@@ -414,11 +517,11 @@ export const For = <T>(
     renderFn: (item: T, index: number) => any
 ): (() => any[]) => {
     let cache = new Map<string | number, any>();
-    
+
     return () => {
         const next = new Map();
         const items = (isFn(list) ? list() : (list as any).value || list) as T[];
-        
+
         const nodes = items.map((item, index) => {
             const idx = isFn(key) ? key(item, index) : key ? (item as any)[key] : index;
             let node = cache.get(idx);
@@ -428,7 +531,7 @@ export const For = <T>(
             next.set(idx, node);
             return node;
         });
-        
+
         cache = next;
         return nodes;
     };
@@ -448,10 +551,10 @@ export const Transition = (
 ): any => {
     const decorate = (el: any): any => {
         if (!isNode(el)) return el;
-        
+
         const addClass = (c?: string) => c && (el as HTMLElement).classList.add(...c.split(' '));
         const removeClass = (c?: string) => c && (el as HTMLElement).classList.remove(...c.split(' '));
-        
+
         if (e) {
             requestAnimationFrame(() => {
                 addClass(e[1]);
@@ -467,7 +570,7 @@ export const Transition = (
                 });
             });
         }
-        
+
         if (l) {
             (el as ElementWithLifecycle).$l = (done: CleanupFn) => {
                 removeClass(idle);
@@ -484,10 +587,10 @@ export const Transition = (
                 });
             };
         }
-        
+
         return el;
     };
-    
+
     if (!c) return null;
     if (isFn(c)) {
         return () => decorate(c());
@@ -511,17 +614,17 @@ export const Router = (routes: Route[]): RouterInstance => {
     const getPath = () => window.location.hash.slice(1) || "/";
     const path = $(getPath());
     const params = $<Record<string, string>>({});
-    
+
     const matchRoute = (path: string): { component: Component; params: Record<string, string> } | null => {
         for (const route of routes) {
             const routeParts = route.path.split("/").filter(Boolean);
             const pathParts = path.split("/").filter(Boolean);
-            
+
             if (routeParts.length !== pathParts.length) continue;
-            
+
             const matchedParams: Record<string, string> = {};
             let ok = true;
-            
+
             for (let i = 0; i < routeParts.length; i++) {
                 if (routeParts[i].startsWith(":")) {
                     matchedParams[routeParts[i].slice(1)] = pathParts[i];
@@ -530,30 +633,30 @@ export const Router = (routes: Route[]): RouterInstance => {
                     break;
                 }
             }
-            
+
             if (ok) return { component: route.component, params: matchedParams };
         }
-        
+
         const wildcard = routes.find(r => r.path === "*");
         if (wildcard) return { component: wildcard.component, params: {} };
-        
+
         return null;
     };
-    
+
     window.addEventListener("hashchange", () => path(getPath()));
-    
+
     const outlet = h("div");
-    
+
     effect(() => {
         const matched = matchRoute(path());
         if (!matched) return;
-        
+
         params(matched.params);
-        
+
         while (outlet.firstChild) outlet.removeChild(outlet.firstChild);
         outlet.appendChild(h(matched.component));
     });
-    
+
     return {
         view: outlet,
         to: (p: string) => { window.location.hash = p; },
@@ -585,5 +688,168 @@ export default (
     (el as ElementWithLifecycle).$c?.m.forEach(fn => fn());
     return () => remove(el);
 };
+
+declare global {
+    namespace JSX {
+        type Element = HTMLElement | Text | DocumentFragment | string | number | boolean | null | undefined;
+        
+        interface IntrinsicElements {
+            // Elementos HTML
+            div: HTMLAttributes;
+            span: HTMLAttributes;
+            p: HTMLAttributes;
+            a: AnchorHTMLAttributes;
+            button: ButtonHTMLAttributes;
+            input: InputHTMLAttributes;
+            form: FormHTMLAttributes;
+            img: ImgHTMLAttributes;
+            ul: HTMLAttributes;
+            ol: HTMLAttributes;
+            li: HTMLAttributes;
+            h1: HTMLAttributes;
+            h2: HTMLAttributes;
+            h3: HTMLAttributes;
+            h4: HTMLAttributes;
+            h5: HTMLAttributes;
+            h6: HTMLAttributes;
+            section: HTMLAttributes;
+            article: HTMLAttributes;
+            header: HTMLAttributes;
+            footer: HTMLAttributes;
+            nav: HTMLAttributes;
+            main: HTMLAttributes;
+            aside: HTMLAttributes;
+            label: HTMLAttributes;
+            select: SelectHTMLAttributes;
+            option: OptionHTMLAttributes;
+            textarea: TextareaHTMLAttributes;
+            table: TableHTMLAttributes;
+            tr: HTMLAttributes;
+            td: HTMLAttributes;
+            th: HTMLAttributes;
+            hr: HTMLAttributes;
+            br: HTMLAttributes;
+            
+            // SVG
+            svg: SVGAttributes;
+            path: SVGAttributes;
+            circle: SVGAttributes;
+            rect: SVGAttributes;
+            line: SVGAttributes;
+            g: SVGAttributes;
+        }
+        
+        interface HTMLAttributes {
+            id?: string;
+            className?: string;
+            class?: string;
+            style?: string | Partial<CSSStyleDeclaration>;
+            children?: any;
+            ref?: ((el: any) => void) | { current: any };
+            
+            // Eventos
+            onClick?: (event: MouseEvent) => void;
+            onInput?: (event: Event) => void;
+            onChange?: (event: Event) => void;
+            onSubmit?: (event: Event) => void;
+            onKeyDown?: (event: KeyboardEvent) => void;
+            onKeyUp?: (event: KeyboardEvent) => void;
+            onFocus?: (event: FocusEvent) => void;
+            onBlur?: (event: FocusEvent) => void;
+            onMouseEnter?: (event: MouseEvent) => void;
+            onMouseLeave?: (event: MouseEvent) => void;
+            
+            // Atributos ARIA
+            role?: string;
+            'aria-label'?: string;
+            'aria-hidden'?: boolean | 'true' | 'false';
+            'aria-expanded'?: boolean | 'true' | 'false';
+            
+            // Atributos comunes
+            tabIndex?: number;
+            title?: string;
+            draggable?: boolean;
+            hidden?: boolean;
+        }
+        
+        interface AnchorHTMLAttributes extends HTMLAttributes {
+            href?: string;
+            target?: '_blank' | '_self' | '_parent' | '_top';
+            rel?: string;
+        }
+        
+        interface ButtonHTMLAttributes extends HTMLAttributes {
+            type?: 'button' | 'submit' | 'reset';
+            disabled?: boolean;
+        }
+        
+        interface InputHTMLAttributes extends HTMLAttributes {
+            type?: 'text' | 'password' | 'email' | 'number' | 'checkbox' | 'radio' | 'file' | 'date';
+            value?: string | number;
+            checked?: boolean;
+            placeholder?: string;
+            disabled?: boolean;
+            required?: boolean;
+            name?: string;
+            min?: number;
+            max?: number;
+            step?: number;
+        }
+        
+        interface FormHTMLAttributes extends HTMLAttributes {
+            action?: string;
+            method?: 'get' | 'post';
+        }
+        
+        interface ImgHTMLAttributes extends HTMLAttributes {
+            src?: string;
+            alt?: string;
+            width?: number | string;
+            height?: number | string;
+            loading?: 'lazy' | 'eager';
+        }
+        
+        interface SelectHTMLAttributes extends HTMLAttributes {
+            value?: string | string[];
+            disabled?: boolean;
+            required?: boolean;
+            multiple?: boolean;
+        }
+        
+        interface OptionHTMLAttributes extends HTMLAttributes {
+            value?: string | number;
+            selected?: boolean;
+            disabled?: boolean;
+        }
+        
+        interface TextareaHTMLAttributes extends HTMLAttributes {
+            value?: string;
+            placeholder?: string;
+            disabled?: boolean;
+            required?: boolean;
+            rows?: number;
+            cols?: number;
+        }
+        
+        interface TableHTMLAttributes extends HTMLAttributes {
+            border?: number;
+            cellPadding?: number | string;
+            cellSpacing?: number | string;
+        }
+        
+        interface SVGAttributes {
+            viewBox?: string;
+            width?: number | string;
+            height?: number | string;
+            fill?: string;
+            stroke?: string;
+            strokeWidth?: number | string;
+            xmlns?: string;
+            children?: any;
+        }
+    }
+}
+
+export { h as jsx, h as jsxs, h as Fragment };
 
 export type { Signal, Component, CleanupFn };
