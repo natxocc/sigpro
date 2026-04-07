@@ -84,7 +84,7 @@ const $ = (init, key = null) => {
   return sig;
 };
 
-const $$_ = (obj) => {
+const $$ = (obj) => {
   if (obj === null || typeof obj !== "object" || obj._isSig) return obj;
   if (reactiveCache.has(obj)) return reactiveCache.get(obj);
 
@@ -100,7 +100,7 @@ const $$_ = (obj) => {
       }
 
       const value = Reflect.get(target, key);
-      return (typeof value === "object" && value !== null) ? $$_(value) : value;
+      return (typeof value === "object" && value !== null) ? $$(value) : value;
     },
     set(target, key, value) {
       const prev = Reflect.get(target, key);
@@ -399,7 +399,7 @@ const Mount = (component, target) => {
   return instance;
 };
 
-const SigPro = { $, $$_, untrack, Render, Watch, Tag, If, For, Router, Mount, Share, Use };
+const SigPro = { $, $$, untrack, Render, Watch, Tag, If, For, Router, Mount, Share, Use };
 
 if (typeof window !== "undefined") {
   Object.assign(window, SigPro);
@@ -413,5 +413,5 @@ if (typeof window !== "undefined") {
   window.SigPro = Object.freeze(SigPro);
 }
 
-export { $, $$_, untrack, Render, Watch, Tag, If, For, Router, Mount, Share, Use };
+export { $, $$, untrack, Render, Watch, Tag, If, For, Router, Mount, Share, Use };
 export default SigPro;
