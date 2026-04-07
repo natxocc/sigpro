@@ -34,7 +34,7 @@ const $ = (init, key = null) => {
     try {
       const saved = localStorage.getItem(key);
       if (saved != null) val = JSON.parse(saved);
-    } catch {}
+    } catch { }
   }
   const sig = (...args) => {
     if (args.length) {
@@ -99,7 +99,7 @@ const $$ = (obj) => {
 };
 
 const Watch = (cb) => {
-  if (typeof cb !== "function") return () => {};
+  if (typeof cb !== "function") return () => { };
   const owner = currentOwner;
   const runner = () => {
     if (runner._deleted) return;
@@ -111,7 +111,7 @@ const Watch = (cb) => {
     const prevEffect = activeEffect;
     currentOwner = { cleanups: runner._cleanups, parent: owner };
     activeEffect = runner;
-    try { cb(); } 
+    try { cb(); }
     finally {
       currentOwner = prevOwner;
       activeEffect = prevEffect;
@@ -143,7 +143,7 @@ const Tag = (tag, props = {}, children = []) => {
     : createEl(tag);
   el._cleanups = new Set();
   el.onUnmount = (fn) => el._cleanups.add(fn);
-  const booleanAttrs = ["disabled","checked","required","readonly","selected","multiple","autofocus"];
+  const booleanAttrs = ["disabled", "checked", "required", "readonly", "selected", "multiple", "autofocus"];
   for (let [k, v] of Object.entries(props)) {
     if (k === "ref") {
       typeof v === "function" ? v(el) : (v.current = el);
@@ -199,10 +199,10 @@ const Render = (fn) => {
   const container = createEl("div");
   container.style.display = "contents";
 
-  currentOwner = { 
-    cleanups, 
-    parent: prevOwner, 
-    context: null 
+  currentOwner = {
+    cleanups,
+    parent: prevOwner,
+    context: null
   };
 
   const process = (res) => {
@@ -217,10 +217,10 @@ const Render = (fn) => {
     }
   };
 
-  try { 
-    process(fn({ onCleanup: (f) => cleanups.add(f) })); 
-  } finally { 
-    currentOwner = prevOwner; 
+  try {
+    process(fn({ onCleanup: (f) => cleanups.add(f) }));
+  } finally {
+    currentOwner = prevOwner;
   }
 
   return {
@@ -251,19 +251,43 @@ const Use = (key, defaultValue) => {
   return defaultValue;
 };
 
-const If = (cond, a, b = null) => {
+const If = (cond, a, b = null, options = {}) => {
   const marker = createText("");
   const container = Tag("div", { style: "display:contents" }, [marker]);
-  let view = null;
+  let currentView = null;
+  let lastState = null;
+
   Watch(() => {
     const state = !!(typeof cond === "function" ? cond() : cond);
-    if (view) view.destroy();
+    if (state === lastState) return;
+    lastState = state;
+
     const branch = state ? a : b;
+    const oldView = currentView;
+
+    if (oldView) {
+      if (options.off) {
+        options.off(oldView.container, () => oldView.destroy());
+      } else {
+        oldView.destroy();
+      }
+    }
+
     if (branch) {
-      view = Render(() => typeof branch === "function" ? branch() : branch);
-      container.insertBefore(view.container, marker);
+      currentView = Render(() => typeof branch === "function" ? branch() : branch);
+      const el = currentView.container;
+      container.insertBefore(el, marker);
+
+      if (options.on) {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => options.on(el));
+        });
+      }
+    } else {
+      currentView = null;
     }
   });
+
   return container;
 };
 
@@ -336,7 +360,7 @@ const Mount = (component, target) => {
   return instance;
 };
 
-const SigPro = { $, Render, Watch, Tag, If, For, Router, Mount, Share, Use };
+const SigPro = { $, $$, Render, Watch, Tag, If, For, Router, Mount, Share, Use };
 
 if (typeof window !== "undefined") {
   Object.assign(window, SigPro);
@@ -350,5 +374,5 @@ if (typeof window !== "undefined") {
   window.SigPro = Object.freeze(SigPro);
 }
 
-export { $, Render, Watch, Tag, If, For, Router, Mount, Share, Use };
+export { $, $$, Render, Watch, Tag, If, For, Router, Mount, Share, Use };
 export default SigPro;
