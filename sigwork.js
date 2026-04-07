@@ -1,8 +1,7 @@
 /*
-* SigPro
+* SigPro 
 */
 
-// --- Scheduler (Ciclo Completo) ---
 let isScheduled = false;
 const queue = new Set();
 const tick = () => {
@@ -14,17 +13,21 @@ const tick = () => {
     isScheduled = false;
 };
 
-// --- Estado Global y Contexto ---
 let activeEffect = null;
 let currentContext = null;
 const nodeContexts = new WeakMap();
-const reactiveCache = new WeakMap(); // <-- Añadido para que Reactive funcione
+const reactiveCache = new WeakMap();
 
-// --- Seguridad ---
 const DANGEROUS = /^(javascript|data|vbscript):/i;
 const sanitize = v => DANGEROUS.test(String(v)) ? '#' : v;
 
-// --- Sistema de Efectos con Scope ---
+const track = (subs) => {
+    if (activeEffect) {
+        subs.add(activeEffect);
+        activeEffect.deps.add(subs);
+    }
+};
+
 export const Effect = (fn, is_scope = false) => {
     let cleanup = null;
     const runner = () => {
@@ -36,7 +39,6 @@ export const Effect = (fn, is_scope = false) => {
         activeEffect = prevEffect;
         currentContext = prevContext;
     };
-
     const stop = () => {
         runner.deps?.forEach(subs => subs.delete(runner));
         runner.deps?.clear();
@@ -44,23 +46,12 @@ export const Effect = (fn, is_scope = false) => {
         runner.cleanups?.forEach(f => f());
         runner.cleanups = [];
     };
-
     runner.deps = new Set();
     runner.cleanups = [];
-    
     if (activeEffect) activeEffect.cleanups.push(stop);
     else if (currentContext) currentContext.cleanups.add(stop);
-
     runner();
     return stop;
-};
-
-// --- Signals & Reactividad ---
-const track = (subs) => {
-    if (activeEffect) {
-        subs.add(activeEffect);
-        activeEffect.deps.add(subs);
-    }
 };
 
 export const Signal = (value) => {
@@ -117,18 +108,19 @@ export const Storage = (key, val) => {
     return s;
 };
 
-// --- Renderer Core (Diffing Avanzado y SVG) ---
 const isNode = v => v instanceof Node;
 
-export const destroy = (node) => {
+export const destroy = async (node) => {
     if (!node) return;
     const ctx = nodeContexts.get(node);
+    if (node.off) await node.off(node);
     if (ctx) {
         ctx.unmount.forEach(fn => fn());
         ctx.cleanups.forEach(fn => fn());
         nodeContexts.delete(node);
     }
-    node.childNodes?.forEach(destroy);
+    const children = Array.from(node.childNodes);
+    for (const child of children) await destroy(child);
     node.remove();
 };
 
@@ -138,7 +130,7 @@ const append = (parent, child) => {
         const anchor = document.createTextNode('');
         parent.appendChild(anchor);
         let nodes = [];
-        Effect(() => {
+        Effect(async () => {
             const raw = child();
             const next = [raw].flat(Infinity)
                 .map(n => typeof n === 'function' ? n() : n)
@@ -147,7 +139,7 @@ const append = (parent, child) => {
                 .map(n => isNode(n) ? n : document.createTextNode(String(n)));
 
             const nextSet = new Set(next);
-            nodes.forEach(n => { if (!nextSet.has(n)) destroy(n); });
+            for (const n of nodes) { if (!nextSet.has(n)) await destroy(n); }
 
             const oldIdxs = new Map(nodes.filter(n => nextSet.has(n)).map((n, i) => [n, i]));
             let p = oldIdxs.size - 1;
@@ -157,6 +149,7 @@ const append = (parent, child) => {
                 const ref = next[i + 1] || anchor;
                 if (!oldIdxs.has(node) || nodes[p] !== node) {
                     parent.insertBefore(node, ref);
+                    if (node.on) queueMicrotask(() => node.on(node));
                 } else {
                     p--;
                 }
@@ -164,7 +157,9 @@ const append = (parent, child) => {
             nodes = next;
         }, true);
     } else {
-        parent.appendChild(isNode(child) ? child : document.createTextNode(String(child)));
+        const n = isNode(child) ? child : document.createTextNode(String(child));
+        parent.appendChild(n);
+        if (n.on) queueMicrotask(() => n.on(n));
     }
 };
 
@@ -186,28 +181,24 @@ export const h = (tag, props = {}, ...children) => {
 
     let el;
     const isSVG = /^(svg|path|circle|rect|g)$/i.test(tag);
-    if (isSVG) {
-        el = document.createElementNS("http://www.w3.org/2000/svg", tag);
-    } else {
-        el = document.createElement(tag);
-    }
+    el = isSVG ? document.createElementNS("http://www.w3.org/2000/svg", tag) : document.createElement(tag);
 
     for (const key in props) {
         const val = props[key];
         if (key.startsWith('on')) {
             el.addEventListener(key.slice(2).toLowerCase(), val);
-        } 
-        else if (key === 'ref') {
+        } else if (key === 'ref') {
             if (typeof val === 'function') val(el);
             else if (val && val._isSig) val.value = el;
-        }
-        else if (typeof val === 'function' || (val && val._isSig)) {
+        } else if (typeof val === 'function' || (val && val._isSig)) {
             Effect(() => {
                 const v = typeof val === 'function' ? val() : val.value;
+                if (key === 'on' || key === 'off') { el[key] = v; return; }
                 const attr = (key === 'href' || key === 'src') ? sanitize(v) : v;
                 if (!isSVG && key in el) el[key] = attr; else el.setAttribute(key, attr);
             });
         } else {
+            if (key === 'on' || key === 'off') { el[key] = val; continue; }
             const attr = (key === 'href' || key === 'src') ? sanitize(val) : val;
             if (!isSVG && key in el) el[key] = attr; else el.setAttribute(key, attr);
         }
@@ -216,7 +207,6 @@ export const h = (tag, props = {}, ...children) => {
     return el;
 };
 
-// --- Helpers ---
 export const If = (cond, a, b) => () => cond() ? a() : (b ? b() : null);
 
 export const For = (list, key, render) => {
@@ -235,15 +225,14 @@ export const For = (list, key, render) => {
     };
 };
 
-// --- Router ---
 export const Router = (routes) => {
     const path = Signal(window.location.hash.replace(/^#/, '') || '/');
     window.onhashchange = () => path.value = window.location.hash.replace(/^#/, '') || '/';
     const outlet = h('div', { class: 'router-outlet' });
     let currentView = null;
-    Effect(() => {
+    Effect(async () => {
         const route = routes.find(r => r.path === path.value) || routes.find(r => r.path === '*');
-        if (currentView) destroy(currentView);
+        if (currentView) await destroy(currentView);
         if (route) {
             currentView = route.component();
             outlet.appendChild(currentView);
@@ -254,7 +243,8 @@ export const Router = (routes) => {
 
 export const Mount = (root, target) => {
     const el = typeof root === 'function' ? root() : root;
-    (typeof target === 'string' ? document.querySelector(target) : target).replaceChildren(el);
+    const container = typeof target === 'string' ? document.querySelector(target) : target;
+    container.replaceChildren(el);
     return () => destroy(el);
 };
 
