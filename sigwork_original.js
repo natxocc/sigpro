@@ -245,6 +245,15 @@ export const For = (list, key, renderFn) => {
     }
 }
 
+export const Router = (routes) => {
+    const path = signal(window.location.hash.slice(1) || '/');
+    window.onhashchange = () => path.value = window.location.hash.slice(1) || '/';
+    return h('div', { class: 'router-view' }, () => {
+        const route = routes.find(r => r.path === path.value) || routes.find(r => r.path === '*');
+        return route ? h(route.component) : null;
+    });
+};
+
 export const Component = ({ is, ...props }, { children }) => () => h(isFn(is) ? is() : is, props, children);
 
 export const Transition = ({ enter: e, idle, leave: l }, { children: [c] }) => {
