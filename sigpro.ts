@@ -14,6 +14,20 @@ interface EffectFn {
   _dirty?: boolean;
 }
 
+type JSXFunction = {
+  <P extends Record<string, any>>(
+    tag: string,
+    props: (P & { children?: any }) | null,
+    ...children: any[]
+  ): HTMLElement;
+  
+  <P extends Record<string, any>>(
+    tag: (props: P, context?: any) => any,
+    props: (P & { children?: any }) | null,
+    ...children: any[]
+  ): any;
+};
+
 type Owner = { cleanups: Set<CleanupFn> } | null;
 
 type Signal<T> = {
@@ -546,7 +560,7 @@ export function Mount(component: Component | (() => any), target: string | HTMLE
   return instance;
 }
 
-const sigPro = { $, $$, Render, Watch, Tag, If, For, Router, Mount };
+const sigPro = { $, $$, Render, Watch, Tag, h: Tag, If, For, Router, Mount };
 
 if (typeof window !== "undefined") {
   Object.assign(window, sigPro);
