@@ -58,6 +58,46 @@ const $ = (init, key = null) => {
   return sig;
 };
 
+const reactiveCache = new WeakMap();
+
+const $$ = (obj) => {
+  if (obj === null || typeof obj !== "object" || isSignal(obj)) return obj;
+  if (reactiveCache.has(obj)) return reactiveCache.get(obj);
+
+  const subs = new Map();
+
+  const proxy = new Proxy(obj, {
+    get(target, key) {
+      if (!subs.has(key)) subs.set(key, new Set());
+      const keySubs = subs.get(key);
+
+      if (activeEffect && !activeEffect._deleted) {
+        keySubs.add(activeEffect);
+        activeEffect._deps.add(keySubs);
+      }
+
+      const value = Reflect.get(target, key);
+      return (typeof value === "object" && value !== null) ? $$(value) : value;
+    },
+    set(target, key, value) {
+      const prev = Reflect.get(target, key);
+      if (Object.is(prev, value)) return true;
+
+      const result = Reflect.set(target, key, value);
+      const keySubs = subs.get(key);
+
+      if (keySubs) {
+        keySubs.forEach(e => effectQueue.add(e));
+        if (!isFlushing) queueMicrotask(flushEffects);
+      }
+      return result;
+    }
+  });
+
+  reactiveCache.set(obj, proxy);
+  return proxy;
+};
+
 const Watch = (cb) => {
   if (typeof cb !== "function") return () => {};
   const owner = currentOwner;
