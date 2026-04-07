@@ -1,171 +1,272 @@
 /*
-* Sigwork - Optimized & Leak-free
+* Sigwork v1.1 - [Sig]nal-based Frontend Frame[work]
+* Fixed: Memory Leaks, Fragment Lifecycle, and List Reconciler.
 */
 
 const isFn = (v) => typeof v === 'function';
 const isNode = (v) => v instanceof Node;
 
-// --- Sistema de Programación ---
+// --- Schedule System ---
 let isScheduled = false;
 const queue = new Set();
 const tick = () => {
-   queue.forEach(fn => fn());
-   queue.clear();
-   isScheduled = false;
+    queue.forEach(fn => fn());
+    queue.clear();
+    isScheduled = false;
 }
 
-// --- Efectos y Alcance ---
+// --- Effects System ---
 let activeEffect = null;
 export const effect = (fn, is_scope = false) => {
-   let cleanup;
-   const run = () => {
-      stop(); // Limpia suscripciones y ejecuciones previas
-      const prev = activeEffect;
-      activeEffect = run;
-      try { cleanup = fn(); } finally { activeEffect = prev; }
-   }
-   const stop = () => {
-      run.e.forEach(subs => subs.delete(run));
-      run.e.clear();
-      if (isFn(cleanup)) cleanup();
-      if (run.c) {
-         run.c.forEach(s => s());
-         run.c.length = 0;
-      }
-   }
-   run.e = new Set(); // Suscripciones (Signals)
-   if (is_scope) run.c = []; // Efectos hijos
-   run();
-   
-   // Registro en el padre para evitar fugas
-   if (activeEffect?.c) activeEffect.c.push(stop);
-   return stop;
+    let cleanup = null;
+    const run = () => {
+        stop(); // Limpia antes de re-ejecutar
+        const prev = activeEffect;
+        activeEffect = run;
+        try { cleanup = fn(); } finally { activeEffect = prev; }
+    }
+    const stop = () => {
+        run.e.forEach(subs => subs.delete(run));
+        run.e.clear();
+        if (isFn(cleanup)) cleanup();
+        if (run.c) {
+            run.c.forEach(s => s());
+            run.c.length = 0;
+        }
+    }
+    run.e = new Set();
+    if (is_scope) run.c = [];
+    run();
+    if (activeEffect?.c) activeEffect.c.push(stop);
+    return stop;
 }
 
 export const scope = f => effect(f, true);
 
 const track = (subs) => {
-   if (activeEffect) {
-      subs.add(activeEffect);
-      activeEffect.e.add(subs);
-   }
-};
+    if (activeEffect && !activeEffect.c) {
+        subs.add(activeEffect);
+        activeEffect.e.add(subs);
+    }
+}
 
-// --- Signals ---
+// --- Signals Core ---
 export const signal = (value) => {
-   const subs = new Set();
-   return {
-      get value() { track(subs); return value; },
-      set value(nv) {
-         if (nv === value) return;
-         value = nv;
-         subs.forEach(fn => queue.add(fn));
-         if (!isScheduled) { isScheduled = true; queueMicrotask(tick); }
-      }
-   }
+    const subs = new Set();
+    return {
+        get value() { track(subs); return value; },
+        set value(newValue) {
+            if (newValue === value) return;
+            value = newValue;
+            subs.forEach(fn => queue.add(fn));
+            if (!isScheduled) { isScheduled = true; queueMicrotask(tick); }
+        }
+    }
+}
+
+export const untrack = (fn) => {
+    const prev = activeEffect;
+    activeEffect = null;
+    const result = fn();
+    activeEffect = prev;
+    return result;
 }
 
 export const computed = (fn) => {
-   const sig = signal();
-   effect(() => sig.value = fn());
-   return { get value() { return sig.value; } };
+    const sig = signal();
+    effect(() => sig.value = fn());
+    return { get value() { return sig.value; } };
 }
 
-// --- Rendering Core ---
+const reactiveCache = new WeakMap();
+export const reactive = (obj) => {
+    if (reactiveCache.has(obj)) return reactiveCache.get(obj);
+    const subs = {};
+    const proxy = new Proxy(obj, {
+        get(t, key) {
+            track(subs[key] ??= new Set());
+            const val = t[key];
+            return (val && typeof val === 'object') ? reactive(val) : val;
+        },
+        set(t, key, val) {
+            if (t[key] === val) return true;
+            t[key] = val;
+            if (subs[key]) {
+                subs[key].forEach(fn => queue.add(fn));
+                if (!isScheduled) { isScheduled = true; queueMicrotask(tick); }
+            }
+            return true;
+        }
+    });
+    reactiveCache.set(obj, proxy);
+    return proxy;
+}
+
+export const watch = (source, cb) => {
+    let first = true, oldValue;
+    return effect(() => {
+        const newValue = isFn(source) ? source() : source.value;
+        if (!first) untrack(() => cb(newValue, oldValue));
+        else first = false;
+        oldValue = newValue;
+    });
+}
+
+// --- Rendering System ---
 let context = null;
 export const onMount = (fn) => context?.m.push(fn);
 export const onUnmount = (fn) => context?.u.push(fn);
+export const provide = (key, value) => context && (context.p[key] = value);
+export const inject = (key, dft) => context && (key in context.p ? context.p[key] : dft);
 
 const remove = (node) => {
-   if (Array.isArray(node)) return node.forEach(remove);
-   node.$s?.(); // Detener efectos del nodo
-   if (node.$c) node.$c.u.forEach(f => f()); // Ejecutar onUnmount
-   const done = () => node.remove();
-   node.$l ? node.$l(done) : done();
+    if (Array.isArray(node)) return node.forEach(remove);
+    node.$s?.(); 
+    if (node.$c) node.$c.u.forEach(f => f());
+    const done = () => node.remove();
+    node.$l ? node.$l(done) : done();
+}
+
+const render = (fn, ...data) => {
+    let node;
+    const stop = effect(() => {
+        node = fn(...data);
+        if (isFn(node)) node = node();
+    }, true);
+    if (node) node.$s = stop;
+    return node;
 }
 
 export const h = (tag, props = {}, ...children) => {
-   children = children.flat(Infinity);
+    children = children.flat(Infinity);
 
-   if (isFn(tag)) {
-      const prev = context;
-      const ctx = context = { m: [], u: [], p: { ...(prev?.p || {}) } };
-      let res;
-      const stop = effect(() => {
-         res = tag(props, { children, emit: (e, ...a) => props[`on${e[0].toUpperCase()}${e.slice(1)}`]?.(...a) });
-         return () => ctx.u.forEach(f => f());
-      }, true);
-      
-      // Si el componente devuelve un array, necesitamos un ancla para colgar el ciclo de vida
-      const out = isNode(res) ? res : document.createTextNode(String(res));
-      out.$c = ctx;
-      out.$s = stop;
-      context = prev;
-      return out;
-   }
+    if (isFn(tag)) {
+        const prev = context;
+        context = { m: [], u: [], p: { ...(prev?.p || {}) } };
+        const ctx = context;
+        let el;
+        const stop = effect(() => {
+            el = tag(props, { children, emit: (evt, ...args) => props[`on${evt[0].toUpperCase()}${evt.slice(1)}`]?.(...args) });
+            return () => ctx.u.forEach(f => f());
+        }, true);
+        
+        // Normalización para asegurar que el nodo tenga metadatos
+        const out = isNode(el) ? el : document.createTextNode(String(el));
+        out.$c = ctx;
+        out.$s = stop;
+        context = prev;
+        return out;
+    }
 
-   if (!tag) return children; // Fragment (manejo simple)
+    if (!tag) return children;
 
-   const isSvg = tag === 'svg' || tag === 'path' || tag === 'circle'; // Simplificado
-   const el = isSvg 
-      ? document.createElementNS("http://www.w3.org/2000/svg", tag)
-      : document.createElement(tag);
+    const isSvg = tag === 'svg' || tag === 'path' || tag === 'circle';
+    const el = isSvg ? document.createElementNS("http://www.w3.org/2000/svg", tag) : document.createElement(tag);
 
-   for (const key in props) {
-      const val = props[key];
-      if (key.startsWith('on')) el.addEventListener(key.slice(2).toLowerCase(), val);
-      else if (key === "ref") isFn(val) ? val(el) : (val.value = el);
-      else if (isFn(val)) effect(() => el[key] = val()); // Atribución reactiva
-      else el[key] = val;
-   }
+    for (const key in props) {
+        if (key.startsWith('on')) el.addEventListener(key.slice(2).toLowerCase(), props[key]);
+        else if (key === "ref") isFn(props[key]) ? props[key](el) : props[key].value = el;
+        else if (isFn(props[key])) effect(() => el[key] = props[key]());
+        else el[key] = props[key];
+    }
 
-   children.forEach(child => append(el, child));
-   return el;
+    children.forEach(child => append(el, child));
+    return el;
 }
 
 const append = (parent, child) => {
-   if (child == null) return;
-   if (isFn(child)) {
-      const anchor = document.createTextNode('');
-      parent.appendChild(anchor);
-      let nodes = [];
-      effect(() => {
-         const raw = [child()].flat(Infinity).filter(v => v != null);
-         const newNodes = raw.map(n => isNode(n) ? n : document.createTextNode(String(n)));
-         
-         // Cleanup de nodos antiguos que ya no están
-         nodes.forEach(n => { if (!newNodes.includes(n)) remove(n); });
-         
-         // Reconciliación simple
-         newNodes.forEach((n, i) => {
-            if (!nodes.includes(n)) {
-               parent.insertBefore(n, newNodes[i+1] || anchor);
-               if (n.$c) n.$c.m.forEach(f => f());
-            }
-         });
-         nodes = newNodes;
-      }, true);
-   } else {
-      parent.appendChild(isNode(child) ? child : document.createTextNode(String(child)));
-   }
+    if (child == null) return;
+    if (isFn(child)) {
+        const anchor = document.createTextNode('');
+        parent.appendChild(anchor);
+        let nodes = [];
+        effect(() => {
+            const raw = [child()].flat(Infinity).filter(n => n != null);
+            const newNodes = raw.map(n => isNode(n) ? n : document.createTextNode(String(n)));
+            nodes.forEach(n => { if (!newNodes.includes(n)) remove(n); });
+            newNodes.forEach((n, i) => {
+                if (!nodes.includes(n)) {
+                    parent.insertBefore(n, newNodes[i+1] || anchor);
+                    if (n.$c) n.$c.m.forEach(f => f());
+                }
+            });
+            nodes = newNodes;
+        }, true);
+    } else {
+        parent.appendChild(isNode(child) ? child : document.createTextNode(String(child)));
+    }
 }
 
-// --- Helpers ---
+// --- Helpers & Built-in ---
+export const If = (cond, renderFn, fallback = null) => {
+    let cached, current;
+    return () => {
+        const show = !!cond();
+        if (show !== current) {
+            if (cached) remove(cached);
+            cached = show ? render(renderFn) : (isFn(fallback) ? render(fallback) : fallback);
+            current = show;
+        }
+        return cached;
+    }
+}
+
 export const For = (list, key, renderFn) => {
-   let cache = new Map();
-   return () => {
-      const next = new Map();
-      const items = isFn(list) ? list() : list.value || list;
-      const res = items.map((item, i) => {
-         const id = isFn(key) ? key(item, i) : (key ? item[key] : item);
-         let node = cache.get(id);
-         if (!node) node = h(() => renderFn(item, i));
-         next.set(id, node);
-         return node;
-      });
-      // Limpiar nodos que salen de la lista
-      cache.forEach((node, id) => { if (!next.has(id)) remove(node); });
-      cache = next;
-      return res;
-   }
+    let cache = new Map();
+    return () => {
+        const next = new Map();
+        const items = isFn(list) ? list() : (list.value || list);
+        const res = items.map((item, i) => {
+            const id = isFn(key) ? key(item, i) : (key ? item[id] : item);
+            let node = cache.get(id);
+            if (!node) node = render(renderFn, item, i);
+            next.set(id, node);
+            return node;
+        });
+        cache.forEach((node, id) => { if (!next.has(id)) remove(node); });
+        cache = next;
+        return res;
+    }
+}
+
+export const Component = ({ is, ...props }, { children }) => () => h(isFn(is) ? is() : is, props, children);
+
+export const Transition = ({ enter: e, idle, leave: l }, { children: [c] }) => {
+    const decorate = (el) => {
+        if (!isNode(el)) return el;
+        const addClass = c => c && el.classList.add(...c.split(' '));
+        const removeClass = c => c && el.classList.remove(...c.split(' '));
+
+        if (e) {
+            requestAnimationFrame(() => {
+                addClass(e[1]);
+                requestAnimationFrame(() => {
+                    addClass(e[0]); removeClass(e[1]); addClass(e[2]);
+                    el.addEventListener('transitionend', () => {
+                        removeClass(e[2]); removeClass(e[0]); addClass(idle);
+                    }, { once: true });
+                });
+            });
+        }
+        if (l) {
+            el.$l = (done) => {
+                removeClass(idle); addClass(l[1]);
+                requestAnimationFrame(() => {
+                    addClass(l[0]); removeClass(l[1]); addClass(l[2]);
+                    el.addEventListener('transitionend', () => {
+                        removeClass(l[2]); removeClass(l[0]); done();
+                    }, { once: true });
+                });
+            }
+        }
+        return el;
+    }
+    return isFn(c) ? () => decorate(c()) : decorate(c);
+}
+
+export default (target, root, props) => {
+    const el = h(root, props);
+    target.appendChild(el);
+    if (el.$c) el.$c.m.forEach(f => f());
+    return () => remove(el);
 }
