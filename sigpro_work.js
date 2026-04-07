@@ -4,6 +4,7 @@ let currentOwner = null;
 const effectQueue = new Set();
 let isFlushing = false;
 const MOUNTED_NODES = new WeakMap();
+const reactiveCache = new WeakMap();
 
 const doc = document;
 const createEl = (t) => doc.createElement(t);
@@ -26,74 +27,68 @@ const cleanupNode = (node) => {
   node.childNodes?.forEach(cleanupNode);
 };
 
-const isSignal = (fn) => typeof fn === "function" && typeof fn.react === "function";
+const untrack = (fn) => {
+  const prev = activeEffect;
+  activeEffect = null;
+  try { return fn(); }
+  finally { activeEffect = prev; }
+};
 
 const $ = (init, key = null) => {
   const subs = new Set();
-  let val = init;
-  if (key) {
-    try {
-      const saved = localStorage.getItem(key);
-      if (saved != null) val = JSON.parse(saved);
-    } catch { }
-  }
-  const sig = (...args) => {
-    if (args.length) {
-      const next = typeof args[0] === "function" ? args[0](val) : args[0];
-      if (!Object.is(val, next)) {
-        val = next;
-        if (key) localStorage.setItem(key, JSON.stringify(val));
+  let sig;
+
+  if (typeof init === "function") {
+    let cached, dirty = true;
+    Watch(() => {
+      if (!dirty) {
+        dirty = true;
         subs.forEach(e => effectQueue.add(e));
         if (!isFlushing) queueMicrotask(flushEffects);
       }
+    });
+    sig = () => {
+      if (dirty) { cached = init(); dirty = false; }
+      if (activeEffect && !activeEffect._deleted) {
+        subs.add(activeEffect);
+        activeEffect._deps.add(subs);
+      }
+      return cached;
+    };
+  } else {
+    let val = init;
+    if (key) {
+      try {
+        const saved = localStorage.getItem(key);
+        if (saved != null) val = JSON.parse(saved);
+      } catch { }
     }
-    return val;
-  };
-  sig.react = () => {
-    if (activeEffect && !activeEffect._deleted) {
-      subs.add(activeEffect);
-      activeEffect._deps.add(subs);
-    }
-    return val;
-  };
+    sig = (...args) => {
+      if (args.length) {
+        const next = typeof args[0] === "function" ? untrack(() => args[0](val)) : args[0];
+        if (!Object.is(val, next)) {
+          val = next;
+          if (key) localStorage.setItem(key, JSON.stringify(val));
+          subs.forEach(e => effectQueue.add(e));
+          if (!isFlushing) queueMicrotask(flushEffects);
+        }
+      } else if (activeEffect && !activeEffect._deleted) {
+        subs.add(activeEffect);
+        activeEffect._deps.add(subs);
+      }
+      return val;
+    };
+  }
+  
+  sig._isSig = true;
   return sig;
 };
-
-const $$ = (fn) => {
-  const subs = new Set();
-  let cached, dirty = true;
-  
-  // Usamos Watch para rastrear dependencias de fn
-  Watch(() => {
-    if (!dirty) {
-      dirty = true;
-      subs.forEach(e => effectQueue.add(e));
-      if (!isFlushing) queueMicrotask(flushEffects);
-    }
-  });
-
-  const sig = () => {
-    if (dirty) { cached = fn(); dirty = false; }
-    // El computado SIEMPRE suscribe si hay un efecto activo
-    if (activeEffect && !activeEffect._deleted) {
-      subs.add(activeEffect);
-      activeEffect._deps.add(subs);
-    }
-    return cached;
-  };
-  
-  sig.react = sig; 
-  return sig;
-};
-
-const reactiveCache = new WeakMap();
 
 const $$_ = (obj) => {
-  if (obj === null || typeof obj !== "object" || isSignal(obj)) return obj;
+  if (obj === null || typeof obj !== "object" || obj._isSig) return obj;
   if (reactiveCache.has(obj)) return reactiveCache.get(obj);
 
   const subs = new Map();
-
   const proxy = new Proxy(obj, {
     get(target, key) {
       if (!subs.has(key)) subs.set(key, new Set());
@@ -172,6 +167,7 @@ const Tag = (tag, props = {}, children = []) => {
   el._cleanups = new Set();
   el.onUnmount = (fn) => el._cleanups.add(fn);
   const booleanAttrs = ["disabled", "checked", "required", "readonly", "selected", "multiple", "autofocus"];
+  
   for (let [k, v] of Object.entries(props)) {
     if (k === "ref") {
       typeof v === "function" ? v(el) : (v.current = el);
@@ -193,11 +189,12 @@ const Tag = (tag, props = {}, children = []) => {
       }
     };
     if (typeof v === "function") {
-      el._cleanups.add(Watch(() => setAttr(isSignal(v) ? v.react() : v())));
+      el._cleanups.add(Watch(() => setAttr(v())));
     } else {
       setAttr(v);
     }
   }
+  
   const append = (c) => {
     if (Array.isArray(c)) return c.forEach(append);
     if (typeof c === "function") {
@@ -205,7 +202,7 @@ const Tag = (tag, props = {}, children = []) => {
       el.appendChild(marker);
       let nodes = [];
       el._cleanups.add(Watch(() => {
-        const res = isSignal(c) ? c.react() : c();
+        const res = c();
         const next = (Array.isArray(res) ? res : [res]).map(n =>
           n?._isRuntime ? n.container : n instanceof Node ? n : createText(n)
         );
@@ -363,7 +360,7 @@ const Router = (routes) => {
   const outlet = Tag("div");
   let view = null;
   Watch(() => {
-    const p = path.react();
+    const p = path();
     const route = routes.find(r => {
       const rp = r.path.split("/").filter(Boolean);
       const pp = p.split("/").filter(Boolean);
@@ -402,7 +399,7 @@ const Mount = (component, target) => {
   return instance;
 };
 
-const SigPro = { $, $$, $$_, Render, Watch, Tag, If, For, Router, Mount, Share, Use };
+const SigPro = { $, $$_, untrack, Render, Watch, Tag, If, For, Router, Mount, Share, Use };
 
 if (typeof window !== "undefined") {
   Object.assign(window, SigPro);
@@ -416,5 +413,5 @@ if (typeof window !== "undefined") {
   window.SigPro = Object.freeze(SigPro);
 }
 
-export { $, $$, $$_, Render, Watch, Tag, If, For, Router, Mount, Share, Use };
+export { $, $$_, untrack, Render, Watch, Tag, If, For, Router, Mount, Share, Use };
 export default SigPro;
