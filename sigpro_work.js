@@ -370,13 +370,27 @@ const Router = (routes) => {
       return rp.length === pp.length && rp.every((x, i) => x.startsWith(":") || x === pp[i]);
     }) || routes.find(r => r.path === "*");
     if (route) {
+      const params = {};
+      const rp = route.path.split("/").filter(Boolean);
+      const pp = p.split("/").filter(Boolean);
+      rp.forEach((part, i) => {
+        if (part.startsWith(":")) params[part.slice(1)] = pp[i];
+      });
+
+      Router.params(params);
+      
       if (view) view.destroy();
-      view = Render(() => route.component());
+      view = Render(() => route.component(params));
       outlet.appendChild(view.container);
     }
   });
   return outlet;
 };
+
+Router.params = $({});
+Router.to = (p) => (window.location.hash = p.replace(/^#?\/?/, "#/"));
+Router.back = () => window.history.back();
+Router.path = () => window.location.hash.replace(/^#/, "") || "/";
 
 const Mount = (component, target) => {
   const el = typeof target === "string" ? doc.querySelector(target) : target;
