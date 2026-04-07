@@ -10,7 +10,6 @@ const tick = () => {
     isScheduled = false;
 }
 
-// Helper para extraer valor de signals o funciones
 const unwrap = (v) => (v?._isSig ? v.value : (isFn(v) ? v() : v));
 
 export const effect = (fn, is_scope = false) => {
@@ -242,36 +241,6 @@ export const Router = (routes, trans = {}) => {
     });
 };
 
-export const Transition = ({ enter: e, idle, leave: l }, { children: [c] }) => {
-    const decorate = (el) => {
-        if (!isNode(el)) return el;
-        const add = (cl) => cl && el.classList.add(...cl.split(' '));
-        const rem = (cl) => cl && el.classList.remove(...cl.split(' '));
-        el.$on = () => {
-            if (!e) return;
-            requestAnimationFrame(() => {
-                add(e[1]);
-                requestAnimationFrame(() => {
-                    add(e[0]); rem(e[1]); add(e[2]);
-                    el.addEventListener('transitionend', () => { rem(e[2]); rem(e[0]); add(idle); }, { once: true });
-                });
-            });
-        };
-        el.$off = () => {
-            if (!l) return el.remove();
-            return new Promise(res => {
-                rem(idle); add(l[1]);
-                requestAnimationFrame(() => {
-                    add(l[0]); rem(l[1]); add(l[2]);
-                    el.addEventListener('transitionend', () => { rem(l[2]); rem(l[0]); res(); }, { once: true });
-                });
-            });
-        };
-        return el;
-    }
-    return isFn(c) ? () => decorate(c()) : decorate(c);
-}
-
 export const mount = (root, target, props = {}) => {
     const container = typeof target === 'string' ? document.querySelector(target) : target;
     if (container.firstElementChild) remove(container.firstElementChild);
@@ -282,4 +251,4 @@ export const mount = (root, target, props = {}) => {
     return () => remove(el);
 };
 
-export default { signal, effect, reactive, computed, watch, persist, storage, h, mount, If, For, Router, Transition, onMount, onUnmount, provide, inject };
+export default { signal, effect, reactive, computed, watch, persist, storage, h, mount, If, For, Router, onMount, onUnmount, provide, inject };
