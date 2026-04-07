@@ -1,69 +1,19 @@
-/*
- *  Sigwork - [Sig]nal-based Frontend Frame[work]
- *  Copyright (c) 2026 Murillo Brandão <@murillobrand>
- *  TypeScript version
- */
-
-// ============================================================================
-// Types & Interfaces
-// ============================================================================
-
-type CleanupFn = () => void;
 type EffectFn = {
     (): void;
     e: Set<Set<EffectFn>>;
     c?: EffectFn[];
-};
-
-type Context = {
-    m: CleanupFn[];
-    u: CleanupFn[];
-    p: Record<string | symbol, any>;
+    d?: boolean;
 };
 
 type Signal<T> = {
-    get value(): T;
-    set value(newValue: T);
+    (): T;
+    (next: T | ((prev: T) => T)): T;
+    react(): T;
 };
 
-type ReadonlySignal<T> = {
-    get value(): T;
-};
+type CleanupFn = () => void;
 
-type Component<P = Record<string, any>> = (
-    props: P,
-    context: {
-        children?: any[];
-        emit: (event: string, ...args: any[]) => any;
-    }
-) => Node | (() => Node) | null;
-
-type TransitionClasses = [string, string, string];
-
-type TransitionConfig = {
-    enter?: TransitionClasses;
-    idle?: string;
-    leave?: TransitionClasses;
-};
-
-type ElementWithLifecycle = Node & {
-    $c?: Context;
-    $s?: CleanupFn;
-    $l?: (done: CleanupFn) => void;
-};
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-const isFn = (v: unknown): v is Function => typeof v === 'function';
-const isNode = (v: unknown): v is Node => v instanceof Node;
-
-// ============================================================================
-// Signals System
-// ============================================================================
-
-/*----- Schedule System -----*/
+let activeEffect: EffectFn | null = null;
 let isScheduled = false;
 const queue = new Set<EffectFn>();
 
@@ -77,6 +27,7 @@ const tick = (): void => {
 };
 
 const schedule = (fn: EffectFn): void => {
+    if (fn.d) return;
     queue.add(fn);
     if (!isScheduled) {
         queueMicrotask(tick);
@@ -84,70 +35,45 @@ const schedule = (fn: EffectFn): void => {
     }
 };
 
-/*----- Effects -----*/
-let activeEffect: EffectFn | null = null;
-
-export const effect = (fn: () => any, isScope: boolean = false): CleanupFn => {
-    let cleanup: CleanupFn | null = null;
-    
-    const run = () => {
-        stop();
-        const prev = activeEffect;
-        activeEffect = run;
-        const result = fn();
-        if (isFn(result)) cleanup = result;
-        activeEffect = prev;
-    };
-    
-    const stop = () => {
-        run.e.forEach(subs => subs.delete(run));
-        run.e.clear();
-        if (cleanup) cleanup();
-        run.c?.forEach(f => f());
-    };
-    
-    (run as EffectFn).e = new Set();
-    if (isScope) (run as EffectFn).c = [];
-    
-    run();
-    
-    if (activeEffect?.c) {
-        activeEffect.c.push(stop);
-    }
-    
-    return stop;
-};
-
-export const scope = (fn: () => any): CleanupFn => effect(fn, true);
-
-const track = (subs: Set<EffectFn>): void => {
+const depend = (subs: Set<EffectFn>): void => {
     if (activeEffect && !activeEffect.c) {
         subs.add(activeEffect);
         activeEffect.e.add(subs);
     }
 };
 
-/*----- Signals -----*/
-export function signal<T>(): Signal<T | undefined>;
-export function signal<T>(initial: T): Signal<T>;
-export function signal<T>(initial?: T): Signal<T | undefined> {
-    let value = initial;
-    const subs = new Set<EffectFn>();
+export const effect = (fn: () => any, isScope: boolean = false): CleanupFn => {
+    let cleanup: CleanupFn | null = null;
     
-    return {
-        get value() {
-            track(subs);
-            return value;
-        },
-        set value(newValue: T | undefined) {
-            if (newValue === value) return;
-            value = newValue;
-            subs.forEach(fn => schedule(fn));
-        }
+    const run = () => {
+        if (run.d) return;
+        const prev = activeEffect;
+        activeEffect = run;
+        const result = fn();
+        if (typeof result === 'function') cleanup = result;
+        activeEffect = prev;
     };
-}
+    
+    const stop = () => {
+        if (run.d) return;
+        run.d = true;
+        run.e.forEach(subs => subs.delete(run));
+        run.e.clear();
+        cleanup?.();
+        run.c?.forEach(f => f());
+    };
+    
+    run.e = new Set();
+    run.d = false;
+    if (isScope) run.c = [];
+    
+    run();
+    activeEffect?.c?.push(stop);
+    
+    return stop;
+};
 
-export const untrack = <T>(fn: () => T): T => {
+effect.react = <T>(fn: () => T): T => {
     const prev = activeEffect;
     activeEffect = null;
     const result = fn();
@@ -155,21 +81,99 @@ export const untrack = <T>(fn: () => T): T => {
     return result;
 };
 
-export const computed = <T>(fn: () => T): ReadonlySignal<T> => {
-    const sig = signal<T>();
-    effect(() => {
-        sig.value = fn();
-    });
-    return {
-        get value() {
-            return sig.value;
+export function $<T>(initial: T, storageKey?: string): Signal<T>;
+export function $<T>(fn: () => T, storageKey?: string): Signal<T>;
+export function $<T>(initial: T | (() => T), storageKey?: string): Signal<T> {
+    const isComputed = typeof initial === 'function';
+    
+    if (!isComputed) {
+        let value = initial as T;
+        const subs = new Set<EffectFn>();
+        
+        if (storageKey) {
+            try {
+                const saved = localStorage.getItem(storageKey);
+                if (saved !== null) value = JSON.parse(saved);
+            } catch { }
         }
+        
+        const signalFn = ((...args: [] | [T | ((prev: T) => T)]) => {
+            if (args.length === 0) {
+                return value;
+            }
+            const next = typeof args[0] === 'function' 
+                ? (args[0] as (prev: T) => T)(value) 
+                : args[0];
+            if (Object.is(value, next)) return value;
+            value = next;
+            if (storageKey) {
+                try {
+                    localStorage.setItem(storageKey, JSON.stringify(value));
+                } catch { }
+            }
+            subs.forEach(fn => schedule(fn));
+            return value;
+        }) as Signal<T>;
+        
+        signalFn.react = () => {
+            depend(subs);
+            return value;
+        };
+        
+        return signalFn;
+    }
+    
+    let cached: T;
+    let dirty = true;
+    const subs = new Set<EffectFn>();
+    const fn = initial as () => T;
+    
+    effect(() => {
+        const newValue = fn();
+        if (!Object.is(cached, newValue) || dirty) {
+            cached = newValue;
+            dirty = false;
+            subs.forEach(fn => schedule(fn));
+        }
+    });
+    
+    const computedFn = (() => {
+        return cached;
+    }) as Signal<T>;
+    
+    computedFn.react = () => {
+        depend(subs);
+        return cached;
     };
+    
+    return computedFn;
+}
+
+export const scope = (fn: () => any): CleanupFn => effect(fn, true);
+
+type WatchSource<T> = () => T;
+
+export const watch = <T>(
+    source: WatchSource<T>,
+    callback: (newValue: T, oldValue: T) => any
+): CleanupFn => {
+    let first = true;
+    let oldValue: T;
+    
+    return effect(() => {
+        const newValue = source();
+        if (!first) {
+            effect.react(() => callback(newValue, oldValue));
+        } else {
+            first = false;
+        }
+        oldValue = newValue;
+    });
 };
 
 const reactiveCache = new WeakMap<object, object>();
 
-export const reactive = <T extends object>(obj: T): T => {
+export function $$<T extends object>(obj: T): T {
     if (reactiveCache.has(obj)) {
         return reactiveCache.get(obj) as T;
     }
@@ -178,9 +182,10 @@ export const reactive = <T extends object>(obj: T): T => {
     
     const proxy = new Proxy(obj, {
         get(target, key: string | symbol, receiver) {
-            track(subs[key] ??= new Set());
+            const subsForKey = subs[key] ??= new Set();
+            depend(subsForKey);
             const val = Reflect.get(target, key, receiver);
-            return (val && typeof val === 'object') ? reactive(val) : val;
+            return (val && typeof val === 'object') ? $$(val) : val;
         },
         set(target, key: string | symbol, val, receiver) {
             if (Object.is(target[key as keyof T], val)) return true;
@@ -198,33 +203,14 @@ export const reactive = <T extends object>(obj: T): T => {
     
     reactiveCache.set(obj, proxy);
     return proxy;
+}
+
+type Context = {
+    m: CleanupFn[];
+    u: CleanupFn[];
+    p: Record<string | symbol, any>;
 };
 
-type WatchSource<T> = (() => T) | { value: T };
-
-export const watch = <T>(
-    source: WatchSource<T>,
-    callback: (newValue: T, oldValue: T) => any
-): CleanupFn => {
-    let first = true;
-    let oldValue: T;
-    
-    return effect(() => {
-        const newValue = isFn(source) ? source() : source.value;
-        if (!first) {
-            untrack(() => callback(newValue, oldValue));
-        } else {
-            first = false;
-        }
-        oldValue = newValue;
-    });
-};
-
-// ============================================================================
-// Rendering System
-// ============================================================================
-
-// Component management
 let context: Context | null = null;
 
 export const onMount = (fn: CleanupFn): void => {
@@ -244,20 +230,19 @@ export const inject = (key: string | symbol, defaultValue?: any): any => {
     return defaultValue;
 };
 
-// Rendering
-type HFunction = {
-    <P extends Record<string, any>>(
-        tag: string,
-        props?: P | null,
-        ...children: any[]
-    ): ElementWithLifecycle;
-    
-    <P extends Record<string, any>>(
-        tag: Component<P>,
-        props?: P | null,
-        ...children: any[]
-    ): Node | (() => Node) | null;
+type Component<P = Record<string, any>> = (
+    props: P,
+    ctx: { children?: any[]; emit: (event: string, ...args: any[]) => any }
+) => any;
+
+type ElementWithLifecycle = Node & {
+    $c?: Context;
+    $s?: CleanupFn;
+    $l?: (done: CleanupFn) => void;
 };
+
+const isFn = (v: unknown): v is Function => typeof v === 'function';
+const isNode = (v: unknown): v is Node => v instanceof Node;
 
 const append = (parent: Node, child: any): void => {
     if (child === null) return;
@@ -330,11 +315,10 @@ const render = (fn: Function, ...data: any[]): Node => {
     return node;
 };
 
-export const h: HFunction = (tag: any, props?: any, ...children: any[]): any => {
+export const h = (tag: any, props?: any, ...children: any[]): any => {
     props = props || {};
     children = children.flat(Infinity);
     
-    // Component handling
     if (isFn(tag)) {
         const prev = context;
         context = { m: [], u: [], p: { ...(prev?.p || {}) } };
@@ -358,10 +342,8 @@ export const h: HFunction = (tag: any, props?: any, ...children: any[]): any => 
         return el;
     }
     
-    // Handle fragments (null tag)
     if (!tag) return () => children;
     
-    // Normal element handling
     let el: ElementWithLifecycle;
     let is_svg = false;
     
@@ -408,10 +390,6 @@ export const h: HFunction = (tag: any, props?: any, ...children: any[]): any => 
     return el;
 };
 
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
 export const If = (
     cond: (() => boolean) | boolean,
     renderFn: any,
@@ -456,24 +434,12 @@ export const For = <T>(
     };
 };
 
-// ============================================================================
-// Built-in Components
-// ============================================================================
+type TransitionClasses = [string, string, string];
 
-type ComponentProps = {
-    is: string | Component | (() => string | Component);
-    [key: string]: any;
-};
-
-export const Component = (
-    { is, ...props }: ComponentProps,
-    { children }: { children: any[] }
-): (() => any) => {
-    return () => h(
-        isFn(is) ? is() : is,
-        props,
-        children
-    );
+type TransitionConfig = {
+    enter?: TransitionClasses;
+    idle?: string;
+    leave?: TransitionClasses;
 };
 
 export const Transition = (
@@ -529,9 +495,121 @@ export const Transition = (
     return decorate(c);
 };
 
-// ============================================================================
-// App Creation
-// ============================================================================
+type Route = {
+    path: string;
+    component: Component | (() => Promise<Component>);
+};
+
+export const Router = (routes: Route[]) => {
+    const getPath = () => window.location.hash.replace(/^#/, "") || "/";
+    const currentPath = $(getPath());
+    
+    const params = $<Record<string, string>>({});
+    
+    const update = () => {
+        currentPath(getPath());
+    };
+    
+    window.addEventListener("hashchange", update);
+    
+    const outlet = h("div", { class: "router-outlet" });
+    let currentView: Node | null = null;
+    let currentCleanup: CleanupFn | null = null;
+    
+    const loadComponent = async (route: Route) => {
+        let comp = route.component;
+        if (typeof comp === "function" && comp.toString().includes("import")) {
+            const mod = await (comp as () => Promise<any>)();
+            comp = mod.default || mod;
+        }
+        return comp as Component;
+    };
+    
+    const matchRoute = (path: string): { route: Route; params: Record<string, string> } | null => {
+        for (const route of routes) {
+            const routeParts = route.path.split("/").filter(Boolean);
+            const pathParts = path.split("/").filter(Boolean);
+            if (routeParts.length !== pathParts.length) continue;
+            const matchedParams: Record<string, string> = {};
+            let match = true;
+            for (let i = 0; i < routeParts.length; i++) {
+                if (routeParts[i].startsWith(":")) {
+                    matchedParams[routeParts[i].slice(1)] = pathParts[i];
+                } else if (routeParts[i] !== pathParts[i]) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match) return { route, params: matchedParams };
+        }
+        return null;
+    };
+    
+    effect(() => {
+        const path = currentPath();
+        const matched = matchRoute(path);
+        if (!matched) return;
+        
+        const { route, params: routeParams } = matched;
+        params(routeParams);
+        
+        const load = async () => {
+            if (currentCleanup) {
+                currentCleanup();
+                currentCleanup = null;
+            }
+            if (currentView && currentView.parentNode) {
+                remove(currentView);
+                currentView = null;
+            }
+            const Comp = await loadComponent(route);
+            const instance = h(Comp, routeParams);
+            if (isNode(instance)) {
+                currentView = instance;
+                outlet.appendChild(instance);
+                if ((instance as ElementWithLifecycle).$c) {
+                    currentCleanup = () => {
+                        (instance as ElementWithLifecycle).$s?.();
+                        if (instance.parentNode) remove(instance);
+                    };
+                } else {
+                    currentCleanup = () => {
+                        if (instance.parentNode) remove(instance);
+                    };
+                }
+            }
+        };
+        load();
+    });
+    
+    return outlet;
+};
+
+Router.to = (path: string) => {
+    window.location.hash = path.replace(/^#?\/?/, "#/");
+};
+
+Router.back = () => {
+    window.history.back();
+};
+
+Router.params = (() => {
+    const p = $<Record<string, string>>({});
+    return p;
+})();
+
+export const mount = (
+    component: Component,
+    target: string | HTMLElement,
+    props?: Record<string, any>
+): CleanupFn => {
+    const targetEl = typeof target === "string" ? document.querySelector(target) : target;
+    if (!targetEl) throw new Error("Target element not found");
+    const el = h(component, props);
+    targetEl.appendChild(el);
+    (el as ElementWithLifecycle).$c?.m.forEach(fn => fn());
+    return () => remove(el);
+};
 
 export default (
     target: HTMLElement,
@@ -544,8 +622,4 @@ export default (
     return () => remove(el);
 };
 
-// ============================================================================
-// Re-exports
-// ============================================================================
-
-export type { Signal, ReadonlySignal, Component, CleanupFn };
+export type { Signal, Component, CleanupFn };
