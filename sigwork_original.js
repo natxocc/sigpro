@@ -290,6 +290,22 @@ export const Transition = ({ enter: e, idle, leave: l }, { children: [c] }) => {
     return isFn(c) ? () => decorate(c()) : decorate(c);
 }
 
+export const mount = (root, target, props = {}) => {
+    const container = typeof target === 'string' ? document.querySelector(target) : target;
+    
+    if (container.firstElementChild) {
+        remove(container.firstElementChild);
+    }
+
+    const el = h(root, props);
+    container.appendChild(el);
+    
+    if (el.$on) el.$on(el);
+    if (el.$c) el.$c.m.forEach(f => f());
+
+    return () => remove(el);
+};
+
 export default (target, root, props) => {
     const el = h(root, props);
     target.appendChild(el);
