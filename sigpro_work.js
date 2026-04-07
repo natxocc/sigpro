@@ -61,11 +61,11 @@ const $ = (val, key = null) => {
   return sig;
 };
 
-const $$ = (fn) => {
+const $C = (fn) => {
   const subs = new Set();
   let cached, dirty = true;
   
-  const runner = Watch(() => {
+  const runner = Effect(() => {
     if (!dirty) {
       dirty = true;
       subs.forEach(e => effectQueue.add(e));
@@ -89,7 +89,7 @@ const $$ = (fn) => {
   return sig;
 };
 
-const $_ = (obj) => {
+const $O = (obj) => {
   if (obj === null || typeof obj !== "object" || obj._isSig) return obj;
   if (reactiveCache.has(obj)) return reactiveCache.get(obj);
 
@@ -105,7 +105,7 @@ const $_ = (obj) => {
       }
 
       const value = Reflect.get(target, key);
-      return (typeof value === "object" && value !== null) ? $_(value) : value;
+      return (typeof value === "object" && value !== null) ? $O(value) : value;
     },
     set(target, key, value) {
       const prev = Reflect.get(target, key);
@@ -126,7 +126,7 @@ const $_ = (obj) => {
   return proxy;
 };
 
-const Watch = (cb) => {
+const Effect = (cb) => {
   if (typeof cb !== "function") return () => { };
   const owner = currentOwner;
   const runner = () => {
@@ -159,6 +159,21 @@ const Watch = (cb) => {
   if (owner) owner.cleanups.add(runner.stop);
   runner();
   return runner.stop;
+};
+
+const Watch = (source, cb) => {
+  let oldValue;
+  let first = true;
+  return Effect(() => {
+    const newValue = typeof source === "function" ? source() : source();
+    
+    if (!first) {
+      untrack(() => cb(newValue, oldValue));
+    }
+    
+    first = false;
+    oldValue = newValue;
+  });
 };
 
 const Tag = (tag, props = {}, children = []) => {
@@ -194,7 +209,7 @@ const Tag = (tag, props = {}, children = []) => {
       }
     };
     if (typeof v === "function") {
-      el._cleanups.add(Watch(() => setAttr(v())));
+      el._cleanups.add(Effect(() => setAttr(v())));
     } else {
       setAttr(v);
     }
@@ -206,7 +221,7 @@ const Tag = (tag, props = {}, children = []) => {
       const marker = createText("");
       el.appendChild(marker);
       let nodes = [];
-      el._cleanups.add(Watch(() => {
+      el._cleanups.add(Effect(() => {
         const res = c();
         const next = (Array.isArray(res) ? res : [res]).map(n =>
           n?._isRuntime ? n.container : n instanceof Node ? n : createText(n)
@@ -287,7 +302,7 @@ const If = (cond, a, b = null, options = {}) => {
   let currentView = null;
   let lastState = null;
 
-  Watch(() => {
+  Effect(() => {
     const state = !!(typeof cond === "function" ? cond() : cond);
     if (state === lastState) return;
     lastState = state;
@@ -325,7 +340,7 @@ const For = (source, renderFn, keyFn, tag = "div", props = { style: "display:con
   const marker = createText("");
   const container = Tag(tag, props, [marker]);
   let cache = new Map();
-  Watch(() => {
+  Effect(() => {
     const items = (typeof source === "function" ? source() : source) || [];
     const next = new Map();
     const order = [];
@@ -364,7 +379,7 @@ const Router = (routes) => {
   );
   const outlet = Tag("div");
   let view = null;
-  Watch(() => {
+  Effect(() => {
     const p = path();
     const route = routes.find(r => {
       const rp = r.path.split("/").filter(Boolean);
@@ -404,7 +419,7 @@ const Mount = (component, target) => {
   return instance;
 };
 
-const SigPro = { $, $$, $_, untrack, Render, Watch, Tag, If, For, Router, Mount, Share, Use };
+const SigPro = { $, $C, $O, untrack, Render, Effect, Watch, Tag, If, For, Router, Mount, Share, Use };
 
 if (typeof window !== "undefined") {
   Object.assign(window, SigPro);
@@ -418,5 +433,5 @@ if (typeof window !== "undefined") {
   window.SigPro = Object.freeze(SigPro);
 }
 
-export { $, $$, $_, untrack, Render, Watch, Tag, If, For, Router, Mount, Share, Use };
+export { $, $C, $O, untrack, Render, Effect, Watch, Tag, If, For, Router, Mount, Share, Use };
 export default SigPro;
