@@ -23,7 +23,7 @@ const DANGEROUS = /^(javascript|data|vbscript):/i;
 const sanitize = v => DANGEROUS.test(String(v)) ? '#' : v;
 
 // --- Effect System ---
-export const effect = (fn) => {
+export const Effect = (fn) => {
   const owner = currentOwner;
   const runner = () => {
     cleanup();
@@ -48,7 +48,7 @@ export const effect = (fn) => {
 };
 
 // --- Signals ---
-export const signal = (value) => {
+export const Signal = (value) => {
   const subs = new Set();
   return {
     _isSig: true,
@@ -65,14 +65,25 @@ export const signal = (value) => {
   };
 };
 
-export const computed = (fn) => {
-  const c = signal(fn());
-  effect(() => c.value = fn());
+export const Computed = (fn) => {
+  const c = Signal(fn());
+  Effect(() => c.value = fn());
   return { get value() { return c.value; } };
 };
 
+export const Storage = (key, val) => {
+  const saved = localStorage.getItem(key);
+  const s = Signal(saved !== null ? JSON.parse(saved) : val);
+  
+  Effect(() => {
+    localStorage.setItem(key, JSON.stringify(s.value));
+  });
+  
+  return s;
+};
+
 const reactiveCache = new WeakMap();
-export const reactive = (obj) => {
+export const Reactive = (obj) => {
   if (!obj || typeof obj !== 'object') return obj;
   if (reactiveCache.has(obj)) return reactiveCache.get(obj);
   const subs = {};
@@ -81,7 +92,7 @@ export const reactive = (obj) => {
       if (!subs[k]) subs[k] = new Set();
       if (activeEffect) { subs[k].add(activeEffect); activeEffect.deps.add(subs[k]); }
       const val = t[k];
-      return val && typeof val === 'object' ? reactive(val) : val;
+      return val && typeof val === 'object' ? Reactive(val) : val;
     },
     set(t, k, v) {
       if (t[k] === v) return true;
@@ -96,9 +107,9 @@ export const reactive = (obj) => {
 };
 
 // --- Watch with cleanup ---
-export const watch = (source, cb, options = {}) => {
+export const Watch = (source, cb, options = {}) => {
   let oldValue, firstRun = true, lastCleanup = null;
-  const stop = effect(() => {
+  const stop = Effect(() => {
     const newValue = typeof source === 'function' ? source() : source.value;
 
     if (!firstRun || options.immediate) {
@@ -119,11 +130,11 @@ export const watch = (source, cb, options = {}) => {
 // --- Lifecycle ---
 export const onMount = (fn) => currentContext?.mount.push(fn);
 export const onUnmount = (fn) => currentContext?.unmount.push(fn);
-export const provide = (key, value) => { if (currentContext) currentContext.provide[key] = value; };
-export const inject = (key, def) => {
+export const Share = (key, value) => { if (currentContext) currentContext.Share[key] = value; };
+export const Use = (key, def) => {
   let ctx = currentContext;
   while (ctx) {
-    if (ctx.provide[key] !== undefined) return ctx.provide[key];
+    if (ctx.Share[key] !== undefined) return ctx.Share[key];
     ctx = ctx.parent;
   }
   return def;
@@ -150,7 +161,7 @@ const append = (parent, child) => {
     const marker = document.createTextNode('');
     parent.appendChild(marker);
     let nodes = [];
-    effect(() => {
+    Effect(() => {
       const raw = child();
       const next = [raw].flat(Infinity)
         .map(n => typeof n === 'function' ? n() : n)
@@ -172,7 +183,7 @@ const append = (parent, child) => {
 export const h = (tag, props = {}, ...children) => {
   if (typeof tag === 'function') {
     const prevCtx = currentContext;
-    const context = { mount: [], unmount: [], provide: {}, parent: prevCtx, cleanups: new Set() };
+    const context = { mount: [], unmount: [], Share: {}, parent: prevCtx, cleanups: new Set() };
     currentContext = context;
     const prevOwner = currentOwner;
     currentOwner = context;
@@ -194,7 +205,7 @@ export const h = (tag, props = {}, ...children) => {
       el.addEventListener(key.slice(2).toLowerCase(), val);
     } 
     else if (typeof val === 'function' || (val && val._isSig)) {
-      effect(() => {
+      Effect(() => {
         const v = typeof val === 'function' ? val() : val.value;
         el[key] = (key === 'href' || key === 'src') ? sanitize(v) : v;
       });
@@ -230,11 +241,11 @@ export const For = (list, key, render) => {
 
 // --- Router ---
 export const Router = (routes) => {
-  const path = signal(window.location.hash.replace(/^#/, '') || '/');
+  const path = Signal(window.location.hash.replace(/^#/, '') || '/');
   window.addEventListener('hashchange', () => path.value = window.location.hash.replace(/^#/, '') || '/');
   let view = null;
   const outlet = h('div', { class: 'router-outlet' });
-  effect(() => {
+  Effect(() => {
     const route = routes.find(r => r.path === path.value) || routes.find(r => r.path === '*');
     if (view) destroy(view);
     if (route) {
@@ -246,7 +257,7 @@ export const Router = (routes) => {
 };
 
 // --- Mounting ---
-export const mount = (root, target) => {
+export const Mount = (root, target) => {
   const container = typeof target === 'string' ? document.querySelector(target) : target;
   const el = typeof root === 'function' ? root() : root;
   container.replaceChildren(el);
@@ -254,5 +265,5 @@ export const mount = (root, target) => {
 };
 
 // --- Export API ---
-export default { signal, computed, effect, reactive, watch, h, If, For, Router, mount, provide, inject, onMount, onUnmount };
+export default { Signal, Computed, Storage, Effect, Reactive, Watch, h, If, For, Router, Mount, Share, Use, onMount, onUnmount };
 export { h as jsx, h as jsxs, h as Fragment };
