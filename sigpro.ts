@@ -221,11 +221,11 @@ export const onUnmount = (fn: CleanupFn): void => {
     context?.u.push(fn);
 };
 
-export const provide = (key: string | symbol, value: any): void => {
+export const share = (key: string | symbol, value: any): void => {
     if (context) context.p[key] = value;
 };
 
-export const inject = (key: string | symbol, defaultValue?: any): any => {
+export const use = (key: string | symbol, defaultValue?: any): any => {
     if (context && key in context.p) return context.p[key];
     return defaultValue;
 };
