@@ -55,27 +55,52 @@ export const Effect = (fn, is_scope = false) => {
 };
 
 // --- Signals & Reactividad ---
+const track = (subs) => {
+    if (activeEffect) {
+        subs.add(activeEffect);
+        activeEffect.deps.add(subs);
+    }
+};
+
 export const Signal = (value) => {
     const subs = new Set();
     return {
         _isSig: true,
         get value() {
-            if (activeEffect) {
-                subs.add(activeEffect);
-                activeEffect.deps.add(subs);
-            }
+            track(subs);
             return value;
         },
         set value(v) {
             if (v === value) return;
             value = v;
             subs.forEach(fn => queue.add(fn));
-            if (!isScheduled) {
-                isScheduled = true;
-                queueMicrotask(tick);
-            }
+            if (!isScheduled) { isScheduled = true; queueMicrotask(tick); }
         }
     };
+};
+
+export const Reactive = (obj) => {
+    if (!obj || typeof obj !== 'object') return obj;
+    if (reactiveCache.has(obj)) return reactiveCache.get(obj);
+    const subs = {};
+    const proxy = new Proxy(obj, {
+        get(t, k) {
+            track(subs[k] ??= new Set()); // <--- Uso de track
+            const val = t[k];
+            return (val && typeof val === 'object') ? Reactive(val) : val;
+        },
+        set(t, k, v) {
+            if (t[k] === v) return true;
+            t[k] = v;
+            if (subs[k]) {
+                subs[k].forEach(fn => queue.add(fn));
+                if (!isScheduled) { isScheduled = true; queueMicrotask(tick); }
+            }
+            return true;
+        }
+    });
+    reactiveCache.set(obj, proxy);
+    return proxy;
 };
 
 export const Computed = (fn) => {
