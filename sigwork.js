@@ -2,8 +2,10 @@
 * SigPro 
 */
 
-let isScheduled = false;
-const queue = new Set();
+// --- 1. CORE REACTIVO ---
+let activeEffect = null, currentContext = null, isScheduled = false;
+const queue = new Set(), nodeContexts = new WeakMap(), reactiveCache = new WeakMap();
+
 const tick = () => {
     while (queue.size) {
         const runs = [...queue];
@@ -13,14 +15,6 @@ const tick = () => {
     isScheduled = false;
 };
 
-let activeEffect = null;
-let currentContext = null;
-const nodeContexts = new WeakMap();
-const reactiveCache = new WeakMap();
-
-const DANGEROUS = /^(javascript|data|vbscript):/i;
-const sanitize = v => DANGEROUS.test(String(v)) ? '#' : v;
-
 const track = (subs) => {
     if (activeEffect) {
         subs.add(activeEffect);
@@ -28,44 +22,24 @@ const track = (subs) => {
     }
 };
 
-export const Effect = (fn, is_scope = false) => {
-    let cleanup = null;
-    const runner = () => {
-        stop();
-        const prevContext = currentContext;
-        const prevEffect = activeEffect;
-        activeEffect = runner;
-        cleanup = fn(); 
-        activeEffect = prevEffect;
-        currentContext = prevContext;
-    };
-    const stop = () => {
-        runner.deps?.forEach(subs => subs.delete(runner));
-        runner.deps?.clear();
-        if (typeof cleanup === 'function') cleanup();
-        runner.cleanups?.forEach(f => f());
-        runner.cleanups = [];
-    };
-    runner.deps = new Set();
-    runner.cleanups = [];
-    if (activeEffect) activeEffect.cleanups.push(stop);
-    else if (currentContext) currentContext.cleanups.add(stop);
-    runner();
-    return stop;
+export const untrack = (fn) => {
+    const prev = activeEffect;
+    activeEffect = null;
+    const res = fn();
+    activeEffect = prev;
+    return res;
 };
 
+// --- 2. ESTADOS Y REACTIVIDAD ---
 export const Signal = (value) => {
     const subs = new Set();
     return {
         _isSig: true,
-        get value() {
-            track(subs);
-            return value;
-        },
+        get value() { track(subs); return value; },
         set value(v) {
             if (v === value) return;
             value = v;
-            subs.forEach(fn => queue.add(fn));
+            subs.forEach(f => queue.add(f));
             if (!isScheduled) { isScheduled = true; queueMicrotask(tick); }
         }
     };
@@ -85,7 +59,7 @@ export const Reactive = (obj) => {
             if (t[k] === v) return true;
             t[k] = v;
             if (subs[k]) {
-                subs[k].forEach(fn => queue.add(fn));
+                subs[k].forEach(f => queue.add(f));
                 if (!isScheduled) { isScheduled = true; queueMicrotask(tick); }
             }
             return true;
@@ -101,6 +75,16 @@ export const Computed = (fn) => {
     return { get value() { return c.value; } };
 };
 
+export const Watch = (source, cb) => {
+    let old;
+    return Effect(() => {
+        const val = typeof source === 'function' ? source() : source.value;
+        const prev = old;
+        old = val;
+        untrack(() => cb(val, prev));
+    });
+};
+
 export const Storage = (key, val) => {
     const saved = localStorage.getItem(key);
     const s = Signal(saved !== null ? JSON.parse(saved) : val);
@@ -108,15 +92,47 @@ export const Storage = (key, val) => {
     return s;
 };
 
+// --- 3. EFECTOS Y CICLO DE VIDA ---
+export const Effect = (fn) => {
+    let cleanup;
+    const runner = () => {
+        if (cleanup) cleanup();
+        const prevEff = activeEffect;
+        activeEffect = runner;
+        cleanup = fn();
+        activeEffect = prevEff;
+    };
+    runner.deps = new Set();
+    if (activeEffect?.scopes) activeEffect.scopes.push(runner);
+    else if (currentContext) currentContext.cleanups.push(runner);
+    runner();
+    return () => { if (cleanup) cleanup(); runner.deps.forEach(s => s.delete(runner)); };
+};
+
+export const Scope = (fn) => {
+    const scopes = [];
+    const prev = activeEffect;
+    activeEffect = { scopes };
+    fn();
+    activeEffect = prev;
+    return () => scopes.forEach(s => s());
+};
+
+export const onMount = f => currentContext?.mount.push(f);
+export const onUnmount = f => currentContext?.unmount.push(f);
+
+// --- 4. RENDERER & DIFFING ---
 const isNode = v => v instanceof Node;
+const DANGEROUS = /^(javascript|data|vbscript):/i;
+const sanitize = v => DANGEROUS.test(String(v)) ? '#' : v;
 
 export const destroy = async (node) => {
     if (!node) return;
     const ctx = nodeContexts.get(node);
-    if (node.off) await node.off(node);
+    if (node.off) await node.off(node); // Soporte para tu If/Transition manual
     if (ctx) {
-        ctx.unmount.forEach(fn => fn());
-        ctx.cleanups.forEach(fn => fn());
+        ctx.unmount.forEach(f => f());
+        ctx.cleanups.forEach(f => f());
         nodeContexts.delete(node);
     }
     const children = Array.from(node.childNodes);
@@ -131,10 +147,8 @@ const append = (parent, child) => {
         parent.appendChild(anchor);
         let nodes = [];
         Effect(async () => {
-            const raw = child();
-            const next = [raw].flat(Infinity)
-                .map(n => typeof n === 'function' ? n() : n)
-                .flat(Infinity)
+            const next = [child()].flat(Infinity)
+                .map(n => typeof n === 'function' ? n() : n).flat(Infinity)
                 .filter(n => n != null)
                 .map(n => isNode(n) ? n : document.createTextNode(String(n)));
 
@@ -146,16 +160,14 @@ const append = (parent, child) => {
 
             for (let i = next.length - 1; i >= 0; i--) {
                 const node = next[i];
-                const ref = next[i + 1] || anchor;
+                const ref = next[i+1] || anchor;
                 if (!oldIdxs.has(node) || nodes[p] !== node) {
                     parent.insertBefore(node, ref);
                     if (node.on) queueMicrotask(() => node.on(node));
-                } else {
-                    p--;
-                }
+                } else p--;
             }
             nodes = next;
-        }, true);
+        });
     } else {
         const n = isNode(child) ? child : document.createTextNode(String(child));
         parent.appendChild(n);
@@ -165,63 +177,60 @@ const append = (parent, child) => {
 
 export const h = (tag, props = {}, ...children) => {
     props = props || {};
-    const flatChildren = children.flat(Infinity);
-    if (!tag) return () => flatChildren;
+    const flat = children.flat(Infinity);
+    if (!tag) return () => flat;
+    if (tag === 'component') return () => h(props.is, props, ...flat);
 
     if (typeof tag === 'function') {
-        const context = { mount: [], unmount: [], Share: {}, parent: currentContext, cleanups: new Set() };
-        const prevCtx = currentContext;
-        currentContext = context;
-        const el = tag(props, { children: flatChildren });
-        if (isNode(el)) nodeContexts.set(el, context);
-        currentContext = prevCtx;
-        queueMicrotask(() => context.mount.forEach(fn => fn()));
+        const ctx = { mount: [], unmount: [], cleanups: [], Share: {}, parent: currentContext };
+        const prev = currentContext;
+        currentContext = ctx;
+        const el = tag(props, { children: flat });
+        if (isNode(el)) nodeContexts.set(el, ctx);
+        currentContext = prev;
+        queueMicrotask(() => ctx.mount.forEach(f => f()));
         return el;
     }
 
-    let el;
     const isSVG = /^(svg|path|circle|rect|g)$/i.test(tag);
-    el = isSVG ? document.createElementNS("http://www.w3.org/2000/svg", tag) : document.createElement(tag);
+    const el = isSVG ? document.createElementNS("http://www.w3.org/2000/svg", tag) : document.createElement(tag);
 
-    for (const key in props) {
-        const val = props[key];
-        if (key.startsWith('on')) {
-            el.addEventListener(key.slice(2).toLowerCase(), val);
-        } else if (key === 'ref') {
-            if (typeof val === 'function') val(el);
-            else if (val && val._isSig) val.value = el;
-        } else if (typeof val === 'function' || (val && val._isSig)) {
+    for (const k in props) {
+        const v = props[k];
+        if (k.startsWith('on')) el.addEventListener(k.slice(2).toLowerCase(), v);
+        else if (k === 'ref') { if (typeof v === 'function') v(el); else if (v?._isSig) v.value = el; }
+        else if (typeof v === 'function' || v?._isSig) {
             Effect(() => {
-                const v = typeof val === 'function' ? val() : val.value;
-                if (key === 'on' || key === 'off') { el[key] = v; return; }
-                const attr = (key === 'href' || key === 'src') ? sanitize(v) : v;
-                if (!isSVG && key in el) el[key] = attr; else el.setAttribute(key, attr);
+                const val = typeof v === 'function' ? v() : v.value;
+                if (k === 'on' || k === 'off') { el[k] = val; return; }
+                const attr = (k === 'href' || k === 'src') ? sanitize(val) : val;
+                if (!isSVG && k in el) el[k] = attr; else el.setAttribute(k, attr);
             });
         } else {
-            if (key === 'on' || key === 'off') { el[key] = val; continue; }
-            const attr = (key === 'href' || key === 'src') ? sanitize(val) : val;
-            if (!isSVG && key in el) el[key] = attr; else el.setAttribute(key, attr);
+            if (k === 'on' || k === 'off') { el[k] = v; continue; }
+            const attr = (k === 'href' || k === 'src') ? sanitize(v) : v;
+            if (!isSVG && k in el) el[k] = attr; else el.setAttribute(k, attr);
         }
     }
-    flatChildren.forEach(c => append(el, c));
+    flat.forEach(c => append(el, c));
     return el;
 };
 
-export const If = (cond, a, b) => () => cond() ? a() : (b ? b() : null);
+// --- 5. COMPONENTES Y RUTAS ---
+export const If = (c, t, e) => () => c() ? t() : (e ? e() : null);
 
-export const For = (list, key, render) => {
+export const For = (l, k, r) => {
     let cache = new Map();
     return () => {
-        const items = typeof list === 'function' ? list() : list.value;
-        const nextCache = new Map();
-        const nodes = items.map((item, i) => {
-            const k = key ? key(item, i) : (item.id || i);
-            let node = cache.get(k) || render(item, i);
-            nextCache.set(k, node);
-            return node;
+        const items = typeof l === 'function' ? l() : l.value;
+        const next = new Map();
+        const res = items.map((item, i) => {
+            const id = k ? k(item, i) : (item.id || i);
+            const n = cache.get(id) || r(item, i);
+            next.set(id, n);
+            return n;
         });
-        cache = nextCache;
-        return nodes;
+        cache = next; return res;
     };
 };
 
@@ -229,35 +238,35 @@ export const Router = (routes) => {
     const path = Signal(window.location.hash.replace(/^#/, '') || '/');
     window.onhashchange = () => path.value = window.location.hash.replace(/^#/, '') || '/';
     const outlet = h('div', { class: 'router-outlet' });
-    let currentView = null;
+    let view = null;
     Effect(async () => {
-        const route = routes.find(r => r.path === path.value) || routes.find(r => r.path === '*');
-        if (currentView) await destroy(currentView);
-        if (route) {
-            currentView = route.component();
-            outlet.appendChild(currentView);
+        const r = routes.find(x => x.path === path.value) || routes.find(x => x.path === '*');
+        if (view) await destroy(view);
+        if (r) {
+            view = r.component();
+            outlet.appendChild(view);
         }
     });
     return outlet;
 };
 
-export const Mount = (root, target) => {
-    const el = typeof root === 'function' ? root() : root;
-    const container = typeof target === 'string' ? document.querySelector(target) : target;
+export const Mount = (r, t) => {
+    const el = typeof r === 'function' ? r() : r;
+    const container = (typeof t === 'string' ? document.querySelector(t) : t);
     container.replaceChildren(el);
     return () => destroy(el);
 };
 
-export const onMount = (fn) => currentContext?.mount.push(fn);
-export const onUnmount = (fn) => currentContext?.unmount.push(fn);
-export const Share = (key, value) => { if (currentContext) currentContext.Share[key] = value; };
-export const Use = (key, def) => {
-    let ctx = currentContext;
-    while (ctx) {
-        if (ctx.Share[key] !== undefined) return ctx.Share[key];
-        ctx = ctx.parent;
-    }
-    return def;
+// --- 6. CONTEXTO (DEPENDENCY INJECTION) ---
+export const Share = (k, v) => { if (currentContext) currentContext.Share[k] = v; };
+export const Use = (k, d) => {
+    let c = currentContext;
+    while (c) { if (c.Share[k] !== undefined) return c.Share[k]; c = c.parent; }
+    return d;
 };
 
-export default { Signal, Reactive, Computed, Storage, Effect, h, If, For, Router, Mount, Share, Use, onMount, onUnmount };
+export default { 
+    Signal, Reactive, Computed, Effect, Watch, Storage, 
+    untrack, Scope, h, If, For, Router, Mount, 
+    onMount, onUnmount, Share, Use 
+};
