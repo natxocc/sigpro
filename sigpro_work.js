@@ -34,57 +34,62 @@ const untrack = (fn) => {
   finally { activeEffect = prev; }
 };
 
-const $ = (init, key = null) => {
+const $ = (val, key = null) => {
   const subs = new Set();
-  let sig;
-
-  if (typeof init === "function") {
-    let cached, dirty = true;
-    Watch(() => {
-      if (!dirty) {
-        dirty = true;
+  if (key) {
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved != null) val = JSON.parse(saved);
+    } catch {}
+  }
+  const sig = (...args) => {
+    if (args.length) {
+      const next = typeof args[0] === "function" ? untrack(() => args[0](val)) : args[0];
+      if (!Object.is(val, next)) {
+        val = next;
+        if (key) localStorage.setItem(key, JSON.stringify(val));
         subs.forEach(e => effectQueue.add(e));
         if (!isFlushing) queueMicrotask(flushEffects);
       }
-    });
-    sig = () => {
-      if (dirty) { cached = init(); dirty = false; }
-      if (activeEffect && !activeEffect._deleted) {
-        subs.add(activeEffect);
-        activeEffect._deps.add(subs);
-      }
-      return cached;
-    };
-  } else {
-    let val = init;
-    if (key) {
-      try {
-        const saved = localStorage.getItem(key);
-        if (saved != null) val = JSON.parse(saved);
-      } catch { }
+    } else if (activeEffect && !activeEffect._deleted) {
+      subs.add(activeEffect);
+      activeEffect._deps.add(subs);
     }
-    sig = (...args) => {
-      if (args.length) {
-        const next = typeof args[0] === "function" ? untrack(() => args[0](val)) : args[0];
-        if (!Object.is(val, next)) {
-          val = next;
-          if (key) localStorage.setItem(key, JSON.stringify(val));
-          subs.forEach(e => effectQueue.add(e));
-          if (!isFlushing) queueMicrotask(flushEffects);
-        }
-      } else if (activeEffect && !activeEffect._deleted) {
-        subs.add(activeEffect);
-        activeEffect._deps.add(subs);
-      }
-      return val;
-    };
-  }
+    return val;
+  };
+  sig._isSig = true;
+  return sig;
+};
+
+const $$ = (fn) => {
+  const subs = new Set();
+  let cached, dirty = true;
+  
+  const runner = Watch(() => {
+    if (!dirty) {
+      dirty = true;
+      subs.forEach(e => effectQueue.add(e));
+      if (!isFlushing) queueMicrotask(flushEffects);
+    }
+  });
+
+  const sig = () => {
+    if (dirty) {
+      cached = fn(); 
+      dirty = false;
+    }
+    if (activeEffect && !activeEffect._deleted) {
+      subs.add(activeEffect);
+      activeEffect._deps.add(subs);
+    }
+    return cached;
+  };
   
   sig._isSig = true;
   return sig;
 };
 
-const $$ = (obj) => {
+const $_ = (obj) => {
   if (obj === null || typeof obj !== "object" || obj._isSig) return obj;
   if (reactiveCache.has(obj)) return reactiveCache.get(obj);
 
@@ -100,7 +105,7 @@ const $$ = (obj) => {
       }
 
       const value = Reflect.get(target, key);
-      return (typeof value === "object" && value !== null) ? $$(value) : value;
+      return (typeof value === "object" && value !== null) ? $_(value) : value;
     },
     set(target, key, value) {
       const prev = Reflect.get(target, key);
@@ -399,7 +404,7 @@ const Mount = (component, target) => {
   return instance;
 };
 
-const SigPro = { $, $$, untrack, Render, Watch, Tag, If, For, Router, Mount, Share, Use };
+const SigPro = { $, $$, $_, untrack, Render, Watch, Tag, If, For, Router, Mount, Share, Use };
 
 if (typeof window !== "undefined") {
   Object.assign(window, SigPro);
@@ -413,5 +418,5 @@ if (typeof window !== "undefined") {
   window.SigPro = Object.freeze(SigPro);
 }
 
-export { $, $$, untrack, Render, Watch, Tag, If, For, Router, Mount, Share, Use };
+export { $, $$, $_, untrack, Render, Watch, Tag, If, For, Router, Mount, Share, Use };
 export default SigPro;
