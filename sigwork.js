@@ -18,6 +18,7 @@ const tick = () => {
 let activeEffect = null;
 let currentContext = null;
 const nodeContexts = new WeakMap();
+const reactiveCache = new WeakMap(); // <-- Añadido para que Reactive funcione
 
 // --- Seguridad ---
 const DANGEROUS = /^(javascript|data|vbscript):/i;
@@ -85,7 +86,7 @@ export const Reactive = (obj) => {
     const subs = {};
     const proxy = new Proxy(obj, {
         get(t, k) {
-            track(subs[k] ??= new Set()); // <--- Uso de track
+            track(subs[k] ??= new Set());
             const val = t[k];
             return (val && typeof val === 'object') ? Reactive(val) : val;
         },
@@ -145,22 +146,16 @@ const append = (parent, child) => {
                 .filter(n => n != null)
                 .map(n => isNode(n) ? n : document.createTextNode(String(n)));
 
-            // Diffing Bidireccional (Estilo Sigwork)
-            const oldNodes = nodes.filter(n => {
-                const keep = next.includes(n);
-                if (!keep) destroy(n);
-                return keep;
-            });
+            const nextSet = new Set(next);
+            nodes.forEach(n => { if (!nextSet.has(n)) destroy(n); });
 
-            const oldIdxs = new Map(oldNodes.map((n, i) => [n, i]));
-            let p = oldNodes.length - 1;
+            const oldIdxs = new Map(nodes.filter(n => nextSet.has(n)).map((n, i) => [n, i]));
+            let p = oldIdxs.size - 1;
 
             for (let i = next.length - 1; i >= 0; i--) {
                 const node = next[i];
                 const ref = next[i + 1] || anchor;
-                if (!oldIdxs.has(node)) {
-                    parent.insertBefore(node, ref);
-                } else if (oldNodes[p] !== node) {
+                if (!oldIdxs.has(node) || nodes[p] !== node) {
                     parent.insertBefore(node, ref);
                 } else {
                     p--;
@@ -176,11 +171,8 @@ const append = (parent, child) => {
 export const h = (tag, props = {}, ...children) => {
     props = props || {};
     const flatChildren = children.flat(Infinity);
-
-    // 4. Fragments (Tag nulo o vacío)
     if (!tag) return () => flatChildren;
 
-    // 1. Componentes (Funciones)
     if (typeof tag === 'function') {
         const context = { mount: [], unmount: [], Share: {}, parent: currentContext, cleanups: new Set() };
         const prevCtx = currentContext;
@@ -192,9 +184,8 @@ export const h = (tag, props = {}, ...children) => {
         return el;
     }
 
-    // 1. Soporte SVG
     let el;
-    const isSVG = tag === 'svg' || tag === 'path' || tag === 'circle' || tag === 'rect' || tag === 'g';
+    const isSVG = /^(svg|path|circle|rect|g)$/i.test(tag);
     if (isSVG) {
         el = document.createElementNS("http://www.w3.org/2000/svg", tag);
     } else {
@@ -206,7 +197,6 @@ export const h = (tag, props = {}, ...children) => {
         if (key.startsWith('on')) {
             el.addEventListener(key.slice(2).toLowerCase(), val);
         } 
-        // 2. Soporte para Refs
         else if (key === 'ref') {
             if (typeof val === 'function') val(el);
             else if (val && val._isSig) val.value = el;
@@ -236,8 +226,7 @@ export const For = (list, key, render) => {
         const nextCache = new Map();
         const nodes = items.map((item, i) => {
             const k = key ? key(item, i) : (item.id || i);
-            let node = cache.get(k);
-            if (!node) node = render(item, i);
+            let node = cache.get(k) || render(item, i);
             nextCache.set(k, node);
             return node;
         });
@@ -249,7 +238,7 @@ export const For = (list, key, render) => {
 // --- Router ---
 export const Router = (routes) => {
     const path = Signal(window.location.hash.replace(/^#/, '') || '/');
-    window.addEventListener('hashchange', () => path.value = window.location.hash.replace(/^#/, '') || '/');
+    window.onhashchange = () => path.value = window.location.hash.replace(/^#/, '') || '/';
     const outlet = h('div', { class: 'router-outlet' });
     let currentView = null;
     Effect(() => {
@@ -264,9 +253,8 @@ export const Router = (routes) => {
 };
 
 export const Mount = (root, target) => {
-    const container = typeof target === 'string' ? document.querySelector(target) : target;
     const el = typeof root === 'function' ? root() : root;
-    container.replaceChildren(el);
+    (typeof target === 'string' ? document.querySelector(target) : target).replaceChildren(el);
     return () => destroy(el);
 };
 
@@ -282,4 +270,4 @@ export const Use = (key, def) => {
     return def;
 };
 
-export default { Signal, Computed, Storage, Effect, h, If, For, Router, Mount, Share, Use, onMount, onUnmount };
+export default { Signal, Reactive, Computed, Storage, Effect, h, If, For, Router, Mount, Share, Use, onMount, onUnmount };
