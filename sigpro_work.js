@@ -59,9 +59,36 @@ const $ = (init, key = null) => {
   return sig;
 };
 
+const $$ = (fn) => {
+  const subs = new Set();
+  let cached, dirty = true;
+  
+  // Usamos Watch para rastrear dependencias de fn
+  Watch(() => {
+    if (!dirty) {
+      dirty = true;
+      subs.forEach(e => effectQueue.add(e));
+      if (!isFlushing) queueMicrotask(flushEffects);
+    }
+  });
+
+  const sig = () => {
+    if (dirty) { cached = fn(); dirty = false; }
+    // El computado SIEMPRE suscribe si hay un efecto activo
+    if (activeEffect && !activeEffect._deleted) {
+      subs.add(activeEffect);
+      activeEffect._deps.add(subs);
+    }
+    return cached;
+  };
+  
+  sig.react = sig; 
+  return sig;
+};
+
 const reactiveCache = new WeakMap();
 
-const $$ = (obj) => {
+const $$_ = (obj) => {
   if (obj === null || typeof obj !== "object" || isSignal(obj)) return obj;
   if (reactiveCache.has(obj)) return reactiveCache.get(obj);
 
@@ -78,7 +105,7 @@ const $$ = (obj) => {
       }
 
       const value = Reflect.get(target, key);
-      return (typeof value === "object" && value !== null) ? $$(value) : value;
+      return (typeof value === "object" && value !== null) ? $$_(value) : value;
     },
     set(target, key, value) {
       const prev = Reflect.get(target, key);
@@ -361,7 +388,7 @@ const Mount = (component, target) => {
   return instance;
 };
 
-const SigPro = { $, $$, Render, Watch, Tag, If, For, Router, Mount, Share, Use };
+const SigPro = { $, $$, $$_, Render, Watch, Tag, If, For, Router, Mount, Share, Use };
 
 if (typeof window !== "undefined") {
   Object.assign(window, SigPro);
@@ -375,5 +402,5 @@ if (typeof window !== "undefined") {
   window.SigPro = Object.freeze(SigPro);
 }
 
-export { $, $$, Render, Watch, Tag, If, For, Router, Mount, Share, Use };
+export { $, $$, $$_, Render, Watch, Tag, If, For, Router, Mount, Share, Use };
 export default SigPro;
