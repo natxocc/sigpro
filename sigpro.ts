@@ -497,106 +497,70 @@ export const Transition = (
 
 type Route = {
     path: string;
-    component: Component | (() => Promise<Component>);
+    component: Component;
 };
 
-export const Router = (routes: Route[]) => {
-    const getPath = () => window.location.hash.replace(/^#/, "") || "/";
-    const currentPath = $(getPath());
-    
+type RouterInstance = {
+    view: Node;
+    to: (path: string) => void;
+    back: () => void;
+    params: Signal<Record<string, string>>;
+};
+
+export const Router = (routes: Route[]): RouterInstance => {
+    const getPath = () => window.location.hash.slice(1) || "/";
+    const path = $(getPath());
     const params = $<Record<string, string>>({});
     
-    const update = () => {
-        currentPath(getPath());
-    };
-    
-    window.addEventListener("hashchange", update);
-    
-    const outlet = h("div", { class: "router-outlet" });
-    let currentView: Node | null = null;
-    let currentCleanup: CleanupFn | null = null;
-    
-    const loadComponent = async (route: Route) => {
-        let comp = route.component;
-        if (typeof comp === "function" && comp.toString().includes("import")) {
-            const mod = await (comp as () => Promise<any>)();
-            comp = mod.default || mod;
-        }
-        return comp as Component;
-    };
-    
-    const matchRoute = (path: string): { route: Route; params: Record<string, string> } | null => {
+    const matchRoute = (path: string): { component: Component; params: Record<string, string> } | null => {
         for (const route of routes) {
             const routeParts = route.path.split("/").filter(Boolean);
             const pathParts = path.split("/").filter(Boolean);
+            
             if (routeParts.length !== pathParts.length) continue;
+            
             const matchedParams: Record<string, string> = {};
-            let match = true;
+            let ok = true;
+            
             for (let i = 0; i < routeParts.length; i++) {
                 if (routeParts[i].startsWith(":")) {
                     matchedParams[routeParts[i].slice(1)] = pathParts[i];
                 } else if (routeParts[i] !== pathParts[i]) {
-                    match = false;
+                    ok = false;
                     break;
                 }
             }
-            if (match) return { route, params: matchedParams };
+            
+            if (ok) return { component: route.component, params: matchedParams };
         }
+        
+        const wildcard = routes.find(r => r.path === "*");
+        if (wildcard) return { component: wildcard.component, params: {} };
+        
         return null;
     };
     
+    window.addEventListener("hashchange", () => path(getPath()));
+    
+    const outlet = h("div");
+    
     effect(() => {
-        const path = currentPath();
-        const matched = matchRoute(path);
+        const matched = matchRoute(path());
         if (!matched) return;
         
-        const { route, params: routeParams } = matched;
-        params(routeParams);
+        params(matched.params);
         
-        const load = async () => {
-            if (currentCleanup) {
-                currentCleanup();
-                currentCleanup = null;
-            }
-            if (currentView && currentView.parentNode) {
-                remove(currentView);
-                currentView = null;
-            }
-            const Comp = await loadComponent(route);
-            const instance = h(Comp, routeParams);
-            if (isNode(instance)) {
-                currentView = instance;
-                outlet.appendChild(instance);
-                if ((instance as ElementWithLifecycle).$c) {
-                    currentCleanup = () => {
-                        (instance as ElementWithLifecycle).$s?.();
-                        if (instance.parentNode) remove(instance);
-                    };
-                } else {
-                    currentCleanup = () => {
-                        if (instance.parentNode) remove(instance);
-                    };
-                }
-            }
-        };
-        load();
+        while (outlet.firstChild) outlet.removeChild(outlet.firstChild);
+        outlet.appendChild(h(matched.component));
     });
     
-    return outlet;
+    return {
+        view: outlet,
+        to: (p: string) => { window.location.hash = p; },
+        back: () => window.history.back(),
+        params: () => params,
+    };
 };
-
-Router.to = (path: string) => {
-    window.location.hash = path.replace(/^#?\/?/, "#/");
-};
-
-Router.back = () => {
-    window.history.back();
-};
-
-Router.params = (() => {
-    const p = $<Record<string, string>>({});
-    return p;
-})();
 
 export const mount = (
     component: Component,
