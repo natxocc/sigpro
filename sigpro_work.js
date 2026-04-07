@@ -5,7 +5,11 @@ const effectQueue = new Set();
 let isFlushing = false;
 const MOUNTED_NODES = new WeakMap();
 const reactiveCache = new WeakMap();
-
+const DANGEROUS_PROTOCOLS = /^(javascript|data|vbscript):/i;
+const sanitizeUrl = (url) => {
+    const str = String(url ?? '').trim().toLowerCase();
+    return DANGEROUS_PROTOCOLS.test(str) ? '#' : str;
+};
 const doc = document;
 const createEl = (t) => doc.createElement(t);
 const createText = (t) => doc.createTextNode(String(t ?? ""));
@@ -61,7 +65,7 @@ const $ = (val, key = null) => {
   return sig;
 };
 
-const $C = (fn) => {
+const Computed = (fn) => {
   const subs = new Set();
   let cached, dirty = true;
   
@@ -89,7 +93,7 @@ const $C = (fn) => {
   return sig;
 };
 
-const $O = (obj) => {
+const Store = (obj) => {
   if (obj === null || typeof obj !== "object" || obj._isSig) return obj;
   if (reactiveCache.has(obj)) return reactiveCache.get(obj);
 
@@ -105,7 +109,7 @@ const $O = (obj) => {
       }
 
       const value = Reflect.get(target, key);
-      return (typeof value === "object" && value !== null) ? $O(value) : value;
+      return (typeof value === "object" && value !== null) ? Store(value) : value;
     },
     set(target, key, value) {
       const prev = Reflect.get(target, key);
@@ -205,7 +209,8 @@ const Tag = (tag, props = {}, children = []) => {
         el[k] = !!val;
         val ? el.setAttribute(k, "") : el.removeAttribute(k);
       } else {
-        el.setAttribute(k, val);
+        const finalVal = (k === 'src' || k === 'href') ? sanitizeUrl(val) : val;
+        el.setAttribute(k, finalVal);
       }
     };
     if (typeof v === "function") {
@@ -419,7 +424,7 @@ const Mount = (component, target) => {
   return instance;
 };
 
-const SigPro = { $, $C, $O, untrack, Render, Effect, Watch, Tag, If, For, Router, Mount, Share, Use };
+const SigPro = { $, Computed, Store, untrack, Render, Effect, Watch, Tag, If, For, Router, Mount, Share, Use };
 
 if (typeof window !== "undefined") {
   Object.assign(window, SigPro);
@@ -433,5 +438,6 @@ if (typeof window !== "undefined") {
   window.SigPro = Object.freeze(SigPro);
 }
 
-export { $, $C, $O, untrack, Render, Effect, Watch, Tag, If, For, Router, Mount, Share, Use };
+export { $, Computed, Store, untrack, Render, Effect, Watch, Tag, If, For, Router, Mount, Share, Use };
+export { Tag as jsx, Tag as jsxs, Tag as Fragment };
 export default SigPro;
