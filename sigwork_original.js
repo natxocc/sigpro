@@ -127,12 +127,13 @@ export const onUnmount = (fn) => context?.u.push(fn);
 export const provide = (key, value) => context && (context.p[key] = value);
 export const inject = (key, dft) => context && (key in context.p ? context.p[key] : dft);
 
-const remove = (node) => {
-    if (Array.isArray(node)) return node.forEach(remove);
+const remove = async (node) => {
+    if (Array.isArray(node)) return Promise.all(node.map(remove));
+    if (node.$off) await node.$off(node);
+    else if (node.$l) await new Promise(res => node.$l(res));
     node.$s?.(); 
     if (node.$c) node.$c.u.forEach(f => f());
-    const done = () => node.remove();
-    node.$l ? node.$l(done) : done();
+    node.remove();
 }
 
 const render = (fn, ...data) => {
@@ -159,6 +160,8 @@ export const h = (tag, props = {}, ...children) => {
         const out = isNode(el) ? el : document.createTextNode(String(el));
         out.$c = ctx;
         out.$s = stop;
+        if (props.on) out.$on = props.on;
+        if (props.off) out.$off = props.off;
         context = prev;
         return out;
     }
@@ -166,10 +169,13 @@ export const h = (tag, props = {}, ...children) => {
     const isSvg = tag === 'svg' || tag === 'path' || tag === 'circle';
     const el = isSvg ? document.createElementNS("http://www.w3.org/2000/svg", tag) : document.createElement(tag);
     for (const key in props) {
-        if (key.startsWith('on')) el.addEventListener(key.slice(2).toLowerCase(), props[key]);
-        else if (key === "ref") isFn(props[key]) ? props[key](el) : props[key].value = el;
-        else if (isFn(props[key])) effect(() => el[key] = props[key]());
-        else el[key] = props[key];
+        const val = props[key];
+        if (key.startsWith('on') && key !== 'on' && key !== 'off') el.addEventListener(key.slice(2).toLowerCase(), val);
+        else if (key === "ref") isFn(val) ? val(el) : val.value = el;
+        else if (key === "on") el.$on = val;
+        else if (key === "off") el.$off = val;
+        else if (isFn(val)) effect(() => el[key] = val());
+        else el[key] = val;
     }
     children.forEach(child => append(el, child));
     return el;
@@ -181,31 +187,41 @@ const append = (parent, child) => {
         const anchor = document.createTextNode('');
         parent.appendChild(anchor);
         let nodes = [];
-        effect(() => {
+        effect(async () => {
             const raw = [child()].flat(Infinity).filter(n => n != null);
             const newNodes = raw.map(n => isNode(n) ? n : document.createTextNode(String(n)));
-            nodes.forEach(n => { if (!newNodes.includes(n)) remove(n); });
+            for (const n of nodes) { if (!newNodes.includes(n)) await remove(n); }
             newNodes.forEach((n, i) => {
                 if (!nodes.includes(n)) {
                     parent.insertBefore(n, newNodes[i+1] || anchor);
+                    if (n.$on) n.$on(n);
                     if (n.$c) n.$c.m.forEach(f => f());
                 }
             });
             nodes = newNodes;
         }, true);
     } else {
-        parent.appendChild(isNode(child) ? child : document.createTextNode(String(child)));
+        const n = isNode(child) ? child : document.createTextNode(String(child));
+        parent.appendChild(n);
+        if (n.$on) n.$on(n);
     }
 }
 
-export const If = (cond, renderFn, fallback = null) => {
+export const If = (cond, renderFn, fallback = null, transitions = {}) => {
     let cached, current;
     return () => {
         const show = !!cond();
         if (show !== current) {
-            if (cached) remove(cached);
-            cached = show ? render(renderFn) : (isFn(fallback) ? render(fallback) : fallback);
-            current = show;
+            const update = async () => {
+                if (cached) await remove(cached);
+                cached = show ? render(renderFn) : (isFn(fallback) ? render(fallback) : fallback);
+                if (isNode(cached)) {
+                    if (transitions.on) cached.$on = transitions.on;
+                    if (transitions.off) cached.$off = transitions.off;
+                }
+                current = show;
+            };
+            update();
         }
         return cached;
     }
@@ -223,7 +239,7 @@ export const For = (list, key, renderFn) => {
             next.set(id, node);
             return node;
         });
-        cache.forEach((node, id) => { if (!next.has(id)) remove(node); });
+        cache.forEach(async (node, id) => { if (!next.has(id)) await remove(node); });
         cache = next;
         return res;
     }
@@ -236,7 +252,8 @@ export const Transition = ({ enter: e, idle, leave: l }, { children: [c] }) => {
         if (!isNode(el)) return el;
         const addClass = c => c && el.classList.add(...c.split(' '));
         const removeClass = c => c && el.classList.remove(...c.split(' '));
-        if (e) {
+        el.$on = () => {
+            if (!e) return;
             requestAnimationFrame(() => {
                 addClass(e[1]);
                 requestAnimationFrame(() => {
@@ -246,18 +263,19 @@ export const Transition = ({ enter: e, idle, leave: l }, { children: [c] }) => {
                     }, { once: true });
                 });
             });
-        }
-        if (l) {
-            el.$l = (done) => {
+        };
+        el.$off = (node) => {
+            if (!l) return node.remove();
+            return new Promise(res => {
                 removeClass(idle); addClass(l[1]);
                 requestAnimationFrame(() => {
                     addClass(l[0]); removeClass(l[1]); addClass(l[2]);
                     el.addEventListener('transitionend', () => {
-                        removeClass(l[2]); removeClass(l[0]); done();
+                        removeClass(l[2]); removeClass(l[0]); res();
                     }, { once: true });
                 });
-            }
-        }
+            });
+        };
         return el;
     }
     return isFn(c) ? () => decorate(c()) : decorate(c);
@@ -266,6 +284,7 @@ export const Transition = ({ enter: e, idle, leave: l }, { children: [c] }) => {
 export default (target, root, props) => {
     const el = h(root, props);
     target.appendChild(el);
+    if (el.$on) el.$on(el);
     if (el.$c) el.$c.m.forEach(f => f());
     return () => remove(el);
 }
