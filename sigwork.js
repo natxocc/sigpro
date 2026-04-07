@@ -1,8 +1,3 @@
-/*
-* SigPro 
-*/
-
-// --- 1. CORE REACTIVO ---
 let activeEffect = null, currentContext = null, isScheduled = false;
 const queue = new Set(), nodeContexts = new WeakMap(), reactiveCache = new WeakMap();
 
@@ -30,7 +25,6 @@ export const untrack = (fn) => {
     return res;
 };
 
-// --- 2. ESTADOS Y REACTIVIDAD ---
 export const Signal = (value) => {
     const subs = new Set();
     return {
@@ -92,7 +86,6 @@ export const Storage = (key, val) => {
     return s;
 };
 
-// --- 3. EFECTOS Y CICLO DE VIDA ---
 export const Effect = (fn) => {
     let cleanup;
     const runner = () => {
@@ -121,7 +114,6 @@ export const Scope = (fn) => {
 export const onMount = f => currentContext?.mount.push(f);
 export const onUnmount = f => currentContext?.unmount.push(f);
 
-// --- 4. RENDERER & DIFFING ---
 const isNode = v => v instanceof Node;
 const DANGEROUS = /^(javascript|data|vbscript):/i;
 const sanitize = v => DANGEROUS.test(String(v)) ? '#' : v;
@@ -129,7 +121,7 @@ const sanitize = v => DANGEROUS.test(String(v)) ? '#' : v;
 export const destroy = async (node) => {
     if (!node) return;
     const ctx = nodeContexts.get(node);
-    if (node.off) await node.off(node); // Soporte para tu If/Transition manual
+    if (node.off) await node.off(node);
     if (ctx) {
         ctx.unmount.forEach(f => f());
         ctx.cleanups.forEach(f => f());
@@ -216,7 +208,6 @@ export const h = (tag, props = {}, ...children) => {
     return el;
 };
 
-// --- 5. COMPONENTES Y RUTAS ---
 export const If = (c, t, e) => () => c() ? t() : (e ? e() : null);
 
 export const For = (l, k, r) => {
@@ -257,7 +248,6 @@ export const Mount = (r, t) => {
     return () => destroy(el);
 };
 
-// --- 6. CONTEXTO (DEPENDENCY INJECTION) ---
 export const Share = (k, v) => { if (currentContext) currentContext.Share[k] = v; };
 export const Use = (k, d) => {
     let c = currentContext;
