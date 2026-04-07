@@ -1,12 +1,6 @@
-/*
-* Sigwork v1.1 - [Sig]nal-based Frontend Frame[work]
-* Fixed: Memory Leaks, Fragment Lifecycle, and List Reconciler.
-*/
-
 const isFn = (v) => typeof v === 'function';
 const isNode = (v) => v instanceof Node;
 
-// --- Schedule System ---
 let isScheduled = false;
 const queue = new Set();
 const tick = () => {
@@ -15,12 +9,11 @@ const tick = () => {
     isScheduled = false;
 }
 
-// --- Effects System ---
 let activeEffect = null;
 export const effect = (fn, is_scope = false) => {
     let cleanup = null;
     const run = () => {
-        stop(); // Limpia antes de re-ejecutar
+        stop();
         const prev = activeEffect;
         activeEffect = run;
         try { cleanup = fn(); } finally { activeEffect = prev; }
@@ -50,10 +43,10 @@ const track = (subs) => {
     }
 }
 
-// --- Signals Core ---
 export const signal = (value) => {
     const subs = new Set();
     return {
+        _isSig: true,
         get value() { track(subs); return value; },
         set value(newValue) {
             if (newValue === value) return;
@@ -102,6 +95,22 @@ export const reactive = (obj) => {
     return proxy;
 }
 
+export const persist = (key, target) => {
+    const saved = localStorage.getItem(key);
+    if (saved !== null) {
+        const data = JSON.parse(saved);
+        if (target._isSig) target.value = data;
+        else Object.assign(target, data);
+    }
+    effect(() => {
+        const val = target._isSig ? target.value : target;
+        localStorage.setItem(key, JSON.stringify(val));
+    });
+    return target;
+};
+
+export const storage = (key, val) => persist(key, signal(val));
+
 export const watch = (source, cb) => {
     let first = true, oldValue;
     return effect(() => {
@@ -112,7 +121,6 @@ export const watch = (source, cb) => {
     });
 }
 
-// --- Rendering System ---
 let context = null;
 export const onMount = (fn) => context?.m.push(fn);
 export const onUnmount = (fn) => context?.u.push(fn);
@@ -139,7 +147,6 @@ const render = (fn, ...data) => {
 
 export const h = (tag, props = {}, ...children) => {
     children = children.flat(Infinity);
-
     if (isFn(tag)) {
         const prev = context;
         context = { m: [], u: [], p: { ...(prev?.p || {}) } };
@@ -149,27 +156,21 @@ export const h = (tag, props = {}, ...children) => {
             el = tag(props, { children, emit: (evt, ...args) => props[`on${evt[0].toUpperCase()}${evt.slice(1)}`]?.(...args) });
             return () => ctx.u.forEach(f => f());
         }, true);
-        
-        // Normalización para asegurar que el nodo tenga metadatos
         const out = isNode(el) ? el : document.createTextNode(String(el));
         out.$c = ctx;
         out.$s = stop;
         context = prev;
         return out;
     }
-
     if (!tag) return children;
-
     const isSvg = tag === 'svg' || tag === 'path' || tag === 'circle';
     const el = isSvg ? document.createElementNS("http://www.w3.org/2000/svg", tag) : document.createElement(tag);
-
     for (const key in props) {
         if (key.startsWith('on')) el.addEventListener(key.slice(2).toLowerCase(), props[key]);
         else if (key === "ref") isFn(props[key]) ? props[key](el) : props[key].value = el;
         else if (isFn(props[key])) effect(() => el[key] = props[key]());
         else el[key] = props[key];
     }
-
     children.forEach(child => append(el, child));
     return el;
 }
@@ -197,7 +198,6 @@ const append = (parent, child) => {
     }
 }
 
-// --- Helpers & Built-in ---
 export const If = (cond, renderFn, fallback = null) => {
     let cached, current;
     return () => {
@@ -236,7 +236,6 @@ export const Transition = ({ enter: e, idle, leave: l }, { children: [c] }) => {
         if (!isNode(el)) return el;
         const addClass = c => c && el.classList.add(...c.split(' '));
         const removeClass = c => c && el.classList.remove(...c.split(' '));
-
         if (e) {
             requestAnimationFrame(() => {
                 addClass(e[1]);
