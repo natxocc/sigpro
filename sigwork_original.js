@@ -10,6 +10,9 @@ const tick = () => {
     isScheduled = false;
 }
 
+// Helper para extraer valor de signals o funciones
+const unwrap = (v) => (v?._isSig ? v.value : (isFn(v) ? v() : v));
+
 export const effect = (fn, is_scope = false) => {
     let cleanup = null;
     const run = () => {
@@ -104,7 +107,7 @@ export const storage = (key, val) => persist(key, signal(val));
 export const watch = (source, cb) => {
     let first = true, old;
     return effect(() => {
-        const val = isFn(source) ? source() : source.value;
+        const val = unwrap(source);
         if (!first) untrack(() => cb(val, old));
         first = false; old = val;
     });
@@ -158,7 +161,7 @@ export const h = (tag, props = {}, ...children) => {
         else if (k === "ref") isFn(v) ? v(el) : v.value = el;
         else if (k === "on") el.$on = v;
         else if (k === "off") el.$off = v;
-        else if (isFn(v)) effect(() => el[k] = v());
+        else if (isFn(v) || v?._isSig) effect(() => el[k] = unwrap(v));
         else el[k] = v;
     }
     children.forEach(c => append(el, c));
@@ -167,12 +170,12 @@ export const h = (tag, props = {}, ...children) => {
 
 const append = (p, c) => {
     if (c == null) return;
-    if (isFn(c)) {
+    if (isFn(c) || c?._isSig) {
         const anchor = document.createTextNode('');
         p.appendChild(anchor);
         let nodes = [];
         effect(async () => {
-            const raw = [c()].flat(Infinity).filter(n => n != null);
+            const raw = [unwrap(c)].flat(Infinity).filter(n => n != null);
             const next = raw.map(n => isNode(n) ? n : document.createTextNode(String(n)));
             for (const n of nodes) { if (!next.includes(n)) await remove(n); }
             next.forEach((n, i) => {
@@ -194,7 +197,7 @@ const append = (p, c) => {
 export const If = (cond, t, f = null, trans = {}) => {
     let cached, current;
     return () => {
-        const show = !!cond();
+        const show = !!unwrap(cond);
         if (show !== current) {
             const up = async () => {
                 if (cached) await remove(cached);
@@ -215,7 +218,7 @@ export const For = (list, key, renderFn) => {
     let cache = new Map();
     return () => {
         const next = new Map();
-        const items = isFn(list) ? list() : (list.value || list);
+        const items = unwrap(list);
         const res = items.map((item, i) => {
             const id = isFn(key) ? key(item, i) : (key ? item[id] : item);
             let n = cache.get(id);
