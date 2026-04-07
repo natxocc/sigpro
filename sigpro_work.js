@@ -1,4 +1,4 @@
-// sigpro
+//sigpro
 let activeEffect = null;
 let currentOwner = null;
 const effectQueue = new Set();
