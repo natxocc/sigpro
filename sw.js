@@ -1,5 +1,6 @@
 const isFunction = (value) => typeof value === 'function';
 const isNode = (value) => value instanceof Node;
+const get = (sig) => (sig?._isSignal ? sig.value : (isFn(sig) ? sig() : sig));
 
 // --- Schedule System ---
 let isScheduled = false;
