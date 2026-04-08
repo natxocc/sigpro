@@ -1,5 +1,5 @@
 /**
- * SigPro v3.3 - Stable Integrated Engine
+ * SigPro v1.2.0
  */
 const SigPro = (() => {
   const doc = typeof document !== "undefined" ? document : null;
