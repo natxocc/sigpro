@@ -1,21 +1,15 @@
 /**
- * SigPro
+ * SigPro 
  */
 const SigPro = (() => {
   const doc = typeof document !== "undefined" ? document : null;
   const isArr = Array.isArray, assign = Object.assign, isFunc = (f) => typeof f === "function", isObj = (o) => typeof o === "object" && o !== null;
   const ensureNode = (n) => n?._isRuntime ? n.container : (n instanceof Node ? n : doc.createTextNode(String(n ?? "")));
 
-  // --- STATE VARIABLES ---
-  let activeEffect = null;
-  let currentOwner = null;
-  let currentCtx = null;
-  let isFlushing = false;
-  
-  const effectQueue = new Set();
-  const MOUNTED_NODES = new WeakMap();
+  // --- STATE & SYSTEM VARIABLES ---
+  let activeEffect = null, currentOwner = null, currentCtx = null, isFlushing = false;
+  const effectQueue = new Set(), MOUNTED_NODES = new WeakMap();
 
-  // --- CLEANUP & LIFECYCLE ---
   const runCleanups = (s) => { s?.forEach(f => f()); s?.clear(); };
   const clearDeps = (e) => { e._deps.forEach(d => d.delete(e)); e._deps.clear(); };
   const onUnmount = (fn) => currentOwner && currentOwner.cleanups.add(fn);
@@ -25,7 +19,6 @@ const SigPro = (() => {
     node.childNodes?.forEach(cleanupNode);
   };
 
-  // --- SCHEDULER & CONTEXT ---
   const runWithContext = (e, cb) => {
     const p = activeEffect; activeEffect = e;
     try { return cb(); } finally { activeEffect = p; }
@@ -52,34 +45,54 @@ const SigPro = (() => {
     }
   };
 
-  // --- SHARED STATE (NEW) ---
-  const Share = (key, val) => currentCtx && (currentCtx.p[key] = val);
-  const Use = (key, dft) => (currentCtx && key in currentCtx.p) ? currentCtx.p[key] : dft;
-
-  // --- CORE API ---
-  const untrack = (fn) => {
-    const p = activeEffect; activeEffect = null;
-    try { return fn(); } finally { activeEffect = p; }
+  // --- THE ATOM (Internal Kernel) ---
+  const _sub = (fn, cb) => {
+    const e = () => {
+      if (e._deleted) return;
+      if (cb) {
+        const val = runWithContext(e, fn);
+        cb(val);
+      } else {
+        clearDeps(e);
+        runWithContext(e, fn);
+      }
+    };
+    e._deps = new Set();
+    e();
+    onUnmount(() => { e._deleted = true; clearDeps(e); });
+    return e;
   };
+
+  // --- PUBLIC API ---
+  const ignore = (fn) => {
+    const p = activeEffect;
+    activeEffect = null;
+    try { return fn(); }
+    finally { activeEffect = p; }
+  };
+
+  const Watch = (target, cb) => {
+    const isA = isArr(target);
+    return _sub(
+      isA ? () => target.forEach(s => isFunc(s) ? s() : s) : target,
+      isA ? () => ignore(cb) : null
+    );
+  };
+
+  const Share = (k, v) => currentCtx && (currentCtx.p[k] = v);
+  const Use = (k, dft) => (currentCtx && k in currentCtx.p) ? currentCtx.p[k] : dft;
 
   const $ = (val, key = null) => {
     const subs = new Set();
     if (isFunc(val)) {
       let cache, dirty = true;
-      const e = () => {
-        if (e._deleted) return;
-        clearDeps(e);
-        runWithContext(e, () => {
-          const next = val();
-          if (!Object.is(cache, next) || dirty) { cache = next; dirty = false; trackUpdate(subs, true); }
-        });
-      };
-      assign(e, { _deps: new Set(), _isComputed: true, _subs: subs, _deleted: false, markDirty: () => (dirty = true), 
-                  stop: () => { e._deleted = true; clearDeps(e); subs.clear(); } });
-      onUnmount(e.stop);
+      const e = _sub(val, (next) => {
+        if (!Object.is(cache, next) || dirty) { cache = next; dirty = false; trackUpdate(subs, true); }
+      });
+      assign(e, { _isComputed: true, _subs: subs, markDirty: () => (dirty = true) });
       return () => { if (dirty) e(); trackUpdate(subs); return cache; };
     }
-    if (key) try { val = JSON.parse(localStorage.getItem(key)) ?? val; } catch(e){}
+    if (key) try { val = JSON.parse(localStorage.getItem(key)) ?? val; } catch (e) { }
     return (...args) => {
       if (args.length) {
         const next = isFunc(args[0]) ? args[0](val) : args[0];
@@ -103,23 +116,6 @@ const SigPro = (() => {
     cache.set(obj, proxy); return proxy;
   };
 
-  const Watch = (target, cb) => {
-    const explicit = isArr(target), runner = () => {
-      if (runner._deleted) return;
-      clearDeps(runner); runCleanups(runner._cleanups);
-      runner.depth = activeEffect ? activeEffect.depth + 1 : 0;
-      runWithContext(runner, () => {
-        const prev = currentOwner; currentOwner = { cleanups: runner._cleanups };
-        explicit ? (untrack(cb), target.forEach(d => isFunc(d) && d())) : cb();
-        currentOwner = prev;
-      });
-    };
-    assign(runner, { _deps: new Set(), _cleanups: new Set(), _deleted: false, 
-                     stop: () => { runner._deleted = true; clearDeps(runner); runCleanups(runner._cleanups); } });
-    onUnmount(runner.stop);
-    runner(); return runner.stop;
-  };
-
   const Tag = (tag, props = {}, children = []) => {
     if (props instanceof Node || isArr(props) || !isObj(props)) { children = props; props = {}; }
     const isSVG = /^(svg|path|circle|rect|line|polyline|polygon|g|defs|text|tspan|use)$/.test(tag);
@@ -132,10 +128,11 @@ const SigPro = (() => {
         const ev = k.slice(2).toLowerCase(); el.addEventListener(ev, v);
         el._cleanups.add(() => el.removeEventListener(ev, v));
       } else if (isFunc(v)) {
-        el._cleanups.add(Watch(() => {
-          const val = v(), safe = (k === 'src' || k === 'href') && String(val).includes('javascript:') ? '#' : val;
-          k === "class" ? (el.className = safe || "") : (safe == null || safe === false ? el.removeAttribute(k) : el.setAttribute(k, safe === true ? "" : safe));
-        }));
+        _sub(v, (val) => {
+          const safe = (k === 'src' || k === 'href') && String(val).includes('javascript:') ? '#' : val;
+          if (k === "class") el.className = safe || "";
+          else (safe == null || safe === false) ? el.removeAttribute(k) : el.setAttribute(k, safe === true ? "" : safe);
+        });
         if (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && (k === "value" || k === "checked")) {
           el.addEventListener(k === "checked" ? "change" : "input", (e) => v(e.target[k]));
         }
@@ -146,47 +143,39 @@ const SigPro = (() => {
       if (isArr(c)) return c.forEach(append);
       if (isFunc(c)) {
         const m = doc.createTextNode(""); el.appendChild(m); let curr = [];
-        el._cleanups.add(Watch(() => {
-          const res = c(), next = (isArr(res) ? res : [res]).map(ensureNode);
+        _sub(c, (res) => {
+          const next = (isArr(res) ? res : [res]).map(ensureNode);
           curr.forEach(n => { if (n instanceof Node) { cleanupNode(n); n.remove(); } });
           next.forEach(n => m.parentNode?.insertBefore(n, m)); curr = next;
-        }));
+        });
       } else el.appendChild(ensureNode(c));
     };
     append(children); return el;
   };
 
   const Render = (fn) => {
-    const cleanups = new Set();
-    const prevOwner = currentOwner;
-    const prevCtx = currentCtx;
-
+    const cleanups = new Set(), prevOwner = currentOwner, prevCtx = currentCtx;
     currentCtx = { p: { ...(prevCtx?.p || {}) } };
-    
     const container = doc.createElement("div");
     container.style.display = "contents";
     currentOwner = { cleanups };
-
     const res = fn({ onCleanup: (f) => cleanups.add(f) });
     (isArr(res) ? res : [res]).forEach(r => container.appendChild(ensureNode(r)));
-
-    currentCtx = prevCtx;
-    currentOwner = prevOwner;
+    currentCtx = prevCtx; currentOwner = prevOwner;
     return { _isRuntime: true, container, destroy: () => { runCleanups(cleanups); cleanupNode(container); container.remove(); } };
   };
 
   const If = (cond, t, f = null, trans = null) => {
-    const m = doc.createTextNode(""), root = Tag("div", { style: "display:contents" }, [m]);
+    const root = Tag("div", { style: "display:contents" });
     let view = null, last = null;
-    Watch(() => {
-      const s = !!(isFunc(cond) ? cond() : cond);
+    _sub(() => !!(isFunc(cond) ? cond() : cond), (s) => {
       if (s === last) return; last = s;
-      const dispose = () => { if(view) { view.destroy(); view = null; } };
+      const dispose = () => { if (view) { view.destroy(); view = null; } };
       if (view && !s && trans?.out) trans.out(view.container, dispose); else dispose();
       const b = s ? t : f;
-      if (b) { 
-        view = Render(() => isFunc(b) ? b() : b); 
-        root.insertBefore(view.container, m);
+      if (b) {
+        view = Render(() => isFunc(b) ? b() : b);
+        root.appendChild(view.container);
         if (trans?.in) trans.in(view.container);
       }
     });
@@ -196,8 +185,8 @@ const SigPro = (() => {
   const For = (src, itemFn, keyFn) => {
     const m = doc.createTextNode(""), root = Tag("div", { style: "display:contents" }, [m]);
     let cache = new Map();
-    Watch(() => {
-      const items = (isFunc(src) ? src() : src) || [], next = new Map(), order = [];
+    _sub(() => (isFunc(src) ? src() : src) || [], (items) => {
+      const next = new Map(), order = [];
       items.forEach((item, i) => {
         const k = keyFn ? keyFn(item, i) : i;
         let v = cache.get(k) || Render(() => itemFn(item, i));
@@ -221,9 +210,9 @@ const SigPro = (() => {
     window.addEventListener("hashchange", () => path(getHash()));
     const outlet = Tag("div", { class: "router-outlet" });
     let currentView = null;
-    
-    Watch([path], async () => {
-      const cur = path(), route = routes.find(r => {
+
+    _sub(path, async (cur) => {
+      const route = routes.find(r => {
         const p1 = r.path.split("/").filter(Boolean), p2 = cur.split("/").filter(Boolean);
         return p1.length === p2.length && p1.every((p, i) => p.startsWith(":") || p === p2[i]);
       }) || routes.find(r => r.path === "*");
@@ -241,7 +230,7 @@ const SigPro = (() => {
     });
     return outlet;
   };
-  
+
   Router.params = $({});
   Router.to = (p) => window.location.hash = p.replace(/^#?\/?/, "#/");
   Router.back = () => window.history.back();
@@ -254,7 +243,7 @@ const SigPro = (() => {
     t.replaceChildren(inst.container); MOUNTED_NODES.set(t, inst); return inst;
   };
 
-  return { $, $$, Share, Use, Watch, Tag, Render, If, For, Router, Mount, untrack, onUnmount };
+  return { $, $$, Share, Use, Watch, Tag, Render, If, For, Router, Mount, ignore, onUnmount };
 })();
 
 if (typeof window !== "undefined") {
