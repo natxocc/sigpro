@@ -214,14 +214,19 @@ const append = (parent, child) => {
 }
 
 // --- Control Flow & Built-in Components ---
-export const If = (condition, renderFn, fallback = null) => {
+export const If = (condition, renderFn, fallback = null, trans = {}) => {
     let cachedNode, currentCondition;
     return () => {
-        const show = !!condition();
+        const show = !!get(condition);
         if (show !== currentCondition) {
+            currentCondition = show;
             if (cachedNode) remove(cachedNode);
             cachedNode = show ? render(renderFn) : (isFunction(fallback) ? render(fallback) : fallback);
-            currentCondition = show;
+            if (isNode(cachedNode)) {
+                if (trans.enter) cachedNode.$enterTransition = trans.enter;
+                if (trans.exit) cachedNode.$leaveTransition = (done) => trans.exit(cachedNode, done);
+                cachedNode.$enterTransition?.(cachedNode);
+            }
         }
         return cachedNode;
     }
