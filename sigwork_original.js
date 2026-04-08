@@ -15,7 +15,7 @@ const tick = () => {
     isScheduled = false;
 }
 
-const unwrap = (v) => (v?._isSig ? v.value : (isFn(v) ? v() : v));
+const get = (v) => (v?._isSig ? v.value : (isFn(v) ? v() : v));
 
 export const effect = (fn, is_scope = false) => {
     let cleanup = null;
@@ -45,9 +45,13 @@ const track = (subs) => {
     }
 }
 
-export const signal = (value) => {
+export const signal = (value, key = null) => {
     const subs = new Set();
-    return {
+    if (key && typeof localStorage !== 'undefined') {
+        const saved = localStorage.getItem(key);
+        if (saved !== null) try { value = JSON.parse(saved); } catch {}
+    }
+    const sig = {
         _isSig: true,
         get value() { track(subs); return value; },
         set value(v) {
@@ -56,8 +60,12 @@ export const signal = (value) => {
             subs.forEach(f => queue.add(f));
             if (!isScheduled) { isScheduled = true; queueMicrotask(tick); }
         }
+    };
+    if (key && typeof localStorage !== 'undefined') {
+        effect(() => localStorage.setItem(key, JSON.stringify(sig.value)));
     }
-}
+    return sig;
+};
 
 export const untrack = (fn) => {
     const prev = activeEffect;
@@ -96,22 +104,12 @@ export const reactive = (obj) => {
     return proxy;
 }
 
-export const persist = (key, target) => {
-    const saved = localStorage.getItem(key);
-    if (saved !== null) {
-        const data = JSON.parse(saved);
-        target._isSig ? (target.value = data) : Object.assign(target, data);
-    }
-    effect(() => localStorage.setItem(key, JSON.stringify(target._isSig ? target.value : target)));
-    return target;
-};
-
 export const storage = (key, val) => persist(key, signal(val));
 
 export const watch = (source, cb) => {
     let first = true, old;
     return effect(() => {
-        const val = unwrap(source);
+        const val = get(source);
         if (!first) untrack(() => cb(val, old));
         first = false; old = val;
     });
@@ -119,8 +117,8 @@ export const watch = (source, cb) => {
 
 export const onMount = (f) => context?.m.push(f);
 export const onUnmount = (f) => context?.u.push(f);
-export const provide = (k, v) => context && (context.p[k] = v);
-export const inject = (k, d) => context && (k in context.p ? context.p[k] : d);
+export const share = (k, v) => context && (context.p[k] = v);
+export const use = (k, d) => context && (k in context.p ? context.p[k] : d);
 
 const remove = async (n) => {
     if (Array.isArray(n)) return Promise.all(n.map(remove));
@@ -157,7 +155,7 @@ export const h = (tag, props = {}, ...children) => {
         return out;
     }
     if (!tag) return children;
-    const isSvg = /^(svg|path|circle|rect)$/.test(tag);
+    const isSvg = /^(svg|path|circle|rect|line|polyline|polygon|g|text|defs|use|symbol)$/.test(tag);
     const el = isSvg ? document.createElementNS("http://www.w3.org/2000/svg", tag) : document.createElement(tag);
     for (const k in props) {
         const v = props[k];
@@ -166,13 +164,13 @@ export const h = (tag, props = {}, ...children) => {
         else if (k === "on") el.$on = v;
         else if (k === "off") el.$off = v;
         else if (isFn(v) || v?._isSig) effect(() => {
-            const val = unwrap(v);
+            const val = get(v);
             const attr = (k === 'href' || k === 'src') ? sanitize(val) : val;
-            el[k] = attr;
+            isSvg ? el.setAttribute(k, attr) : (el[k] = attr);
         });
         else {
             const attr = (k === 'href' || k === 'src') ? sanitize(v) : v;
-            el[k] = attr;
+            isSvg ? el.setAttribute(k, attr) : (el[k] = attr);
         }
     }
     children.forEach(c => append(el, c));
@@ -186,7 +184,7 @@ const append = (p, c) => {
         p.appendChild(anchor);
         let nodes = [];
         effect(async () => {
-            const raw = [unwrap(c)].flat(Infinity).filter(n => n != null && n !== false && n !== true);
+            const raw = [get(c)].flat(Infinity).filter(n => n != null && n !== false && n !== true);
             const next = raw.map(n => isNode(n) ? n : document.createTextNode(String(n)));
             for (const n of nodes) { if (!next.includes(n)) await remove(n); }
             next.forEach((n, i) => {
@@ -208,7 +206,7 @@ const append = (p, c) => {
 export const If = (cond, t, f = null, trans = {}) => {
     let cached, current;
     return () => {
-        const show = !!unwrap(cond);
+        const show = !!get(cond);
         if (show !== current) {
             const up = async () => {
                 if (cached) await remove(cached);
@@ -229,7 +227,7 @@ export const For = (list, key, renderFn) => {
     let cache = new Map();
     return () => {
         const next = new Map();
-        const items = unwrap(list);
+        const items = get(list);
         const res = items.map((item, i) => {
             const id = isFn(key) ? key(item, i) : (key ? item[id] : item);
             let n = cache.get(id);
@@ -243,13 +241,25 @@ export const For = (list, key, renderFn) => {
     }
 }
 
-export const Router = (routes, trans = {}) => {
+export const Router = (routes) => {
     const path = signal(window.location.hash.slice(1) || '/');
     window.onhashchange = () => path.value = window.location.hash.slice(1) || '/';
+
     return h('div', { class: 'router-view' }, () => {
-        const p = path.value;
-        const r = routes.find(x => x.path === p) || routes.find(x => x.path === '*');
-        return If(() => !!r, () => h(r.component, { path: p }), null, trans);
+        const cur = path.value;
+        for (const r of routes) {
+            const reg = new RegExp(`^${r.path.replace(/:[^\s/]+/g, '([^/]+)')}$`);
+            const match = cur.match(reg);
+
+            if (match) {
+                const params = {};
+                const keys = r.path.match(/:[^\s/]+/g) || [];
+                keys.forEach((key, i) => params[key.slice(1)] = match[i + 1]);
+                return h(r.component, { params, path: cur });
+            }
+        }
+        const fallback = routes.find(x => x.path === '*');
+        return fallback ? h(fallback.component) : '404';
     });
 };
 
@@ -263,4 +273,4 @@ export const mount = (root, target, props = {}) => {
     return () => remove(el);
 };
 
-export default { signal, effect, reactive, computed, watch, persist, storage, h, mount, If, For, Router, onMount, onUnmount, provide, inject };
+export default { signal, effect, reactive, computed, watch, storage, h, mount, If, For, Router, onMount, onUnmount, share, use };
