@@ -1,15 +1,16 @@
-// sigpro
 const doc = typeof document !== "undefined" ? document : null;
 const isArr = Array.isArray, assign = Object.assign, isFunc = (f) => typeof f === "function", isObj = (o) => typeof o === "object" && o !== null;
 const ensureNode = (n) => n?._isRuntime ? n.container : (n instanceof Node ? n : doc.createTextNode(String(n ?? "")));
 
-// --- STATE & SYSTEM VARIABLES ---
-let activeEffect = null, currentOwner = null, currentCtx = null, isFlushing = false;
+let activeEffect = null, currentCtx = null, isFlushing = false;
+let pendingMounts = [];
 const effectQueue = new Set(), MOUNTED_NODES = new WeakMap();
 
 const runCleanups = (s) => { s?.forEach(f => f()); s?.clear(); };
 const clearDeps = (e) => { e._deps.forEach(d => d.delete(e)); e._deps.clear(); };
-const onUnmount = (fn) => currentOwner && currentOwner.cleanups.add(fn);
+
+export const onMount = (fn) => currentCtx?.m.push(fn);
+export const onUnmount = (fn) => currentCtx?.u.add(fn);
 
 const cleanupNode = (node) => {
   if (node._cleanups) runCleanups(node._cleanups);
@@ -42,7 +43,6 @@ const trackUpdate = (subs, trigger = false) => {
   }
 };
 
-// --- THE ATOM (Internal Kernel) ---
 const _sub = (fn, cb) => {
   const e = () => {
     if (e._deleted) return;
@@ -60,20 +60,14 @@ const _sub = (fn, cb) => {
   return e;
 };
 
-// --- PUBLIC API ---
 const ignore = (fn) => {
-  const p = activeEffect;
-  activeEffect = null;
-  try { return fn(); }
-  finally { activeEffect = p; }
+  const p = activeEffect; activeEffect = null;
+  try { return fn(); } finally { activeEffect = p; }
 };
 
 const Watch = (target, cb) => {
   const isA = isArr(target);
-  return _sub(
-    isA ? () => target.forEach(s => isFunc(s) ? s() : s) : target,
-    isA ? () => ignore(cb) : null
-  );
+  return _sub(isA ? () => target.forEach(s => isFunc(s) ? s() : s) : target, isA ? () => ignore(cb) : null);
 };
 
 const Share = (k, v) => currentCtx && (currentCtx.p[k] = v);
@@ -118,7 +112,6 @@ const Tag = (tag, props = {}, children = []) => {
   const isSVG = /^(svg|path|circle|rect|line|polyline|polygon|g|defs|text|tspan|use)$/.test(tag);
   const el = isSVG ? doc.createElementNS("http://www.w3.org/2000/svg", tag) : doc.createElement(tag);
   el._cleanups = new Set();
-
   for (let [k, v] of Object.entries(props)) {
     if (k === "ref") { isFunc(v) ? v(el) : (v.current = el); continue; }
     if (k.startsWith("on")) {
@@ -135,7 +128,6 @@ const Tag = (tag, props = {}, children = []) => {
       }
     } else el.setAttribute(k, v);
   }
-
   const append = (c) => {
     if (isArr(c)) return c.forEach(append);
     if (isFunc(c)) {
@@ -151,15 +143,16 @@ const Tag = (tag, props = {}, children = []) => {
 };
 
 const Render = (fn) => {
-  const cleanups = new Set(), prevOwner = currentOwner, prevCtx = currentCtx;
-  currentCtx = { p: { ...(prevCtx?.p || {}) } };
+  const prevCtx = currentCtx;
+  const ctx = { p: { ...(prevCtx?.p || {}) }, u: new Set(), m: [] };
+  currentCtx = ctx;
   const container = doc.createElement("div");
   container.style.display = "contents";
-  currentOwner = { cleanups };
-  const res = fn({ onCleanup: (f) => cleanups.add(f) });
+  const res = fn();
+  if (ctx.m.length) pendingMounts.push(...ctx.m);
   (isArr(res) ? res : [res]).forEach(r => container.appendChild(ensureNode(r)));
-  currentCtx = prevCtx; currentOwner = prevOwner;
-  return { _isRuntime: true, container, destroy: () => { runCleanups(cleanups); cleanupNode(container); container.remove(); } };
+  currentCtx = prevCtx;
+  return { _isRuntime: true, container, destroy: () => { runCleanups(ctx.u); cleanupNode(container); container.remove(); } };
 };
 
 const If = (cond, t, f = null, trans = null) => {
@@ -174,6 +167,7 @@ const If = (cond, t, f = null, trans = null) => {
       view = Render(() => isFunc(b) ? b() : b);
       root.appendChild(view.container);
       if (trans?.in) trans.in(view.container);
+      if (root.isConnected) { const ms = [...pendingMounts]; pendingMounts = []; ms.forEach(f => f()); }
     }
   });
   return root;
@@ -197,6 +191,7 @@ const For = (src, itemFn, keyFn) => {
       anchor = v.container;
     }
     cache = next;
+    if (root.isConnected && pendingMounts.length) { const ms = [...pendingMounts]; pendingMounts = []; ms.forEach(f => f()); }
   });
   return root;
 };
@@ -207,13 +202,11 @@ const Router = (routes) => {
   window.addEventListener("hashchange", () => path(getHash()));
   const outlet = Tag("div", { class: "router-outlet" });
   let currentView = null;
-
   _sub(path, async (cur) => {
     const route = routes.find(r => {
       const p1 = r.path.split("/").filter(Boolean), p2 = cur.split("/").filter(Boolean);
       return p1.length === p2.length && p1.every((p, i) => p.startsWith(":") || p === p2[i]);
     }) || routes.find(r => r.path === "*");
-
     if (route) {
       let comp = route.component;
       if (isFunc(comp) && comp.toString().includes('import')) comp = (await comp()).default;
@@ -223,6 +216,7 @@ const Router = (routes) => {
       Router.params(params);
       currentView = Render(() => isFunc(comp) ? comp(params) : comp);
       outlet.appendChild(currentView.container);
+      const ms = [...pendingMounts]; pendingMounts = []; ms.forEach(f => f());
     }
   });
   return outlet;
@@ -237,10 +231,12 @@ const Mount = (comp, target) => {
   const t = typeof target === "string" ? doc.querySelector(target) : target;
   if (!t) return; if (MOUNTED_NODES.has(t)) MOUNTED_NODES.get(t).destroy();
   const inst = Render(isFunc(comp) ? comp : () => comp);
-  t.replaceChildren(inst.container); MOUNTED_NODES.set(t, inst); return inst;
+  t.replaceChildren(inst.container);
+  const ms = [...pendingMounts]; pendingMounts = []; ms.forEach(f => f());
+  MOUNTED_NODES.set(t, inst); return inst;
 };
 
-const SigPro = Object.freeze({ $, $$, Share, Use, Watch, Tag, Render, If, For, Router, Mount, ignore, onUnmount });
+const SigPro = Object.freeze({ $, $$, Share, Use, Watch, Tag, Render, If, For, Router, Mount, ignore, onMount, onUnmount });
 
 if (typeof window !== "undefined") {
   Object.assign(window, SigPro);
@@ -248,5 +244,5 @@ if (typeof window !== "undefined") {
     .split(" ").forEach(t => window[t[0].toUpperCase() + t.slice(1)] = (p, c) => SigPro.Tag(t, p, c));
 }
 
-export { $, $$, Share, Use, Watch, Tag, Render, If, For, Router, Mount, ignore, onUnmount };
+export { $, $$, Share, Use, Watch, Tag, Render, If, For, Router, Mount, ignore, onMount, onUnmount };
 export default SigPro;
