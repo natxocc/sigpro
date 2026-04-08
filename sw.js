@@ -1,4 +1,3 @@
-
 const isFunction = (value) => typeof value === 'function';
 const isNode = (value) => value instanceof Node;
 
@@ -54,7 +53,7 @@ export const signal = (initialValue, storageKey = null) => {
 
     if (storageKey && hasStorage) {
         const saved = localStorage.getItem(storageKey);
-        if (saved !== null) try { currentValue = JSON.parse(saved); } catch {}
+        if (saved !== null) try { currentValue = JSON.parse(saved); } catch { }
     }
 
     const signalObject = {
@@ -132,7 +131,7 @@ export const inject = (key, defaultValue) => currentContext && (key in currentCo
 
 const remove = (node) => {
     if (Array.isArray(node)) return node.forEach(remove);
-    node.$stopEffect?.(); 
+    node.$stopEffect?.();
     if (node.$context) node.$context.unmountHooks.forEach(hook => hook());
     const finalize = () => node.remove();
     node.$leaveTransition ? node.$leaveTransition(finalize) : finalize();
@@ -157,13 +156,13 @@ export const h = (tag, props = {}, ...children) => {
         const localContext = currentContext;
         let element;
         const stop = effect(() => {
-            element = tag(props, { 
-                children, 
-                emit: (event, ...args) => props[`on${event[0].toUpperCase()}${event.slice(1)}`]?.(...args) 
+            element = tag(props, {
+                children,
+                emit: (event, ...args) => props[`on${event[0].toUpperCase()}${event.slice(1)}`]?.(...args)
             });
             return () => localContext.unmountHooks.forEach(hook => hook());
         }, true);
-        
+
         const output = isNode(element) ? element : document.createTextNode(String(element));
         output.$context = localContext;
         output.$stopEffect = stop;
@@ -174,8 +173,8 @@ export const h = (tag, props = {}, ...children) => {
     if (!tag) return children;
 
     const isSvg = ['svg', 'path', 'circle'].includes(tag);
-    const element = isSvg 
-        ? document.createElementNS("http://www.w3.org/2000/svg", tag) 
+    const element = isSvg
+        ? document.createElementNS("http://www.w3.org/2000/svg", tag)
         : document.createElement(tag);
 
     for (const key in props) {
@@ -281,24 +280,28 @@ export const Transition = ({ enter, idle, leave }, { children: [child] }) => {
 
 // --- Routing & Application Entry ---
 export const Router = (routes) => {
-    const currentPath = signal(window.location.hash.slice(1) || '/');
-    window.onhashchange = () => currentPath.value = window.location.hash.slice(1) || '/';
+    const path = signal(window.location.hash.slice(1) || '/'), params = signal({});
+    Router.path = path;
+    Router.params = params;
+    Router.to = (p) => window.location.hash = p;
+    Router.back = () => window.history.back();
+    window.onhashchange = () => path.value = window.location.hash.slice(1) || '/';
     return h('div', { class: 'router-view' }, () => {
-        const pathValue = currentPath.value;
-        for (const route of routes) {
-            const pattern = new RegExp(`^${route.path.replace(/:[^\s/]+/g, '([^/]+)')}$`);
-            const match = pathValue.match(pattern);
+        const cur = path.value;
+        for (const r of routes) {
+            const match = cur.match(new RegExp(`^${r.path.replace(/:[^\s/]+/g, '([^/]+)')}$`));
             if (match) {
-                const params = {};
-                const keys = route.path.match(/:[^\s/]+/g) || [];
-                keys.forEach((key, index) => params[key.slice(1)] = match[index + 1]);
-                return h(route.component, { params, path: pathValue });
+                const p = {};
+                (r.path.match(/:[^\s/]+/g) || []).forEach((k, i) => p[k.slice(1)] = match[i + 1]);
+                untrack(() => params.value = p);
+                return h(r.component, { params: p, path: cur });
             }
         }
         const fallback = routes.find(r => r.path === '*');
-        return fallback ? h(fallback.component) : '404';
+        return fallback ? h(fbk.component) : '404';
     });
 };
+
 
 export const mount = (rootComponent, target, props = {}) => {
     const destination = typeof target === 'string' ? document.querySelector(target) : target;
