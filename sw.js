@@ -295,6 +295,23 @@ export const Router = (routes) => {
     });
 };
 
+export const mount = (root, target, props = {}) => {
+    const dest = typeof target === 'string' ? document.querySelector(target) : target;
+    if (!dest) return;
+
+    while (dest.firstChild) remove(dest.firstChild);
+
+    const el = h(root, props);
+    dest.appendChild(el);
+
+    if (el.$c) {
+        el.$c.m.forEach(f => f());
+        el.$c.m.length = 0;
+    }
+
+    return () => remove(el);
+};
+
 export default (target, root, props) => {
     const el = h(root, props);
     target.appendChild(el);
