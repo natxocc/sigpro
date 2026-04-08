@@ -305,21 +305,16 @@ export const Router = (routes) => {
 };
 
 
-export const mount = (rootComponent, target, props = {}) => {
-    const destination = typeof target === 'string' ? document.querySelector(target) : target;
-    if (!destination) return;
+export const mount = (root, target, props = {}) => {
+    const container = typeof target === 'string' ? document.querySelector(target) : target;
+    if (!container) return;
 
-    while (destination.firstChild) remove(destination.firstChild);
+    container.replaceChildren();
 
-    const element = h(rootComponent, props);
-    destination.appendChild(element);
+    const el = h(root, props);
+    container.appendChild(el);
 
-    if (element.$context) {
-        element.$context.mountHooks.forEach(hook => hook());
-        element.$context.mountHooks.length = 0;
-    }
-
-    return () => remove(element);
+    return () => remove(el);
 };
 
 export default (target, rootComponent, props) => {
