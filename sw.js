@@ -50,18 +50,30 @@ const track = (subs) => {
 }
 
 // --- Signals Core ---
-export const signal = (value) => {
+export const signal = (value, key = null) => {
     const subs = new Set();
-    return {
+    const storage = typeof localStorage !== 'undefined';
+    
+    if (key && storage) {
+        const saved = localStorage.getItem(key);
+        if (saved !== null) try { value = JSON.parse(saved); } catch {}
+    }
+
+    const sig = {
+        _isSig: true,
         get value() { track(subs); return value; },
-        set value(newValue) {
-            if (newValue === value) return;
-            value = newValue;
+        set value(v) {
+            if (v === value) return;
+            value = v;
             subs.forEach(fn => queue.add(fn));
             if (!isScheduled) { isScheduled = true; queueMicrotask(tick); }
         }
-    }
-}
+    };
+
+    if (key && storage) effect(() => localStorage.setItem(key, JSON.stringify(sig.value)));
+
+    return sig;
+};
 
 export const untrack = (fn) => {
     const prev = activeEffect;
