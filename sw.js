@@ -263,6 +263,26 @@ export const Transition = ({ enter: e, idle, leave: l }, { children: [c] }) => {
     return isFn(c) ? () => decorate(c()) : decorate(c);
 }
 
+export const Router = (routes) => {
+    const path = signal(window.location.hash.slice(1) || '/');
+    window.onhashchange = () => path.value = window.location.hash.slice(1) || '/';
+    return h('div', { class: 'router-view' }, () => {
+        const cur = path.value;
+        for (const r of routes) {
+            const reg = new RegExp(`^${r.path.replace(/:[^\s/]+/g, '([^/]+)')}$`);
+            const match = cur.match(reg);
+            if (match) {
+                const params = {};
+                const keys = r.path.match(/:[^\s/]+/g) || [];
+                keys.forEach((key, i) => params[key.slice(1)] = match[i + 1]);
+                return h(r.component, { params, path: cur });
+            }
+        }
+        const fallback = routes.find(x => x.path === '*');
+        return fallback ? h(fallback.component) : '404';
+    });
+};
+
 export default (target, root, props) => {
     const el = h(root, props);
     target.appendChild(el);
