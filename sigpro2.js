@@ -64,12 +64,14 @@ const SigPro = (() => {
           if (!Object.is(cache, next) || dirty) { cache = next; dirty = false; trackUpdate(subs, true); }
         });
       };
-      assign(e, { _deps: new Set(), _isComputed: true, _subs: subs, _deleted: false, markDirty: () => (dirty = true), 
-                  stop: () => { e._deleted = true; clearDeps(e); subs.clear(); } });
+      assign(e, {
+        _deps: new Set(), _isComputed: true, _subs: subs, _deleted: false, markDirty: () => (dirty = true),
+        stop: () => { e._deleted = true; clearDeps(e); subs.clear(); }
+      });
       onUnmount(e.stop);
       return () => { if (dirty) e(); trackUpdate(subs); return cache; };
     }
-    if (key) try { val = JSON.parse(localStorage.getItem(key)) ?? val; } catch(e){}
+    if (key) try { val = JSON.parse(localStorage.getItem(key)) ?? val; } catch (e) { }
     return (...args) => {
       if (args.length) {
         const next = isFunc(args[0]) ? args[0](val) : args[0];
@@ -104,8 +106,10 @@ const SigPro = (() => {
         currentOwner = prev;
       });
     };
-    assign(runner, { _deps: new Set(), _cleanups: new Set(), _deleted: false, 
-                     stop: () => { runner._deleted = true; clearDeps(runner); runCleanups(runner._cleanups); } });
+    assign(runner, {
+      _deps: new Set(), _cleanups: new Set(), _deleted: false,
+      stop: () => { runner._deleted = true; clearDeps(runner); runCleanups(runner._cleanups); }
+    });
     onUnmount(runner.stop);
     runner(); return runner.stop;
   };
@@ -161,11 +165,11 @@ const SigPro = (() => {
     Watch(() => {
       const s = !!(isFunc(cond) ? cond() : cond);
       if (s === last) return; last = s;
-      const dispose = () => { if(view) { view.destroy(); view = null; } };
+      const dispose = () => { if (view) { view.destroy(); view = null; } };
       if (view && !s && trans?.out) trans.out(view.container, dispose); else dispose();
       const b = s ? t : f;
-      if (b) { 
-        view = Render(() => isFunc(b) ? b() : b); 
+      if (b) {
+        view = Render(() => isFunc(b) ? b() : b);
         root.insertBefore(view.container, m);
         if (trans?.in) trans.in(view.container);
       }
@@ -197,32 +201,37 @@ const SigPro = (() => {
 
   // --- ROUTER SYSTEM ---
   const Router = (routes) => {
-    const getHash = () => window.location.hash.replace(/^#/, "") || "/";
+    const getHash = () => window.location.hash.slice(1) || "/";
     const path = $(getHash());
     window.addEventListener("hashchange", () => path(getHash()));
+
     const outlet = Tag("div", { class: "router-outlet" });
     let currentView = null;
-    
-    Watch([path], async () => {
-      const cur = path(), route = routes.find(r => {
-        const p1 = r.path.split("/").filter(Boolean), p2 = cur.split("/").filter(Boolean);
-        return p1.length === p2.length && p1.every((p, i) => p.startsWith(":") || p === p2[i]);
+
+    Watch([path], () => {
+      const cur = path();
+      const route = routes.find(r => {
+        const p1 = r.path.split("/").filter(Boolean);
+        const p2 = cur.split("/").filter(Boolean);
+        return p1.length === p2.length && p1.every((p, i) => p[0] === ":" || p === p2[i]);
       }) || routes.find(r => r.path === "*");
 
       if (route) {
-        let comp = route.component;
-        if (isFunc(comp) && comp.toString().includes('import')) comp = (await comp()).default;
-        const params = {};
-        route.path.split("/").filter(Boolean).forEach((p, i) => { if (p.startsWith(":")) params[p.slice(1)] = cur.split("/").filter(Boolean)[i]; });
         currentView?.destroy();
+        const params = {};
+        route.path.split("/").filter(Boolean).forEach((p, i) => {
+          if (p[0] === ":") params[p.slice(1)] = cur.split("/").filter(Boolean)[i];
+        });
+
         Router.params(params);
-        currentView = Render(() => isFunc(comp) ? comp(params) : comp);
-        outlet.appendChild(currentView.container);
+        currentView = Render(() => isFunc(route.component) ? route.component(params) : route.component);
+        outlet.replaceChildren(currentView.container);
       }
     });
+
     return outlet;
   };
-  
+
   // router utils
   Router.params = $({});
   Router.to = (p) => window.location.hash = p.replace(/^#?\/?/, "#/");
