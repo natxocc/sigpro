@@ -1,6 +1,6 @@
 const isFunction = (value) => typeof value === 'function';
 const isNode = (value) => value instanceof Node;
-const get = (sig) => (sig?._isSignal ? sig.value : (isFn(sig) ? sig() : sig));
+const get = (sig) => (sig?._isSignal ? sig.value : (isFunction(sig) ? sig() : sig));
 
 // --- Schedule System ---
 let isScheduled = false;
@@ -300,7 +300,7 @@ export const Router = (routes) => {
             }
         }
         const fallback = routes.find(r => r.path === '*');
-        return fallback ? h(fbk.component) : '404';
+        return fallback ? h(fallback.component) : '404';
     });
 };
 
@@ -313,6 +313,11 @@ export const mount = (root, target, props = {}) => {
 
     const el = h(root, props);
     container.appendChild(el);
+
+    if (el.$context) {
+        el.$context.mountHooks.forEach(hook => hook());
+        el.$context.mountHooks.length = 0;
+    }
 
     return () => remove(el);
 };
