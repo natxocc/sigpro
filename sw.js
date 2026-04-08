@@ -1,5 +1,4 @@
 /*
-* Sigwork v1.1 - [Sig]nal-based Frontend Frame[work]
 * Fixed: Memory Leaks, Fragment Lifecycle, and List Reconciler.
 */
 
