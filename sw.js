@@ -1,85 +1,85 @@
-/*
-* Fixed: Memory Leaks, Fragment Lifecycle, and List Reconciler.
-*/
 
-const isFn = (v) => typeof v === 'function';
-const isNode = (v) => v instanceof Node;
+const isFunction = (value) => typeof value === 'function';
+const isNode = (value) => value instanceof Node;
 
 // --- Schedule System ---
 let isScheduled = false;
-const queue = new Set();
-const tick = () => {
-    queue.forEach(fn => fn());
-    queue.clear();
+const updateQueue = new Set();
+const processQueue = () => {
+    updateQueue.forEach(callback => callback());
+    updateQueue.clear();
     isScheduled = false;
 }
 
 // --- Effects System ---
 let activeEffect = null;
-export const effect = (fn, is_scope = false) => {
+export const effect = (fn, isScope = false) => {
     let cleanup = null;
     const run = () => {
-        stop(); // Limpia antes de re-ejecutar
-        const prev = activeEffect;
+        stop();
+        const previousEffect = activeEffect;
         activeEffect = run;
-        try { cleanup = fn(); } finally { activeEffect = prev; }
+        try { cleanup = fn(); } finally { activeEffect = previousEffect; }
     }
     const stop = () => {
-        run.e.forEach(subs => subs.delete(run));
-        run.e.clear();
-        if (isFn(cleanup)) cleanup();
-        if (run.c) {
-            run.c.forEach(s => s());
-            run.c.length = 0;
+        run.subscriptions.forEach(subscribers => subscribers.delete(run));
+        run.subscriptions.clear();
+        if (isFunction(cleanup)) cleanup();
+        if (run.childEffects) {
+            run.childEffects.forEach(stopChild => stopChild());
+            run.childEffects.length = 0;
         }
     }
-    run.e = new Set();
-    if (is_scope) run.c = [];
+    run.subscriptions = new Set();
+    if (isScope) run.childEffects = [];
     run();
-    if (activeEffect?.c) activeEffect.c.push(stop);
+    if (activeEffect?.childEffects) activeEffect.childEffects.push(stop);
     return stop;
 }
 
-export const scope = f => effect(f, true);
+export const scope = (fn) => effect(fn, true);
 
-const track = (subs) => {
-    if (activeEffect && !activeEffect.c) {
-        subs.add(activeEffect);
-        activeEffect.e.add(subs);
+const track = (subscribers) => {
+    if (activeEffect && !activeEffect.childEffects) {
+        subscribers.add(activeEffect);
+        activeEffect.subscriptions.add(subscribers);
     }
 }
 
 // --- Signals Core ---
-export const signal = (value, key = null) => {
-    const subs = new Set();
-    const storage = typeof localStorage !== 'undefined';
-    
-    if (key && storage) {
-        const saved = localStorage.getItem(key);
-        if (saved !== null) try { value = JSON.parse(saved); } catch {}
+export const signal = (initialValue, storageKey = null) => {
+    const subscribers = new Set();
+    const hasStorage = typeof localStorage !== 'undefined';
+    let currentValue = initialValue;
+
+    if (storageKey && hasStorage) {
+        const saved = localStorage.getItem(storageKey);
+        if (saved !== null) try { currentValue = JSON.parse(saved); } catch {}
     }
 
-    const sig = {
-        _isSig: true,
-        get value() { track(subs); return value; },
-        set value(v) {
-            if (v === value) return;
-            value = v;
-            subs.forEach(fn => queue.add(fn));
-            if (!isScheduled) { isScheduled = true; queueMicrotask(tick); }
+    const signalObject = {
+        _isSignal: true,
+        get value() { track(subscribers); return currentValue; },
+        set value(newValue) {
+            if (newValue === currentValue) return;
+            currentValue = newValue;
+            subscribers.forEach(callback => updateQueue.add(callback));
+            if (!isScheduled) { isScheduled = true; queueMicrotask(processQueue); }
         }
     };
 
-    if (key && storage) effect(() => localStorage.setItem(key, JSON.stringify(sig.value)));
+    if (storageKey && hasStorage) {
+        effect(() => localStorage.setItem(storageKey, JSON.stringify(signalObject.value)));
+    }
 
-    return sig;
+    return signalObject;
 };
 
 export const untrack = (fn) => {
-    const prev = activeEffect;
+    const previousEffect = activeEffect;
     activeEffect = null;
     const result = fn();
-    activeEffect = prev;
+    activeEffect = previousEffect;
     return result;
 }
 
@@ -90,231 +90,236 @@ export const computed = (fn) => {
 }
 
 const reactiveCache = new WeakMap();
-export const reactive = (obj) => {
-    if (reactiveCache.has(obj)) return reactiveCache.get(obj);
-    const subs = {};
-    const proxy = new Proxy(obj, {
-        get(t, key) {
-            track(subs[key] ??= new Set());
-            const val = t[key];
-            return (val && typeof val === 'object') ? reactive(val) : val;
+export const reactive = (targetObject) => {
+    if (reactiveCache.has(targetObject)) return reactiveCache.get(targetObject);
+    const subscribersMap = {};
+    const proxy = new Proxy(targetObject, {
+        get(target, key) {
+            track(subscribersMap[key] ??= new Set());
+            const value = target[key];
+            return (value && typeof value === 'object') ? reactive(value) : value;
         },
-        set(t, key, val) {
-            if (t[key] === val) return true;
-            t[key] = val;
-            if (subs[key]) {
-                subs[key].forEach(fn => queue.add(fn));
-                if (!isScheduled) { isScheduled = true; queueMicrotask(tick); }
+        set(target, key, value) {
+            if (target[key] === value) return true;
+            target[key] = value;
+            if (subscribersMap[key]) {
+                subscribersMap[key].forEach(callback => updateQueue.add(callback));
+                if (!isScheduled) { isScheduled = true; queueMicrotask(processQueue); }
             }
             return true;
         }
     });
-    reactiveCache.set(obj, proxy);
+    reactiveCache.set(targetObject, proxy);
     return proxy;
 }
 
-export const watch = (source, cb) => {
-    let first = true, oldValue;
+export const watch = (source, callback) => {
+    let isFirstRun = true, oldValue;
     return effect(() => {
-        const newValue = isFn(source) ? source() : source.value;
-        if (!first) untrack(() => cb(newValue, oldValue));
-        else first = false;
+        const newValue = isFunction(source) ? source() : source.value;
+        if (!isFirstRun) untrack(() => callback(newValue, oldValue));
+        else isFirstRun = false;
         oldValue = newValue;
     });
 }
 
 // --- Rendering System ---
-let context = null;
-export const onMount = (fn) => context?.m.push(fn);
-export const onUnmount = (fn) => context?.u.push(fn);
-export const provide = (key, value) => context && (context.p[key] = value);
-export const inject = (key, dft) => context && (key in context.p ? context.p[key] : dft);
+let currentContext = null;
+export const onMount = (fn) => currentContext?.mountHooks.push(fn);
+export const onUnmount = (fn) => currentContext?.unmountHooks.push(fn);
+export const provide = (key, value) => currentContext && (currentContext.providers[key] = value);
+export const inject = (key, defaultValue) => currentContext && (key in currentContext.providers ? currentContext.providers[key] : defaultValue);
 
 const remove = (node) => {
     if (Array.isArray(node)) return node.forEach(remove);
-    node.$s?.(); 
-    if (node.$c) node.$c.u.forEach(f => f());
-    const done = () => node.remove();
-    node.$l ? node.$l(done) : done();
+    node.$stopEffect?.(); 
+    if (node.$context) node.$context.unmountHooks.forEach(hook => hook());
+    const finalize = () => node.remove();
+    node.$leaveTransition ? node.$leaveTransition(finalize) : finalize();
 }
 
-const render = (fn, ...data) => {
+const render = (renderFn, ...data) => {
     let node;
     const stop = effect(() => {
-        node = fn(...data);
-        if (isFn(node)) node = node();
+        node = renderFn(...data);
+        if (isFunction(node)) node = node();
     }, true);
-    if (node) node.$s = stop;
+    if (node) node.$stopEffect = stop;
     return node;
 }
 
 export const h = (tag, props = {}, ...children) => {
     children = children.flat(Infinity);
 
-    if (isFn(tag)) {
-        const prev = context;
-        context = { m: [], u: [], p: { ...(prev?.p || {}) } };
-        const ctx = context;
-        let el;
+    if (isFunction(tag)) {
+        const previousContext = currentContext;
+        currentContext = { mountHooks: [], unmountHooks: [], providers: { ...(previousContext?.providers || {}) } };
+        const localContext = currentContext;
+        let element;
         const stop = effect(() => {
-            el = tag(props, { children, emit: (evt, ...args) => props[`on${evt[0].toUpperCase()}${evt.slice(1)}`]?.(...args) });
-            return () => ctx.u.forEach(f => f());
+            element = tag(props, { 
+                children, 
+                emit: (event, ...args) => props[`on${event[0].toUpperCase()}${event.slice(1)}`]?.(...args) 
+            });
+            return () => localContext.unmountHooks.forEach(hook => hook());
         }, true);
         
-        // Normalización para asegurar que el nodo tenga metadatos
-        const out = isNode(el) ? el : document.createTextNode(String(el));
-        out.$c = ctx;
-        out.$s = stop;
-        context = prev;
-        return out;
+        const output = isNode(element) ? element : document.createTextNode(String(element));
+        output.$context = localContext;
+        output.$stopEffect = stop;
+        currentContext = previousContext;
+        return output;
     }
 
     if (!tag) return children;
 
-    const isSvg = tag === 'svg' || tag === 'path' || tag === 'circle';
-    const el = isSvg ? document.createElementNS("http://www.w3.org/2000/svg", tag) : document.createElement(tag);
+    const isSvg = ['svg', 'path', 'circle'].includes(tag);
+    const element = isSvg 
+        ? document.createElementNS("http://www.w3.org/2000/svg", tag) 
+        : document.createElement(tag);
 
     for (const key in props) {
-        if (key.startsWith('on')) el.addEventListener(key.slice(2).toLowerCase(), props[key]);
-        else if (key === "ref") isFn(props[key]) ? props[key](el) : props[key].value = el;
-        else if (isFn(props[key])) effect(() => el[key] = props[key]());
-        else el[key] = props[key];
+        if (key.startsWith('on')) element.addEventListener(key.slice(2).toLowerCase(), props[key]);
+        else if (key === "ref") isFunction(props[key]) ? props[key](element) : props[key].value = element;
+        else if (isFunction(props[key])) effect(() => element[key] = props[key]());
+        else element[key] = props[key];
     }
 
-    children.forEach(child => append(el, child));
-    return el;
+    children.forEach(child => append(element, child));
+    return element;
 }
 
 const append = (parent, child) => {
     if (child == null) return;
-    if (isFn(child)) {
+    if (isFunction(child)) {
         const anchor = document.createTextNode('');
         parent.appendChild(anchor);
-        let nodes = [];
+        let currentNodes = [];
         effect(() => {
-            const raw = [child()].flat(Infinity).filter(n => n != null);
-            const newNodes = raw.map(n => isNode(n) ? n : document.createTextNode(String(n)));
-            nodes.forEach(n => { if (!newNodes.includes(n)) remove(n); });
-            newNodes.forEach((n, i) => {
-                if (!nodes.includes(n)) {
-                    parent.insertBefore(n, newNodes[i+1] || anchor);
-                    if (n.$c) n.$c.m.forEach(f => f());
+            const rawChildren = [child()].flat(Infinity).filter(node => node != null);
+            const nextNodes = rawChildren.map(node => isNode(node) ? node : document.createTextNode(String(node)));
+            currentNodes.forEach(node => { if (!nextNodes.includes(node)) remove(node); });
+            nextNodes.forEach((node, index) => {
+                if (!currentNodes.includes(node)) {
+                    parent.insertBefore(node, nextNodes[index + 1] || anchor);
+                    if (node.$context) node.$context.mountHooks.forEach(hook => hook());
                 }
             });
-            nodes = newNodes;
+            currentNodes = nextNodes;
         }, true);
     } else {
         parent.appendChild(isNode(child) ? child : document.createTextNode(String(child)));
     }
 }
 
-// --- Helpers & Built-in ---
-export const If = (cond, renderFn, fallback = null) => {
-    let cached, current;
+// --- Control Flow & Built-in Components ---
+export const If = (condition, renderFn, fallback = null) => {
+    let cachedNode, currentCondition;
     return () => {
-        const show = !!cond();
-        if (show !== current) {
-            if (cached) remove(cached);
-            cached = show ? render(renderFn) : (isFn(fallback) ? render(fallback) : fallback);
-            current = show;
+        const show = !!condition();
+        if (show !== currentCondition) {
+            if (cachedNode) remove(cachedNode);
+            cachedNode = show ? render(renderFn) : (isFunction(fallback) ? render(fallback) : fallback);
+            currentCondition = show;
         }
-        return cached;
+        return cachedNode;
     }
 }
 
-export const For = (list, key, renderFn) => {
-    let cache = new Map();
+export const For = (list, keyFn, renderFn) => {
+    let nodeCache = new Map();
     return () => {
-        const next = new Map();
-        const items = isFn(list) ? list() : (list.value || list);
-        const res = items.map((item, i) => {
-            const id = isFn(key) ? key(item, i) : (key ? item[id] : item);
-            let node = cache.get(id);
-            if (!node) node = render(renderFn, item, i);
-            next.set(id, node);
+        const nextCache = new Map();
+        const items = isFunction(list) ? list() : (list.value || list);
+        const results = items.map((item, index) => {
+            const id = isFunction(keyFn) ? keyFn(item, index) : (keyFn ? item[keyFn] : item);
+            let node = nodeCache.get(id);
+            if (!node) node = render(renderFn, item, index);
+            nextCache.set(id, node);
             return node;
         });
-        cache.forEach((node, id) => { if (!next.has(id)) remove(node); });
-        cache = next;
-        return res;
+        nodeCache.forEach((node, id) => { if (!nextCache.has(id)) remove(node); });
+        nodeCache = nextCache;
+        return results;
     }
 }
 
-export const Component = ({ is, ...props }, { children }) => () => h(isFn(is) ? is() : is, props, children);
+export const Component = ({ is, ...props }, { children }) => () => h(isFunction(is) ? is() : is, props, children);
 
-export const Transition = ({ enter: e, idle, leave: l }, { children: [c] }) => {
-    const decorate = (el) => {
-        if (!isNode(el)) return el;
-        const addClass = c => c && el.classList.add(...c.split(' '));
-        const removeClass = c => c && el.classList.remove(...c.split(' '));
+export const Transition = ({ enter, idle, leave }, { children: [child] }) => {
+    const decorate = (element) => {
+        if (!isNode(element)) return element;
+        const addClasses = css => css && element.classList.add(...css.split(' '));
+        const removeClasses = css => css && element.classList.remove(...css.split(' '));
 
-        if (e) {
+        if (enter) {
             requestAnimationFrame(() => {
-                addClass(e[1]);
+                addClasses(enter[1]);
                 requestAnimationFrame(() => {
-                    addClass(e[0]); removeClass(e[1]); addClass(e[2]);
-                    el.addEventListener('transitionend', () => {
-                        removeClass(e[2]); removeClass(e[0]); addClass(idle);
+                    addClasses(enter[0]); removeClasses(enter[1]); addClasses(enter[2]);
+                    element.addEventListener('transitionend', () => {
+                        removeClasses(enter[2]); removeClasses(enter[0]); addClasses(idle);
                     }, { once: true });
                 });
             });
         }
-        if (l) {
-            el.$l = (done) => {
-                removeClass(idle); addClass(l[1]);
+        if (leave) {
+            element.$leaveTransition = (done) => {
+                removeClasses(idle); addClasses(leave[1]);
                 requestAnimationFrame(() => {
-                    addClass(l[0]); removeClass(l[1]); addClass(l[2]);
-                    el.addEventListener('transitionend', () => {
-                        removeClass(l[2]); removeClass(l[0]); done();
+                    addClasses(leave[0]); removeClasses(leave[1]); addClasses(leave[2]);
+                    element.addEventListener('transitionend', () => {
+                        removeClasses(leave[2]); removeClasses(leave[0]); done();
                     }, { once: true });
                 });
             }
         }
-        return el;
+        return element;
     }
-    return isFn(c) ? () => decorate(c()) : decorate(c);
+    return isFunction(child) ? () => decorate(child()) : decorate(child);
 }
 
+// --- Routing & Application Entry ---
 export const Router = (routes) => {
-    const path = signal(window.location.hash.slice(1) || '/');
-    window.onhashchange = () => path.value = window.location.hash.slice(1) || '/';
+    const currentPath = signal(window.location.hash.slice(1) || '/');
+    window.onhashchange = () => currentPath.value = window.location.hash.slice(1) || '/';
     return h('div', { class: 'router-view' }, () => {
-        const cur = path.value;
-        for (const r of routes) {
-            const reg = new RegExp(`^${r.path.replace(/:[^\s/]+/g, '([^/]+)')}$`);
-            const match = cur.match(reg);
+        const pathValue = currentPath.value;
+        for (const route of routes) {
+            const pattern = new RegExp(`^${route.path.replace(/:[^\s/]+/g, '([^/]+)')}$`);
+            const match = pathValue.match(pattern);
             if (match) {
                 const params = {};
-                const keys = r.path.match(/:[^\s/]+/g) || [];
-                keys.forEach((key, i) => params[key.slice(1)] = match[i + 1]);
-                return h(r.component, { params, path: cur });
+                const keys = route.path.match(/:[^\s/]+/g) || [];
+                keys.forEach((key, index) => params[key.slice(1)] = match[index + 1]);
+                return h(route.component, { params, path: pathValue });
             }
         }
-        const fallback = routes.find(x => x.path === '*');
+        const fallback = routes.find(r => r.path === '*');
         return fallback ? h(fallback.component) : '404';
     });
 };
 
-export const mount = (root, target, props = {}) => {
-    const dest = typeof target === 'string' ? document.querySelector(target) : target;
-    if (!dest) return;
+export const mount = (rootComponent, target, props = {}) => {
+    const destination = typeof target === 'string' ? document.querySelector(target) : target;
+    if (!destination) return;
 
-    while (dest.firstChild) remove(dest.firstChild);
+    while (destination.firstChild) remove(destination.firstChild);
 
-    const el = h(root, props);
-    dest.appendChild(el);
+    const element = h(rootComponent, props);
+    destination.appendChild(element);
 
-    if (el.$c) {
-        el.$c.m.forEach(f => f());
-        el.$c.m.length = 0;
+    if (element.$context) {
+        element.$context.mountHooks.forEach(hook => hook());
+        element.$context.mountHooks.length = 0;
     }
 
-    return () => remove(el);
+    return () => remove(element);
 };
 
-export default (target, root, props) => {
-    const el = h(root, props);
-    target.appendChild(el);
-    if (el.$c) el.$c.m.forEach(f => f());
-    return () => remove(el);
+export default (target, rootComponent, props) => {
+    const element = h(rootComponent, props);
+    target.appendChild(element);
+    if (element.$context) element.$context.mountHooks.forEach(hook => hook());
+    return () => remove(element);
 }
