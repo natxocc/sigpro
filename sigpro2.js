@@ -1,15 +1,21 @@
 /**
- * SigPro v3.3 - Stable Integrated Engine
+ * SigPro
  */
 const SigPro = (() => {
   const doc = typeof document !== "undefined" ? document : null;
   const isArr = Array.isArray, assign = Object.assign, isFunc = (f) => typeof f === "function", isObj = (o) => typeof o === "object" && o !== null;
   const ensureNode = (n) => n?._isRuntime ? n.container : (n instanceof Node ? n : doc.createTextNode(String(n ?? "")));
 
-  // --- INTERNAL STATE & CLEANUP ---
-  let activeEffect = null, currentOwner = null, isFlushing = false;
-  const effectQueue = new Set(), MOUNTED_NODES = new WeakMap();
+  // --- STATE VARIABLES ---
+  let activeEffect = null;
+  let currentOwner = null;
+  let currentCtx = null;
+  let isFlushing = false;
+  
+  const effectQueue = new Set();
+  const MOUNTED_NODES = new WeakMap();
 
+  // --- CLEANUP & LIFECYCLE ---
   const runCleanups = (s) => { s?.forEach(f => f()); s?.clear(); };
   const clearDeps = (e) => { e._deps.forEach(d => d.delete(e)); e._deps.clear(); };
   const onUnmount = (fn) => currentOwner && currentOwner.cleanups.add(fn);
@@ -19,7 +25,7 @@ const SigPro = (() => {
     node.childNodes?.forEach(cleanupNode);
   };
 
-  // --- SCHEDULER ---
+  // --- SCHEDULER & CONTEXT ---
   const runWithContext = (e, cb) => {
     const p = activeEffect; activeEffect = e;
     try { return cb(); } finally { activeEffect = p; }
@@ -45,6 +51,10 @@ const SigPro = (() => {
       if (!isFlushing) queueMicrotask(flush);
     }
   };
+
+  // --- SHARED STATE (NEW) ---
+  const Share = (key, val) => currentCtx && (currentCtx.p[key] = val);
+  const Use = (key, dft) => (currentCtx && key in currentCtx.p) ? currentCtx.p[key] : dft;
 
   // --- CORE API ---
   const untrack = (fn) => {
@@ -147,11 +157,21 @@ const SigPro = (() => {
   };
 
   const Render = (fn) => {
-    const cleanups = new Set(), prev = currentOwner, container = doc.createElement("div");
-    container.style.display = "contents"; currentOwner = { cleanups };
+    const cleanups = new Set();
+    const prevOwner = currentOwner;
+    const prevCtx = currentCtx;
+
+    currentCtx = { p: { ...(prevCtx?.p || {}) } };
+    
+    const container = doc.createElement("div");
+    container.style.display = "contents";
+    currentOwner = { cleanups };
+
     const res = fn({ onCleanup: (f) => cleanups.add(f) });
     (isArr(res) ? res : [res]).forEach(r => container.appendChild(ensureNode(r)));
-    currentOwner = prev;
+
+    currentCtx = prevCtx;
+    currentOwner = prevOwner;
     return { _isRuntime: true, container, destroy: () => { runCleanups(cleanups); cleanupNode(container); container.remove(); } };
   };
 
@@ -195,7 +215,6 @@ const SigPro = (() => {
     return root;
   };
 
-  // --- ROUTER SYSTEM ---
   const Router = (routes) => {
     const getHash = () => window.location.hash.replace(/^#/, "") || "/";
     const path = $(getHash());
@@ -223,7 +242,6 @@ const SigPro = (() => {
     return outlet;
   };
   
-  // router utils
   Router.params = $({});
   Router.to = (p) => window.location.hash = p.replace(/^#?\/?/, "#/");
   Router.back = () => window.history.back();
@@ -236,7 +254,7 @@ const SigPro = (() => {
     t.replaceChildren(inst.container); MOUNTED_NODES.set(t, inst); return inst;
   };
 
-  return { $, $$, Watch, Tag, Render, If, For, Router, Mount, untrack, onUnmount };
+  return { $, $$, Share, Use, Watch, Tag, Render, If, For, Router, Mount, untrack, onUnmount };
 })();
 
 if (typeof window !== "undefined") {
