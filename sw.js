@@ -173,16 +173,17 @@ export const h = (tag, props = {}, ...children) => {
 
     if (!tag) return children;
 
-    const isSvg = ['svg', 'path', 'circle'].includes(tag);
-    const element = isSvg
-        ? document.createElementNS("http://www.w3.org/2000/svg", tag)
-        : document.createElement(tag);
+    const isSvg = /^(svg|path|circle|rect|line|polyline|polygon|g|text|defs|use|symbol)$/.test(tag);
+    const element = isSvg ? document.createElementNS("http://www.w3.org/2000/svg", tag) : document.createElement(tag);
+
+    const set = (k, v) => isSvg ? element.setAttribute(k, v) : (element[k] = v);
 
     for (const key in props) {
-        if (key.startsWith('on')) element.addEventListener(key.slice(2).toLowerCase(), props[key]);
-        else if (key === "ref") isFunction(props[key]) ? props[key](element) : props[key].value = element;
-        else if (isFunction(props[key])) effect(() => element[key] = props[key]());
-        else element[key] = props[key];
+        const val = props[key];
+        if (key.startsWith('on')) element.addEventListener(key.slice(2).toLowerCase(), val);
+        else if (key === "ref") isFunction(val) ? val(element) : val.value = element;
+        else if (isFunction(val) || val?._isSignal) effect(() => set(key, get(val)));
+        else set(key, val);
     }
 
     children.forEach(child => append(element, child));
