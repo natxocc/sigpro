@@ -32,8 +32,14 @@ const createEffect = (fn, isComputed = false) => {
     if (effect._cleanups) { effect._cleanups.forEach(cl => cl()); effect._cleanups.clear(); }
     const prevEffect = activeEffect, prevOwner = activeOwner;
     activeEffect = activeOwner = effect;
-    try { return isComputed ? fn() : (fn(), undefined); }
-    finally { activeEffect = prevEffect; activeOwner = prevOwner; }
+    try {
+      const res = isComputed ? fn() : (fn(), undefined);
+      if (!isComputed) effect._result = res;  // ← ESTO ES LO NUEVO
+      return res;
+    } finally {
+      activeEffect = prevEffect;
+      activeOwner = prevOwner;
+    }
   };
   effect._deps = effect._cleanups = effect._children = null;
   effect._disposed = false;
@@ -136,12 +142,15 @@ export const $$ = (obj, cache = new WeakMap()) => {
 };
 
 // Watcher
-export const Watch = (target, cb) => {
-  const explicit = isArr(target);
-  const effect = createEffect(() => explicit ? (untrack(cb), target.forEach(d => isFunc(d) && d())) : cb());
+export const Watch = (sources, cb) => {
+  const isArr = Array.isArray(sources);
+  const effect = createEffect(() => {
+    const vals = isArr ? sources.map(s => s()) : sources();
+    untrack(() => cb(vals));
+  });
   effect();
   return () => dispose(effect);
-};
+}
 
 const cleanupNode = node => {
   if (node._cleanups) { node._cleanups.forEach(fn => fn()); node._cleanups.clear(); }
@@ -166,6 +175,30 @@ export const inject = (key, defaultValue) => {
 // CreateElement
 export const Tag = (tag, props = {}, children = []) => {
   if (props instanceof Node || isArr(props) || !isObj(props)) { children = props; props = {}; }
+  if (isFunc(tag)) {
+    const ctx = {
+      _mounts: [],
+      _cleanups: new Set(),
+      _provisions: activeOwner?._provisions ? { ...activeOwner._provisions } : {}
+    };
+    const effect = createEffect(() => {
+      const result = tag(props, {
+        children,
+        emit: (ev, ...args) => props[`on${ev[0].toUpperCase()}${ev.slice(1)}`]?.(...args)
+      });
+      effect._result = result;
+      return result;
+    });
+    effect();
+    ctx._mounts = effect._mounts || [];
+    ctx._cleanups = effect._cleanups || new Set();
+    const result = effect._result;
+    const attachLifecycle = (node) => node && typeof node === 'object' && !node._isRuntime && (node._mounts = ctx._mounts, node._cleanups = ctx._cleanups, node._ownerEffect = effect);
+    Array.isArray(result) ? result.forEach(attachLifecycle) : attachLifecycle(result);
+    if (result == null) return null;
+    if (isNode(result) || (Array.isArray(result) && result.every(isNode))) return result;
+    return doc.createTextNode(String(result));
+  }
   const isSVG = /^(svg|path|circle|rect|line|polyline|polygon|g|defs|text|tspan|use)$/.test(tag);
   const el = isSVG ? doc.createElementNS("http://www.w3.org/2000/svg", tag) : doc.createElement(tag);
   el._cleanups = new Set();
@@ -240,7 +273,7 @@ export const Render = fn => {
 };
 
 // If
-export const If = (cond, t, f = null, trans = null) => {
+export const If = (cond, ifYes, ifNot = null, trans = null) => {
   const anchor = doc.createTextNode("");
   const root = Tag("div", { style: "display:contents" }, [anchor]);
   let currentView = null, last = null;
@@ -251,7 +284,7 @@ export const If = (cond, t, f = null, trans = null) => {
     const disposeView = () => { if (currentView) { currentView.destroy(); currentView = null; } };
     if (currentView && !show && trans?.out) trans.out(currentView.container, disposeView);
     else disposeView();
-    const content = show ? t : f;
+    const content = show ? ifYes : ifNot;
     if (content) {
       currentView = Render(() => isFunc(content) ? content() : content);
       root.insertBefore(currentView.container, anchor);
