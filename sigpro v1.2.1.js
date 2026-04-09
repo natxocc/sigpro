@@ -1,5 +1,5 @@
 /**
- * SigPro v1.2.0
+ * SigPro v1.2.1
  */
 const SigPro = (() => {
   const doc = typeof document !== "undefined" ? document : null;
@@ -95,6 +95,7 @@ const SigPro = (() => {
     cache.set(obj, proxy); return proxy;
   };
 
+  // Watch for changes
   const Watch = (target, cb) => {
     const explicit = isArr(target), runner = () => {
       if (runner._deleted) return;
@@ -114,6 +115,7 @@ const SigPro = (() => {
     runner(); return runner.stop;
   };
 
+  // Create element with props and children
   const Tag = (tag, props = {}, children = []) => {
     if (props instanceof Node || isArr(props) || !isObj(props)) { children = props; props = {}; }
     const isSVG = /^(svg|path|circle|rect|line|polyline|polygon|g|defs|text|tspan|use)$/.test(tag);
@@ -150,6 +152,7 @@ const SigPro = (() => {
     append(children); return el;
   };
 
+  // Render a function to a container
   const Render = (fn) => {
     const cleanups = new Set(), prev = currentOwner, container = doc.createElement("div");
     container.style.display = "contents"; currentOwner = { cleanups };
@@ -159,6 +162,7 @@ const SigPro = (() => {
     return { _isRuntime: true, container, destroy: () => { runCleanups(cleanups); cleanupNode(container); container.remove(); } };
   };
 
+  // Conditional rendering
   const If = (cond, t, f = null, trans = null) => {
     const m = doc.createTextNode(""), root = Tag("div", { style: "display:contents" }, [m]);
     let view = null, last = null;
@@ -177,6 +181,7 @@ const SigPro = (() => {
     return root;
   };
 
+  // For loop
   const For = (src, itemFn, keyFn) => {
     const m = doc.createTextNode(""), root = Tag("div", { style: "display:contents" }, [m]);
     let cache = new Map();
@@ -199,7 +204,7 @@ const SigPro = (() => {
     return root;
   };
 
-  // --- ROUTER SYSTEM ---
+  // Router SPA hash
   const Router = (routes) => {
     const getHash = () => window.location.hash.slice(1) || "/";
     const path = $(getHash());
@@ -248,6 +253,7 @@ const SigPro = (() => {
   return { $, $$, Watch, Tag, Render, If, For, Router, Mount, untrack, onUnmount };
 })();
 
+// AutoRegister DX in window, remove if don't want a dirty window
 if (typeof window !== "undefined") {
   Object.assign(window, SigPro);
   "div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer ul ol li a em strong pre code form label input textarea select button img svg"
