@@ -484,9 +484,7 @@ const Router = (routesDefinition) => {
 }
 
 Router.params = $({})
-Router.to = (targetPath) => {
-  window.location.hash = targetPath.replace(/^#?\/?/, "#/")
-}
+Router.to = (targetPath) => window.location.hash = targetPath.replace(/^#?\/?/, "#/")
 Router.back = () => window.history.back()
 
 // --- MOUNT APPLICATION ---

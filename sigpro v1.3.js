@@ -172,6 +172,19 @@ export const inject = (key, defaultValue) => {
   return defaultValue;
 };
 
+const validateAttr = (key, val) => {
+  if (val == null || val === false) return null;
+  const sVal = String(val);
+  
+  // Bloqueo de protocolos peligrosos en atributos de carga o navegación
+  if ((key === 'src' || key === 'href' || key.startsWith('on')) && 
+      /^\s*(javascript|data|vbscript):/i.test(sVal)) {
+    console.warn(`[Seguridad] Bloqueado protocolo peligroso en ${key}`);
+    return '#'; 
+  }
+  return val;
+};
+
 // CreateElement
 export const Tag = (tag, props = {}, children = []) => {
   if (props instanceof Node || isArr(props) || !isObj(props)) { children = props; props = {}; }
@@ -202,6 +215,7 @@ export const Tag = (tag, props = {}, children = []) => {
   const isSVG = /^(svg|path|circle|rect|line|polyline|polygon|g|defs|text|tspan|use)$/.test(tag);
   const el = isSVG ? doc.createElementNS("http://www.w3.org/2000/svg", tag) : doc.createElement(tag);
   el._cleanups = new Set();
+  const validate = (k, v) => ((k === 'src' || k === 'href') && /^\s*(javascript|data|vbscript):/i.test(String(v))) ? '#' : v;
   for (let [k, v] of Object.entries(props)) {
     if (k === "ref") { isFunc(v) ? v(el) : (v.current = el); continue; }
     if (k.startsWith("on")) {
@@ -212,11 +226,11 @@ export const Tag = (tag, props = {}, children = []) => {
       onUnmount(off);
     } else if (isFunc(v)) {
       const effect = createEffect(() => {
-        const val = v();
-        const safe = (k === 'src' || k === 'href') && String(val).includes('javascript:') ? '#' : val;
-        if (k === "class") el.className = safe || "";
-        else if (safe == null || safe === false) el.removeAttribute(k);
-        else el.setAttribute(k, safe === true ? "" : safe);
+        const val = validate(k, v());
+        if (k === "class") el.className = val || "";
+        else if (val == null || val === false) el.removeAttribute(k);
+        else if (k in el && !isSVG) el[k] = val;
+        else el.setAttribute(k, val === true ? "" : val);
       });
       effect();
       el._cleanups.add(() => dispose(effect));
@@ -225,7 +239,13 @@ export const Tag = (tag, props = {}, children = []) => {
         const evType = k === "checked" ? "change" : "input";
         el.addEventListener(evType, ev => v(ev.target[k]));
       }
-    } else el.setAttribute(k, v);
+    } else {
+      const val = validate(k, v);
+      if (val != null && val !== false) {
+        if (k in el && !isSVG) el[k] = val;
+        else el.setAttribute(k, val === true ? "" : val);
+      }
+    }
   }
   const append = c => {
     if (isArr(c)) return c.forEach(append);
