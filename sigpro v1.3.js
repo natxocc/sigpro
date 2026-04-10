@@ -1,4 +1,4 @@
-/** SigPro (Signals & Proxies) */
+/** SigPro 1.3 (Signals & Proxies) */
 
 // Helpers
 const doc = typeof document !== "undefined" ? document : null;
@@ -115,7 +115,7 @@ export const $ = (val, key = null) => {
       if (computed._deps) { computed._deps.forEach(depSet => depSet.delete(computed)); computed._deps.clear(); }
       subs.clear();
     };
-    onUnmount(computed.stop);
+    if (activeOwner) onUnmount(computed.stop);
     return computed;
   }
   if (key) try { val = JSON.parse(localStorage.getItem(key)) ?? val; } catch (e) { }
@@ -151,6 +151,18 @@ export const Watch = (sources, cb) => {
   effect();
   return () => dispose(effect);
 }
+
+export const watch = (source, callback) => {
+  let oldValue, first = true;
+  const effect = createEffect(() => {
+    const newValue = isFunc(source) ? source() : source;
+    if (!first) untrack(() => callback(newValue, oldValue));
+    else first = false;
+    oldValue = newValue;
+  });
+  effect();
+  return () => dispose(effect);
+};
 
 const cleanupNode = node => {
   if (node._cleanups) { node._cleanups.forEach(fn => fn()); node._cleanups.clear(); }
