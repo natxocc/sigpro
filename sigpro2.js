@@ -47,7 +47,6 @@ const createEffect = (fn, isComputed = false) => {
   effect._depth = activeEffect ? activeEffect._depth + 1 : 0;
   effect._mounts = [];
   effect._parent = activeOwner;
-  effect._provisions = activeOwner ? { ...activeOwner._provisions } : {};
   if (activeOwner) (activeOwner._children ||= new Set()).add(effect);
   return effect;
 };
@@ -162,20 +161,6 @@ const cleanupNode = node => {
   if (node.childNodes) node.childNodes.forEach(cleanupNode);
 };
 
-// provide/inject
-const provide = (key, value) => {
-  if (activeOwner) activeOwner._provisions[key] = value;
-};
-
-const inject = (key, defaultValue) => {
-  let ctx = activeOwner;
-  while (ctx) {
-    if (key in ctx._provisions) return ctx._provisions[key];
-    ctx = ctx._parent;
-  }
-  return defaultValue;
-};
-
 // --- Seguridad optimizada ---
 const DANGEROUS_PROTOCOL = /^\s*(javascript|data|vbscript):/i;
 const isDangerousAttr = key => key === 'src' || key === 'href' || key.startsWith('on');
@@ -199,7 +184,6 @@ const Tag = (tag, props = {}, children = []) => {
     const ctx = {
       _mounts: [],
       _cleanups: new Set(),
-      _provisions: activeOwner?._provisions ? { ...activeOwner._provisions } : {}
     };
     const effect = createEffect(() => {
       const result = tag(props, {
@@ -428,12 +412,12 @@ const Mount = (comp, target) => {
   return inst;
 };
 
-const SigPro = Object.freeze({ $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, provide, inject });
+const SigPro = Object.freeze({ $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount });
 
 if (typeof window !== "undefined") {
   Object.assign(window, SigPro);
   "div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer ul ol li a em strong pre code form label input textarea select button img svg"
     .split(" ").forEach(t => window[t[0].toUpperCase() + t.slice(1)] = (p, c) => SigPro.Tag(t, p, c));
 }
-export { $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, provide, inject };
+export { $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount };
 export default SigPro;
