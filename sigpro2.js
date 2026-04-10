@@ -1,4 +1,4 @@
-/** SigPro 1.3 (Signals & Proxies) */
+/** SigPro - Signals & Proxies */
 
 // Helpers
 const doc = typeof document !== "undefined" ? document : null;
@@ -34,7 +34,7 @@ const createEffect = (fn, isComputed = false) => {
     activeEffect = activeOwner = effect;
     try {
       const res = isComputed ? fn() : (fn(), undefined);
-      if (!isComputed) effect._result = res;  // ← ESTO ES LO NUEVO
+      if (!isComputed) effect._result = res;
       return res;
     } finally {
       activeEffect = prevEffect;
@@ -141,7 +141,7 @@ export const $$ = (obj, cache = new WeakMap()) => {
   return proxy;
 };
 
-// Watcher
+// Watchers
 export const Watch = (sources, cb) => {
   const isArr = Array.isArray(sources);
   const effect = createEffect(() => {
@@ -150,7 +150,7 @@ export const Watch = (sources, cb) => {
   });
   effect();
   return () => dispose(effect);
-}
+};
 
 export const watch = (source, callback) => {
   let oldValue, first = true;
@@ -184,15 +184,18 @@ export const inject = (key, defaultValue) => {
   return defaultValue;
 };
 
+// --- Seguridad optimizada ---
+const DANGEROUS_PROTOCOL = /^\s*(javascript|data|vbscript):/i;
+const isDangerousAttr = key => key === 'src' || key === 'href' || key.startsWith('on');
+
 const validateAttr = (key, val) => {
   if (val == null || val === false) return null;
-  const sVal = String(val);
-  
-  // Bloqueo de protocolos peligrosos en atributos de carga o navegación
-  if ((key === 'src' || key === 'href' || key.startsWith('on')) && 
-      /^\s*(javascript|data|vbscript):/i.test(sVal)) {
-    console.warn(`[Seguridad] Bloqueado protocolo peligroso en ${key}`);
-    return '#'; 
+  if (isDangerousAttr(key)) {
+    const sVal = String(val);
+    if (DANGEROUS_PROTOCOL.test(sVal)) {
+      console.warn(`[SigPro] Bloqueado protocolo peligroso en ${key}`);
+      return '#';
+    }
   }
   return val;
 };
@@ -218,17 +221,19 @@ export const Tag = (tag, props = {}, children = []) => {
     ctx._mounts = effect._mounts || [];
     ctx._cleanups = effect._cleanups || new Set();
     const result = effect._result;
-    const attachLifecycle = (node) => node && typeof node === 'object' && !node._isRuntime && (node._mounts = ctx._mounts, node._cleanups = ctx._cleanups, node._ownerEffect = effect);
-    Array.isArray(result) ? result.forEach(attachLifecycle) : attachLifecycle(result);
+    const attachLifecycle = node => node && typeof node === 'object' && !node._isRuntime && (node._mounts = ctx._mounts, node._cleanups = ctx._cleanups, node._ownerEffect = effect);
+    isArr(result) ? result.forEach(attachLifecycle) : attachLifecycle(result);
     if (result == null) return null;
-    if (isNode(result) || (Array.isArray(result) && result.every(isNode))) return result;
+    if (result instanceof Node || (isArr(result) && result.every(n => n instanceof Node))) return result;
     return doc.createTextNode(String(result));
   }
   const isSVG = /^(svg|path|circle|rect|line|polyline|polygon|g|defs|text|tspan|use)$/.test(tag);
   const el = isSVG ? doc.createElementNS("http://www.w3.org/2000/svg", tag) : doc.createElement(tag);
   el._cleanups = new Set();
-  const validate = (k, v) => ((k === 'src' || k === 'href') && /^\s*(javascript|data|vbscript):/i.test(String(v))) ? '#' : v;
-  for (let [k, v] of Object.entries(props)) {
+
+  for (let k in props) {
+    if (!props.hasOwnProperty(k)) continue;
+    let v = props[k];
     if (k === "ref") { isFunc(v) ? v(el) : (v.current = el); continue; }
     if (k.startsWith("on")) {
       const ev = k.slice(2).toLowerCase();
@@ -238,9 +243,9 @@ export const Tag = (tag, props = {}, children = []) => {
       onUnmount(off);
     } else if (isFunc(v)) {
       const effect = createEffect(() => {
-        const val = validate(k, v());
+        const val = validateAttr(k, v());
         if (k === "class") el.className = val || "";
-        else if (val == null || val === false) el.removeAttribute(k);
+        else if (val == null) el.removeAttribute(k);
         else if (k in el && !isSVG) el[k] = val;
         else el.setAttribute(k, val === true ? "" : val);
       });
@@ -252,13 +257,14 @@ export const Tag = (tag, props = {}, children = []) => {
         el.addEventListener(evType, ev => v(ev.target[k]));
       }
     } else {
-      const val = validate(k, v);
-      if (val != null && val !== false) {
+      const val = validateAttr(k, v);
+      if (val != null) {
         if (k in el && !isSVG) el[k] = val;
         else el.setAttribute(k, val === true ? "" : val);
       }
     }
   }
+
   const append = c => {
     if (isArr(c)) return c.forEach(append);
     if (isFunc(c)) {
@@ -398,7 +404,7 @@ export const Mount = (comp, target) => {
   return inst;
 };
 
-const SigPro = Object.freeze({ $, $$, Watch, Tag, Render, If, For, Router, Mount, untrack, onMount, onUnmount, provide, inject });
+const SigPro = Object.freeze({ $, $$, Watch, watch, Tag, Render, If, For, Router, Mount, untrack, onMount, onUnmount, provide, inject });
 
 export const initDX = () => {
   if (typeof window === "undefined") return;

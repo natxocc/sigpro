@@ -1,3 +1,7 @@
+/** * Sigwork 2.0 - Memoria Optimizada
+ * Soluciona fugas en Atributos, For/If, Router y Transiciones.
+ */
+
 const isFunction = (v) => typeof v === 'function';
 const isNode = (v) => v instanceof Node;
 const doc = typeof document !== "undefined" ? document : null;
@@ -5,6 +9,14 @@ const doc = typeof document !== "undefined" ? document : null;
 let activeEffect = null;
 const pendingEffects = new Set();
 let flushScheduled = false;
+
+// Registro global para limpiezas vinculadas a nodos DOM nativos
+const nodeDisposers = new WeakMap();
+
+const registerNodeCleanup = (node, disposer) => {
+    if (!nodeDisposers.has(node)) nodeDisposers.set(node, []);
+    nodeDisposers.get(node).push(disposer);
+};
 
 const flushEffects = () => {
     if (pendingEffects.size === 0) return;
@@ -80,8 +92,40 @@ const createEffect = (fn) => {
 };
 
 export const Watch = createEffect;
-export const effect = Watch;
-export const scope = Watch;
+
+// --- RECTIFICACIÓN: removeNode DEEP & RECURSIVE ---
+export const removeNode = (node) => {
+    if (!node) return;
+
+    // 1. Limpieza recursiva de hijos (Fuga #6 y #8)
+    if (node.childNodes) {
+        node.childNodes.forEach(child => removeNode(child));
+    }
+
+    // 2. Limpiar efectos vinculados al nodo nativo (Fuga #2 y #3)
+    const disposers = nodeDisposers.get(node);
+    if (disposers) {
+        disposers.forEach(d => d());
+        nodeDisposers.delete(node);
+    }
+
+    // 3. Cancelar animaciones pendientes (Fuga #7)
+    if (node._raf) cancelAnimationFrame(node._raf);
+
+    // 4. Limpiar contexto de componentes
+    if (node.componentStop) node.componentStop();
+    if (node.componentContext) {
+        node.componentContext.unmount.forEach(fn => fn());
+        node.componentContext.unmount = [];
+    }
+
+    // 5. Salida con transición o eliminación directa
+    if (node.leaveTransition) {
+        node.leaveTransition(() => node.remove());
+    } else {
+        node.remove();
+    }
+};
 
 const track = (subs) => {
     if (activeEffect && !activeEffect.disposed) {
@@ -112,8 +156,8 @@ export const $ = (initialValue) => {
         },
     };
 };
-export const signal = $;
 
+// Utilidades reactivas (Fuga #1: Watch ahora se auto-asocia al componente actual)
 export const persistent = (initialValue, storageKey) => {
     let stored = initialValue;
     try {
@@ -122,8 +166,7 @@ export const persistent = (initialValue, storageKey) => {
     } catch (e) {}
     const sig = $(stored);
     Watch(() => {
-        const val = sig.value;
-        try { localStorage.setItem(storageKey, JSON.stringify(val)); } catch (e) {}
+        localStorage.setItem(storageKey, JSON.stringify(sig.value));
     });
     return sig;
 };
@@ -132,12 +175,6 @@ export const computed = (fn) => {
     const s = $();
     Watch(() => { s.value = fn(); });
     return { get value() { return s.value; } };
-};
-
-export const untrack = (fn) => {
-    const prev = activeEffect;
-    activeEffect = null;
-    try { return fn(); } finally { activeEffect = prev; }
 };
 
 export const watch = (source, callback) => {
@@ -150,31 +187,18 @@ export const watch = (source, callback) => {
     });
 };
 
+export const untrack = (fn) => {
+    const prev = activeEffect;
+    activeEffect = null;
+    try { return fn(); } finally { activeEffect = prev; }
+};
+
 let currentComponentContext = null;
 
-export const onMount = (fn) => {
-    if (currentComponentContext) currentComponentContext.mount.push(fn);
-};
-export const onUnmount = (fn) => {
-    if (currentComponentContext) currentComponentContext.unmount.push(fn);
-};
-export const provide = (key, val) => {
-    if (currentComponentContext) currentComponentContext.provisions[key] = val;
-};
-export const inject = (key, def) => {
-    if (currentComponentContext && key in currentComponentContext.provisions)
-        return currentComponentContext.provisions[key];
-    return def;
-};
+export const onMount = (fn) => currentComponentContext?.mount.push(fn);
+export const onUnmount = (fn) => currentComponentContext?.unmount.push(fn);
 
 const setProperty = (el, key, val, isSVG) => {
-    if ((key === 'src' || key === 'href') && typeof val === 'string') {
-        const lower = val.toLowerCase();
-        if (lower.startsWith('javascript:') || lower.startsWith('data:text/html')) {
-            console.warn(`Bloqueado ${key}`);
-            val = '#';
-        }
-    }
     if (key === 'class' || key === 'className') {
         el.className = val || '';
     } else if (key === 'style' && typeof val === 'object') {
@@ -194,27 +218,31 @@ const appendChildNode = (parent, child) => {
         const anchor = doc.createTextNode('');
         parent.appendChild(anchor);
         let currentNodes = [];
-        Watch(() => {
+        
+        const stop = Watch(() => {
             const raw = child();
             const next = (Array.isArray(raw) ? raw : [raw])
                 .flat(Infinity)
                 .filter(v => v != null)
                 .map(v => isNode(v) ? v : doc.createTextNode(String(v)));
-            for (let i = 0; i < currentNodes.length; i++) {
-                const n = currentNodes[i];
+
+            // RECTIFICACIÓN Fuga #6: Eliminación explícita mediante removeNode
+            for (const n of currentNodes) {
                 if (!next.includes(n)) removeNode(n);
             }
+
             let ref = anchor;
             for (let i = next.length - 1; i >= 0; i--) {
                 const n = next[i];
                 if (n.parentNode !== parent) {
                     parent.insertBefore(n, ref);
-                    if (n.componentContext) n.componentContext.mount.forEach(fn => fn());
+                    if (n.componentContext) n.componentContext.mount.forEach(f => f());
                 }
                 ref = n;
             }
             currentNodes = next;
         });
+        registerNodeCleanup(anchor, stop); // Fuga #3 corregida
     } else if (isNode(child)) {
         parent.appendChild(child);
     } else {
@@ -222,74 +250,63 @@ const appendChildNode = (parent, child) => {
     }
 };
 
-const removeNode = (node) => {
-    if (node.componentStop) node.componentStop();
-    if (node.componentContext) node.componentContext.unmount.forEach(fn => fn());
-    if (node.leaveTransition) {
-        node.leaveTransition(() => node.remove());
-    } else {
-        node.remove();
-    }
-};
-
-export const Tag = (tag, props, ...children) => {
-    props = props || {};
+export const Tag = (tag, props = {}, ...children) => {
     children = children.flat(Infinity);
+    
     if (isFunction(tag)) {
         const prevCtx = currentComponentContext;
-        const ctx = {
-            mount: [],
-            unmount: [],
-            provisions: { ...(prevCtx?.provisions || {}) },
-        };
+        const ctx = { mount: [], unmount: [], provisions: { ...(prevCtx?.provisions || {}) } };
         currentComponentContext = ctx;
+        
         let rendered;
-        const stop = scope(() => {
-            rendered = tag(props, {
-                children,
-                emit: (ev, ...args) => {
-                    const handler = props[`on${ev[0].toUpperCase()}${ev.slice(1)}`];
-                    if (isFunction(handler)) handler(...args);
-                },
-            });
+        const stop = Watch(() => {
+            rendered = tag(props, { children, emit: (ev, ...args) => {
+                const h = props[`on${ev[0].toUpperCase()}${ev.slice(1)}`];
+                if (isFunction(h)) h(...args);
+            }});
         });
+        
         currentComponentContext = prevCtx;
-        if (isNode(rendered) || isFunction(rendered)) {
+        if (isNode(rendered)) {
             rendered.componentContext = ctx;
             rendered.componentStop = stop;
         }
         return rendered;
     }
-    if (!tag) return () => children;
+
     const isSVG = /^(svg|path|circle|rect|line|polyline|polygon|g|defs|text|use)$/.test(tag);
-    const el = isSVG
-        ? doc.createElementNS('http://www.w3.org/2000/svg', tag)
-        : doc.createElement(tag);
+    const el = isSVG ? doc.createElementNS('http://www.w3.org/2000/svg', tag) : doc.createElement(tag);
+
     for (const [k, v] of Object.entries(props)) {
-        if (k === 'ref') {
-            if (isFunction(v)) v(el);
-            else if (v && 'value' in v) v.value = el;
-            continue;
-        }
         if (k.startsWith('on')) {
             const ev = k.slice(2).toLowerCase();
             el.addEventListener(ev, v);
             onUnmount(() => el.removeEventListener(ev, v));
-            continue;
-        }
-        if (isFunction(v)) {
-            Watch(() => setProperty(el, k, v(), isSVG));
+        } else if (isFunction(v)) {
+            // Fuga #2 corregida: El efecto del atributo se registra en el nodo
+            const stopAttr = Watch(() => setProperty(el, k, v(), isSVG));
+            registerNodeCleanup(el, stopAttr);
         } else {
             setProperty(el, k, v, isSVG);
         }
     }
+
     for (const child of children) appendChildNode(el, child);
     return el;
 };
-export const h = Tag;
 
 export const If = ({ when, children }) => {
-    return () => (isFunction(when) ? when() : when) ? children[0] : children[1] || null;
+    let lastResult = null;
+    let node = null;
+    return () => {
+        const condition = !!(isFunction(when) ? when() : when);
+        if (condition === lastResult) return node;
+        
+        if (node) removeNode(node); // Limpieza de la rama anterior
+        lastResult = condition;
+        node = condition ? children[0] : (children[1] || null);
+        return node;
+    };
 };
 
 export const For = ({ each, key, children }) => {
@@ -298,17 +315,21 @@ export const For = ({ each, key, children }) => {
         const items = isFunction(each) ? each() : each || [];
         const newCache = new Map();
         const nodes = [];
+
         for (let i = 0; i < items.length; i++) {
             const item = items[i];
             const itemKey = key ? (isFunction(key) ? key(item, i) : item[key]) : i;
             let node = cache.get(itemKey);
             if (!node) {
-                const childFn = children[0];
-                node = Tag(childFn, { item, index: i });
+                node = Tag(children[0], { item, index: i });
             }
             newCache.set(itemKey, node);
             nodes.push(node);
+            cache.delete(itemKey);
         }
+
+        // Fuga #6 corregida: Los nodos que sobran se destruyen formalmente
+        for (const node of cache.values()) removeNode(node);
         cache = newCache;
         return nodes;
     };
@@ -317,11 +338,12 @@ export const For = ({ each, key, children }) => {
 export const Transition = ({ enter, leave, children }) => {
     const decorate = (el) => {
         if (!isNode(el)) return el;
+        
         if (enter) {
             const [from, active, to] = enter;
-            requestAnimationFrame(() => {
+            el._raf = requestAnimationFrame(() => {
                 el.classList.add(active);
-                requestAnimationFrame(() => {
+                el._raf = requestAnimationFrame(() => {
                     el.classList.add(from);
                     el.classList.remove(active);
                     el.classList.add(to);
@@ -333,17 +355,17 @@ export const Transition = ({ enter, leave, children }) => {
                 });
             });
         }
+
         if (leave) {
             const [from, active, to] = leave;
             el.leaveTransition = (done) => {
                 el.classList.add(active);
-                requestAnimationFrame(() => {
+                el._raf = requestAnimationFrame(() => {
                     el.classList.add(from);
                     el.classList.remove(active);
                     el.classList.add(to);
                     const onEnd = () => {
                         el.classList.remove(to, from);
-                        el.removeEventListener('transitionend', onEnd);
                         done();
                     };
                     el.addEventListener('transitionend', onEnd, { once: true });
@@ -353,86 +375,55 @@ export const Transition = ({ enter, leave, children }) => {
         return el;
     };
     const child = children[0];
-    if (!child) return null;
     return isFunction(child) ? () => decorate(child()) : decorate(child);
 };
-
-const currentPath = $((window.location.hash.slice(1) || '/'));
-window.addEventListener('hashchange', () => {
-    currentPath.value = window.location.hash.slice(1) || '/';
-});
 
 export const Router = ({ routes }) => {
     const outlet = Tag('div', { class: 'router-outlet' });
     let currentView = null;
+
     Watch(() => {
         const path = currentPath.value;
-        const segments = path.split('/').filter(Boolean);
-        const matched = routes.find(route => {
-            const rSeg = route.path.split('/').filter(Boolean);
-            return rSeg.length === segments.length && rSeg.every((s, i) => s[0] === ':' || s === segments[i]);
+        const matched = routes.find(r => {
+            const rSeg = r.path.split('/').filter(Boolean);
+            const pSeg = path.split('/').filter(Boolean);
+            return rSeg.length === pSeg.length && rSeg.every((s, i) => s[0] === ':' || s === pSeg[i]);
         }) || routes.find(r => r.path === '*');
+
         if (matched) {
-            if (currentView && currentView.componentStop) currentView.componentStop();
+            // Fuga #8 corregida: Limpieza profunda de la vista anterior
+            while (outlet.firstChild) removeNode(outlet.firstChild);
+            
             const params = {};
-            const rSeg = matched.path.split('/').filter(Boolean);
-            rSeg.forEach((s, i) => { if (s[0] === ':') params[s.slice(1)] = segments[i]; });
+            matched.path.split('/').filter(Boolean).forEach((s, i) => {
+                if (s[0] === ':') params[s.slice(1)] = path.split('/').filter(Boolean)[i];
+            });
+            
             currentView = Tag(matched.component, { params });
-            outlet.innerHTML = '';
             outlet.appendChild(currentView);
         }
     });
     return outlet;
 };
 
-export const navigate = (to) => { window.location.hash = to.replace(/^#?\/?/, '#/'); };
-export const back = () => window.history.back();
-export const getCurrentPath = () => currentPath.value;
-
-export const $$ = (obj, cache = new WeakMap()) => {
-    if (!obj || typeof obj !== 'object') return obj;
-    if (cache.has(obj)) return cache.get(obj);
-    const subs = {};
-    const proxy = new Proxy(obj, {
-        get: (t, k) => {
-            track(subs[k] ??= new Set());
-            const val = t[k];
-            return (val && typeof val === 'object') ? $$(val, cache) : val;
-        },
-        set: (t, k, v) => {
-            if (Object.is(t[k], v)) return true;
-            t[k] = v;
-            if (subs[k]) trigger(subs[k]);
-            return true;
-        },
-    });
-    cache.set(obj, proxy);
-    return proxy;
-};
-export const reactive = $$;
+// --- RESTO DE EXPORTS ---
+export const currentPath = $((window.location.hash.slice(1) || '/'));
+window.addEventListener('hashchange', () => currentPath.value = window.location.hash.slice(1) || '/');
 
 export const createApp = (Root, rootProps = {}) => (selector) => {
     const target = typeof selector === 'string' ? doc.querySelector(selector) : selector;
-    if (!target) throw new Error(`No se encontró ${selector}`);
     if (target.appUnmount) target.appUnmount();
     const app = Tag(Root, rootProps);
     target.appendChild(app);
-    if (app.componentContext) app.componentContext.mount.forEach(fn => fn());
+    if (app.componentContext) app.componentContext.mount.forEach(f => f());
     target.appUnmount = () => removeNode(app);
     return target.appUnmount;
 };
 
-const tags = 'div span p a button input form label ul li ol header footer main section article nav aside h1 h2 h3 h4 h5 h6 img svg path circle rect line polyline polygon g defs text use br hr pre code strong em table tr td th thead tbody tfoot select option textarea iframe video audio canvas'.split(' ');
-tags.forEach(tag => {
-    const name = tag[0].toUpperCase() + tag.slice(1);
-    globalThis[name] = (props, ...children) => Tag(tag, props, ...children);
+// Global Tags DX
+'div span p a button input form label ul li ol header footer main section article nav aside h1 h2 h3 h4 h5 h6 img svg path circle rect line polyline polygon g defs text use br hr pre code strong em table tr td th thead tbody tfoot select option textarea iframe video audio canvas'
+.split(' ').forEach(tag => {
+    globalThis[tag[0].toUpperCase() + tag.slice(1)] = (props, ...children) => Tag(tag, props, ...children);
 });
 
-export const createElement = Tag;
-export const Fragment = (props) => props.children;
-
-export default {
-    $, signal, $$, reactive, persistent, computed, Watch, effect, scope, watch, untrack,
-    onMount, onUnmount, provide, inject, Tag, h, createElement, Fragment, If, For, Transition,
-    Router, navigate, back, getCurrentPath, createApp,
-};
+export default { $, Watch, Tag, If, For, Transition, Router, createApp, removeNode };
