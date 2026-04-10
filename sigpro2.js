@@ -181,15 +181,9 @@ const validateAttr = (key, val) => {
 const Tag = (tag, props = {}, children = []) => {
   if (props instanceof Node || isArr(props) || !isObj(props)) { children = props; props = {}; }
   if (isFunc(tag)) {
-    const ctx = {
-      _mounts: [],
-      _cleanups: new Set(),
-    };
+    const ctx = { _mounts: [], _cleanups: new Set() };
     const effect = createEffect(() => {
-      const result = tag(props, {
-        children,
-        emit: (ev, ...args) => props[`on${ev[0].toUpperCase()}${ev.slice(1)}`]?.(...args)
-      });
+      const result = tag(props, { children, emit: (ev, ...args) => props[`on${ev[0].toUpperCase()}${ev.slice(1)}`]?.(...args) });
       effect._result = result;
       return result;
     });
