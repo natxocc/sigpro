@@ -1,4 +1,8 @@
+// ============================================================
+// SIGPRO CORE · Simple, Fast, Memory‑Safe
+// ============================================================
 let currentContext = null
+
 const getContext = () => currentContext
 const runInContext = (ctx, fn) => {
   const prev = currentContext
@@ -6,16 +10,19 @@ const runInContext = (ctx, fn) => {
   try { return fn() }
   finally { currentContext = prev }
 }
+
 const onCleanup = (fn) => {
   const ctx = getContext()
   if (!ctx) throw new Error('onCleanup must be called within a reactive root')
   ctx.cleanups.add(fn)
 }
+
 const onMount = (fn) => {
   const ctx = getContext()
   if (!ctx) throw new Error('onMount must be called within a reactive root')
   queueMicrotask(() => runInContext(ctx, fn))
 }
+
 const createRoot = (fn) => {
   const ctx = { cleanups: new Set(), parent: currentContext }
   return runInContext(ctx, () => {
@@ -25,12 +32,14 @@ const createRoot = (fn) => {
     return result
   })
 }
+
 const createComponent = (fn) => (...args) => {
   const parent = getContext()
   const ctx = { cleanups: new Set(), parent }
   if (parent) parent.cleanups.add(() => { ctx.cleanups.forEach(c => c()); ctx.cleanups.clear() })
   return runInContext(ctx, () => fn(...args))
 }
+
 const createSignal = (initialValue) => {
   const subscribers = new Set()
   let value = initialValue
@@ -52,6 +61,7 @@ const createSignal = (initialValue) => {
   }
   return signal
 }
+
 const createEffect = (fn) => {
   const ctx = getContext()
   if (!ctx) throw new Error('createEffect must be called within a reactive root')
@@ -72,6 +82,7 @@ const createEffect = (fn) => {
   })
   effect.run()
 }
+
 const mount = (component, selector) => {
   const root = document.querySelector(selector)
   if (!root) throw new Error(`Selector "${selector}" not found`)
@@ -82,8 +93,14 @@ const mount = (component, selector) => {
   root._destroy = app._destroy
   return app
 }
+
+// Helper para crear elementos (con soporte SVG)
 const h = (tag, props, ...children) => {
-  const el = document.createElement(tag)
+  const isSVG = /^(svg|path|circle|rect|line|polyline|polygon|g|defs|text|tspan|use)$/i.test(tag)
+  const el = isSVG
+    ? document.createElementNS('http://www.w3.org/2000/svg', tag)
+    : document.createElement(tag)
+
   if (props) {
     Object.entries(props).forEach(([k, v]) => {
       if (k.startsWith('on')) {
@@ -97,32 +114,53 @@ const h = (tag, props, ...children) => {
       }
     })
   }
+
   children.flat().forEach(c => {
     if (c instanceof Node) el.appendChild(c)
     else el.appendChild(document.createTextNode(String(c ?? '')))
   })
   return el
 }
-const For = createComponent(({ each, children }) => {
+
+// ===== IF / FOR / ROUTER (API IDÉNTICA A B) =====
+const If = createComponent((cond, thenFn) => {
+  const anchor = document.createTextNode('')
+  const container = h('div', { style: 'display:contents' }, anchor)
+  let current = null
+  createEffect(() => {
+    const show = !!cond()
+    if (show && !current) {
+      current = createRoot(() => thenFn())
+      container.insertBefore(current, anchor)
+    } else if (!show && current) {
+      if (current._destroy) current._destroy()
+      else current.remove()
+      current = null
+    }
+  })
+  onCleanup(() => current?._destroy?.())
+  return container
+})
+
+const For = createComponent((source, itemFn) => {
   const container = h('div', { style: 'display:contents' })
   const marker = document.createTextNode('')
   container.appendChild(marker)
   let cache = new Map()
-  const source = typeof each === 'function' ? each : () => each
   createEffect(() => {
     const items = source() || []
     const newCache = new Map()
     const order = []
     for (let i = 0; i < items.length; i++) {
       const item = items[i]
-      const key = typeof item === 'object' && item !== null && 'id' in item ? item.id : i
+      const key = (item && typeof item === 'object' && 'id' in item) ? item.id : i
       let view = cache.get(key)
-      if (!view) view = createRoot(() => children(item, i))
+      if (!view) view = createRoot(() => itemFn(item, i))
       newCache.set(key, view)
       order.push(key)
       cache.delete(key)
     }
-    cache.forEach(v => v._destroy ? v._destroy() : (v.remove?.(), v._destroy?.()))
+    cache.forEach(v => v._destroy ? v._destroy() : v.remove?.())
     cache = newCache
     let anchor = marker
     for (let i = order.length - 1; i >= 0; i--) {
@@ -135,25 +173,7 @@ const For = createComponent(({ each, children }) => {
   onCleanup(() => cache.forEach(v => v._destroy ? v._destroy() : v.remove?.()))
   return container
 })
-const If = createComponent(({ when, children }) => {
-  const anchor = document.createTextNode('')
-  const container = h('div', { style: 'display:contents' }, anchor)
-  let current = null
-  const cond = typeof when === 'function' ? when : () => when
-  createEffect(() => {
-    const show = !!cond()
-    if (show && !current) {
-      current = createRoot(() => children())
-      container.insertBefore(current, anchor)
-    } else if (!show && current) {
-      if (current._destroy) current._destroy()
-      else current.remove()
-      current = null
-    }
-  })
-  onCleanup(() => current?._destroy?.())
-  return container
-})
+
 const Router = createComponent(({ routes }) => {
   const getHash = () => window.location.hash.slice(1) || '/'
   const path = createSignal(getHash())
@@ -186,7 +206,27 @@ const Router = createComponent(({ routes }) => {
 Router.to = (path) => window.location.hash = path.replace(/^#?\/?/, '#/')
 Router.back = () => window.history.back()
 Router.path = () => window.location.hash.slice(1) || '/'
-const SigPro = { createRoot, createComponent, createSignal, createEffect, onCleanup, onMount, mount, h, For, If, Router }
-if (typeof window !== 'undefined') Object.assign(window, SigPro)
-export { createRoot, createComponent, createSignal, createEffect, onCleanup, onMount, mount, h, For, If, Router }
+
+// ===== API PÚBLICA =====
+const SigPro = {
+  createRoot, createComponent, createSignal, createEffect,
+  onCleanup, onMount, mount, h,
+  If, For, Router
+}
+
+// ===== EXPOSICIÓN GLOBAL (OPCIONAL, COMO EN B) =====
+if (typeof window !== 'undefined') {
+  Object.assign(window, SigPro)
+  const tags = 'div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer ul ol li a em strong pre code form label input textarea select button img svg'.split(' ')
+  tags.forEach(t => {
+    const helper = t[0].toUpperCase() + t.slice(1)
+    window[helper] = (props, ...children) => h(t, props, children)
+  })
+}
+
+export {
+  createRoot, createComponent, createSignal, createEffect,
+  onCleanup, onMount, mount, h,
+  If, For, Router
+}
 export default SigPro
