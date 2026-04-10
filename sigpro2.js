@@ -20,7 +20,7 @@ const dispose = eff => {
   }
 };
 
-export const onUnmount = fn => {
+const onUnmount = fn => {
   if (activeOwner) (activeOwner._cleanups ||= new Set()).add(fn);
 };
 
@@ -81,14 +81,14 @@ const trackUpdate = (subs, trigger = false) => {
   }
 };
 
-export const untrack = fn => { const p = activeEffect; activeEffect = null; try { return fn(); } finally { activeEffect = p; } };
+const untrack = fn => { const p = activeEffect; activeEffect = null; try { return fn(); } finally { activeEffect = p; } };
 
-export const onMount = fn => {
+const onMount = fn => {
   if (activeOwner) (activeOwner._mounts ||= []).push(fn);
 };
 
 // Reactive state
-export const $ = (val, key = null) => {
+const $ = (val, key = null) => {
   const subs = new Set();
   if (isFunc(val)) {
     let cache, dirty = true;
@@ -129,7 +129,7 @@ export const $ = (val, key = null) => {
   };
 };
 
-export const $$ = (obj, cache = new WeakMap()) => {
+const $$ = (obj, cache = new WeakMap()) => {
   if (!isObj(obj)) return obj;
   if (cache.has(obj)) return cache.get(obj);
   const subs = {};
@@ -142,23 +142,15 @@ export const $$ = (obj, cache = new WeakMap()) => {
 };
 
 // Watchers
-export const Watch = (sources, cb) => {
-  const isArr = Array.isArray(sources);
+const Watch = (sources, cb) => {
+  if (cb === undefined) {
+    const effect = createEffect(sources);
+    effect();
+    return () => dispose(effect);
+  }
   const effect = createEffect(() => {
-    const vals = isArr ? sources.map(s => s()) : sources();
+    const vals = Array.isArray(sources) ? sources.map(s => s()) : sources();
     untrack(() => cb(vals));
-  });
-  effect();
-  return () => dispose(effect);
-};
-
-export const watch = (source, callback) => {
-  let oldValue, first = true;
-  const effect = createEffect(() => {
-    const newValue = isFunc(source) ? source() : source;
-    if (!first) untrack(() => callback(newValue, oldValue));
-    else first = false;
-    oldValue = newValue;
   });
   effect();
   return () => dispose(effect);
@@ -171,11 +163,11 @@ const cleanupNode = node => {
 };
 
 // provide/inject
-export const provide = (key, value) => {
+const provide = (key, value) => {
   if (activeOwner) activeOwner._provisions[key] = value;
 };
 
-export const inject = (key, defaultValue) => {
+const inject = (key, defaultValue) => {
   let ctx = activeOwner;
   while (ctx) {
     if (key in ctx._provisions) return ctx._provisions[key];
@@ -201,7 +193,7 @@ const validateAttr = (key, val) => {
 };
 
 // CreateElement
-export const Tag = (tag, props = {}, children = []) => {
+const Tag = (tag, props = {}, children = []) => {
   if (props instanceof Node || isArr(props) || !isObj(props)) { children = props; props = {}; }
   if (isFunc(tag)) {
     const ctx = {
@@ -274,7 +266,11 @@ export const Tag = (tag, props = {}, children = []) => {
       const effect = createEffect(() => {
         const res = c();
         const next = (isArr(res) ? res : [res]).map(ensureNode);
-        currentNodes.forEach(n => { if (n._isRuntime) n.destroy(); else cleanupNode(n); });
+        currentNodes.forEach(n => {
+          if (n._isRuntime) n.destroy();
+          else cleanupNode(n);
+          if (n.parentNode) n.remove();
+        });
         let ref = anchor;
         for (let i = next.length - 1; i >= 0; i--) {
           const node = next[i];
@@ -298,71 +294,99 @@ export const Tag = (tag, props = {}, children = []) => {
 };
 
 // Render
-export const Render = fn => {
+const Render = (renderFn) => {
+  const cleanups = new Set();
+  const mounts = [];
+  const previousOwner = activeOwner;
   const container = doc.createElement("div");
   container.style.display = "contents";
-  const rootEffect = createEffect(() => {
-    const res = fn({ onCleanup: onUnmount });
-    (isArr(res) ? res : [res]).forEach(r => container.appendChild(ensureNode(r)));
-  });
-  rootEffect();
-  rootEffect._mounts?.forEach(fn => fn());
-  return { _isRuntime: true, container, destroy: () => { dispose(rootEffect); container.remove(); } };
+  activeOwner = { _cleanups: cleanups, _mounts: mounts };
+
+  const processResult = (result) => {
+    if (!result) return;
+    if (result._isRuntime) {
+      cleanups.add(result.destroy);
+      container.appendChild(result.container);
+    } else if (isArr(result)) {
+      result.forEach(processResult);
+    } else {
+      container.appendChild(result instanceof Node ? result : doc.createTextNode(String(result == null ? "" : result)));
+    }
+  };
+
+  try {
+    processResult(renderFn({ onCleanup: (fn) => cleanups.add(fn) }));
+  } finally { activeOwner = previousOwner; }
+
+  mounts.forEach(fn => fn());
+  return {
+    _isRuntime: true,
+    container,
+    destroy: () => {
+      cleanups.forEach((fn) => fn());
+      cleanupNode(container);
+      container.remove();
+    },
+  };
 };
 
 // If
-export const If = (cond, ifYes, ifNot = null, trans = null) => {
+const If = (cond, ifYes, ifNot = null, trans = null) => {
   const anchor = doc.createTextNode("");
   const root = Tag("div", { style: "display:contents" }, [anchor]);
   let currentView = null, last = null;
-  Watch(() => {
-    const show = !!(isFunc(cond) ? cond() : cond);
-    if (show === last) return;
-    last = show;
-    const disposeView = () => { if (currentView) { currentView.destroy(); currentView = null; } };
-    if (currentView && !show && trans?.out) trans.out(currentView.container, disposeView);
-    else disposeView();
-    const content = show ? ifYes : ifNot;
-    if (content) {
-      currentView = Render(() => isFunc(content) ? content() : content);
-      root.insertBefore(currentView.container, anchor);
-      if (trans?.in) trans.in(currentView.container);
+  Watch(
+    () => !!(isFunc(cond) ? cond() : cond),
+    (show) => {
+      if (show === last) return;
+      last = show;
+      const disposeView = () => { if (currentView) { currentView.destroy(); currentView = null; } };
+      if (currentView && !show && trans?.out) trans.out(currentView.container, disposeView);
+      else disposeView();
+      const content = show ? ifYes : ifNot;
+      if (content) {
+        currentView = Render(() => isFunc(content) ? content() : content);
+        root.insertBefore(currentView.container, anchor);
+        if (trans?.in) trans.in(currentView.container);
+      }
     }
-  });
+  );
   return root;
 };
 
 // For
-export const For = (src, itemFn, keyFn) => {
+const For = (src, itemFn, keyFn) => {
   const anchor = doc.createTextNode("");
   const root = Tag("div", { style: "display:contents" }, [anchor]);
   let cache = new Map();
-  Watch(() => {
-    const items = (isFunc(src) ? src() : src) || [];
-    const next = new Map(), order = [];
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      const key = keyFn ? keyFn(item, i) : i;
-      let view = cache.get(key);
-      if (!view) view = Render(() => itemFn(item, i));
-      next.set(key, view);
-      order.push(key);
-      cache.delete(key);
+  Watch(
+    () => (isFunc(src) ? src() : src) || [],
+    (items) => {
+      const next = new Map(), order = [];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const key = keyFn ? keyFn(item, i) : i;
+        let view = cache.get(key);
+        if (!view) view = Render(() => itemFn(item, i));
+        next.set(key, view);
+        order.push(key);
+        cache.delete(key);
+      }
+      cache.forEach(v => v.destroy());
+      cache = next;
+      let ref = anchor;
+      for (let i = order.length - 1; i >= 0; i--) {
+        const view = next.get(order[i]);
+        if (view.container.nextSibling !== ref) root.insertBefore(view.container, ref);
+        ref = view.container;
+      }
     }
-    cache.forEach(v => v.destroy());
-    cache = next;
-    let ref = anchor;
-    for (let i = order.length - 1; i >= 0; i--) {
-      const view = next.get(order[i]);
-      if (view.container.nextSibling !== ref) root.insertBefore(view.container, ref);
-      ref = view.container;
-    }
-  });
+  );
   return root;
 };
 
 // Router
-export const Router = routes => {
+const Router = routes => {
   const getHash = () => window.location.hash.slice(1) || "/";
   const path = $(getHash());
   const handler = () => path(getHash());
@@ -394,7 +418,7 @@ Router.back = () => window.history.back();
 Router.path = () => window.location.hash.replace(/^#/, "") || "/";
 
 // Mount
-export const Mount = (comp, target) => {
+const Mount = (comp, target) => {
   const t = typeof target === "string" ? doc.querySelector(target) : target;
   if (!t) return;
   if (MOUNTED_NODES.has(t)) MOUNTED_NODES.get(t).destroy();
@@ -404,11 +428,12 @@ export const Mount = (comp, target) => {
   return inst;
 };
 
-const SigPro = Object.freeze({ $, $$, Watch, watch, Tag, Render, If, For, Router, Mount, untrack, onMount, onUnmount, provide, inject });
+const SigPro = Object.freeze({ $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, provide, inject });
 
-export const initDX = () => {
-  if (typeof window === "undefined") return;
+if (typeof window !== "undefined") {
   Object.assign(window, SigPro);
   "div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer ul ol li a em strong pre code form label input textarea select button img svg"
     .split(" ").forEach(t => window[t[0].toUpperCase() + t.slice(1)] = (p, c) => SigPro.Tag(t, p, c));
-};
+}
+export { $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, provide, inject };
+export default SigPro;
