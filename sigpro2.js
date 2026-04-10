@@ -337,29 +337,28 @@ const For = (src, itemFn, keyFn) => {
   const anchor = doc.createTextNode("");
   const root = Tag("div", { style: "display:contents" }, [anchor]);
   let cache = new Map();
-  Watch(
-    () => (isFunc(src) ? src() : src) || [],
-    (items) => {
-      const next = new Map(), order = [];
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        const key = keyFn ? keyFn(item, i) : i;
-        let view = cache.get(key);
-        if (!view) view = Render(() => itemFn(item, i));
-        next.set(key, view);
-        order.push(key);
-        cache.delete(key);
-      }
-      cache.forEach(v => v.destroy());
-      cache = next;
-      let ref = anchor;
-      for (let i = order.length - 1; i >= 0; i--) {
-        const view = next.get(order[i]);
-        if (view.container.nextSibling !== ref) root.insertBefore(view.container, ref);
-        ref = view.container;
-      }
+  Watch(() => (isFunc(src) ? src() : src) || [], (items) => {
+    const nextCache = new Map();
+    const nextOrder = [];
+    const newItems = items || [];
+    for (let i = 0; i < newItems.length; i++) {
+      const item = newItems[i];
+      const key = keyFn ? keyFn(item, i) : (item?.id ?? i);
+      let view = cache.get(key);
+      if (!view) view = Render(() => itemFn(item, i)); else cache.delete(key);
+      nextCache.set(key, view);
+      nextOrder.push(view);
     }
-  );
+    cache.forEach(view => view.destroy());
+    let lastRef = anchor;
+    for (let i = nextOrder.length - 1; i >= 0; i--) {
+      const view = nextOrder[i];
+      const node = view.container;
+      if (node.nextSibling !== lastRef) root.insertBefore(node, lastRef);
+      lastRef = node;
+    }
+    cache = nextCache;
+  });
   return root;
 };
 
