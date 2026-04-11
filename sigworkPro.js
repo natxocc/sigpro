@@ -202,7 +202,23 @@ let currentComponentContext = null;
 export const onMount = (fn) => currentComponentContext?.mount.push(fn);
 export const onUnmount = (fn) => currentComponentContext?.unmount.push(fn);
 
+const DANGEROUS_PROTOCOL = /^\s*(javascript|data|vbscript):/i;
+const isDangerousAttr = key => key === 'src' || key === 'href' || key.startsWith('on');
+
+const validateAttr = (key, val) => {
+    if (val == null || val === false) return null;
+    if (isDangerousAttr(key)) {
+        const sVal = String(val);
+        if (DANGEROUS_PROTOCOL.test(sVal)) {
+            console.warn(`[SigWork] Bloqueado protocolo peligroso en ${key}`);
+            return '#';
+        }
+    }
+    return val;
+};
+
 const setProperty = (el, key, val, isSVG) => {
+    val = validateAttr(key, val);
     if (key === 'class' || key === 'className') {
         el.className = val || '';
     } else if (key === 'style' && typeof val === 'object') {
@@ -210,9 +226,23 @@ const setProperty = (el, key, val, isSVG) => {
     } else if (key in el && !isSVG) {
         el[key] = val;
     } else {
-        if (val == null || val === false) el.removeAttribute(key);
-        else if (val === true) el.setAttribute(key, '');
-        else el.setAttribute(key, val);
+        if (isSVG) {
+            if (key.startsWith('xlink:')) {
+                if (val == null || val === false) el.removeAttributeNS('http://www.w3.org/1999/xlink', key.slice(6));
+                else el.setAttributeNS('http://www.w3.org/1999/xlink', key, val);
+            } else if (key === 'xmlns' || key.startsWith('xmlns:')) {
+                if (val == null || val === false) el.removeAttributeNS('http://www.w3.org/2000/xmlns/', key);
+                else el.setAttributeNS('http://www.w3.org/2000/xmlns/', key, val);
+            } else {
+                if (val == null || val === false) el.removeAttribute(key);
+                else if (val === true) el.setAttribute(key, '');
+                else el.setAttribute(key, val);
+            }
+        } else {
+            if (val == null || val === false) el.removeAttribute(key);
+            else if (val === true) el.setAttribute(key, '');
+            else el.setAttribute(key, val);
+        }
     }
 };
 
@@ -250,6 +280,8 @@ const appendChildNode = (parent, child) => {
     }
 };
 
+const SVG_TAGS = /^(svg|path|circle|rect|line|polyline|polygon|g|defs|text|tspan|use|image|ellipse|foreignObject|linearGradient|radialGradient|stop|pattern|mask|clipPath|filter|feColorMatrix|feBlend|feGaussianBlur|animate|animateTransform|set|metadata|desc|title|symbol|marker|view)$/i;
+
 export const Tag = (tag, props = {}, ...children) => {
     children = children.flat(Infinity);
     if (isFunction(tag)) {
@@ -270,7 +302,7 @@ export const Tag = (tag, props = {}, ...children) => {
         }
         return rendered;
     }
-    const isSVG = /^(svg|path|circle|rect|line|polyline|polygon|g|defs|text|use)$/.test(tag);
+    const isSVG = SVG_TAGS.test(tag);
     const el = isSVG ? doc.createElementNS('http://www.w3.org/2000/svg', tag) : doc.createElement(tag);
     for (const [k, v] of Object.entries(props)) {
         if (k.startsWith('on')) {
@@ -405,7 +437,7 @@ export const createApp = (Root, rootProps = {}) => (selector) => {
     return target.appUnmount;
 };
 
-'div span p a button input form label ul li ol header footer main section article nav aside h1 h2 h3 h4 h5 h6 img svg path circle rect line polyline polygon g defs text use br hr pre code strong em table tr td th thead tbody tfoot select option textarea iframe video audio canvas'
+'div span p a button input form label ul li ol header footer main section article nav aside h1 h2 h3 h4 h5 h6 img svg path circle rect line polyline polygon g defs text tspan use image ellipse foreignObject linearGradient radialGradient stop pattern mask clipPath filter feColorMatrix feBlend feGaussianBlur animate animateTransform set metadata desc title symbol marker view br hr pre code strong em table tr td th thead tbody tfoot select option textarea iframe video audio canvas'
 .split(' ').forEach(tag => {
     globalThis[tag[0].toUpperCase() + tag.slice(1)] = (props, ...children) => Tag(tag, props, ...children);
 });
