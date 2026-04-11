@@ -1,71 +1,284 @@
-let activeEffect = null;
-let currentOwner = null;
-const effectQueue = new Set();
-let isFlushing = false;
-const MOUNTED_NODES = new WeakMap();
+/** SigPro - Signals & Proxies */
 
-const doc = document;
-const isArr = Array.isArray;
-const assign = Object.assign;
-const createEl = (t) => doc.createElement(t);
-const createText = (t) => doc.createTextNode(String(t ?? ""));
-const isFunc = (f) => typeof f === "function";
-const isObj = (o) => typeof o === "object" && o !== null;
+// Helpers
+const doc = typeof document !== "undefined" ? document : null;
+const isArr = Array.isArray, isFunc = f => typeof f === "function", isObj = o => o && typeof o === "object";
+const ensureNode = n => n?._isRuntime ? n.container : (n instanceof Node ? n : doc.createTextNode(n == null ? "" : String(n)));
 
-const runWithContext = (effect, callback) => {
-  const previousEffect = activeEffect;
-  activeEffect = effect;
-  try { return callback(); }
-  finally { activeEffect = previousEffect; }
-};
+let activeEffect = null, activeOwner = null, isFlushing = false;
+const effectQueue = new Set(), MOUNTED_NODES = new WeakMap();
 
-const cleanupNode = (node) => {
-  if (node._cleanups) {
-    node._cleanups.forEach((dispose) => dispose());
-    node._cleanups.clear();
+const dispose = eff => {
+  if (!eff || eff._disposed) return;
+  eff._disposed = true;
+  const stack = [eff];
+  while (stack.length) {
+    const e = stack.pop();
+    if (e._cleanups) { e._cleanups.forEach(fn => fn()); e._cleanups.clear(); }
+    if (e._children) { e._children.forEach(child => stack.push(child)); e._children.clear(); }
+    if (e._deps) { e._deps.forEach(depSet => depSet.delete(e)); e._deps.clear(); }
   }
-  node.childNodes?.forEach(cleanupNode);
 };
 
-const flushEffects = () => {
+const onUnmount = fn => {
+  if (activeOwner) (activeOwner._cleanups ||= new Set()).add(fn);
+};
+
+// Effect creation
+const createEffect = (fn, isComputed = false) => {
+  const effect = () => {
+    if (effect._disposed) return;
+    if (effect._deps) effect._deps.forEach(depSet => depSet.delete(effect));
+    if (effect._cleanups) { effect._cleanups.forEach(cl => cl()); effect._cleanups.clear(); }
+    const prevEffect = activeEffect, prevOwner = activeOwner;
+    activeEffect = activeOwner = effect;
+    try {
+      const res = isComputed ? fn() : (fn(), undefined);
+      if (!isComputed) effect._result = res;
+      return res;
+    } finally {
+      activeEffect = prevEffect;
+      activeOwner = prevOwner;
+    }
+  };
+  effect._deps = effect._cleanups = effect._children = null;
+  effect._disposed = false;
+  effect._isComputed = isComputed;
+  effect._depth = activeEffect ? activeEffect._depth + 1 : 0;
+  effect._mounts = [];
+  effect._parent = activeOwner;
+  if (activeOwner) (activeOwner._children ||= new Set()).add(effect);
+  return effect;
+};
+
+const flush = () => {
   if (isFlushing) return;
   isFlushing = true;
-  while (effectQueue.size > 0) {
-    const sortedEffects = Array.from(effectQueue).sort((a, b) => (a.depth || 0) - (b.depth || 0));
-    effectQueue.clear();
-    for (const effect of sortedEffects) {
-      if (!effect._deleted) effect();
-    }
-  }
+  const sorted = Array.from(effectQueue).sort((a, b) => a._depth - b._depth);
+  effectQueue.clear();
+  for (const e of sorted) if (!e._disposed) e();
   isFlushing = false;
 };
 
-const trackSubscription = (subscribers) => {
-  if (activeEffect && !activeEffect._deleted) {
-    subscribers.add(activeEffect);
-    activeEffect._deps.add(subscribers);
+const trackUpdate = (subs, trigger = false) => {
+  if (!trigger && activeEffect && !activeEffect._disposed) {
+    subs.add(activeEffect);
+    (activeEffect._deps ||= new Set()).add(subs);
+  } else if (trigger) {
+    let hasQueue = false;
+    subs.forEach(e => {
+      if (e === activeEffect || e._disposed) return;
+      if (e._isComputed) {
+        e._dirty = true;
+        if (e._subs) trackUpdate(e._subs, true);
+      } else {
+        effectQueue.add(e);
+        hasQueue = true;
+      }
+    });
+    if (hasQueue && !isFlushing) queueMicrotask(flush);
   }
 };
 
-const triggerUpdate = (subscribers) => {
-  subscribers.forEach((effect) => {
-    if (effect === activeEffect || effect._deleted) return;
-    if (effect._isComputed) {
-      effect.markDirty();
-      if (effect._subs) triggerUpdate(effect._subs);
-    } else {
-      effectQueue.add(effect);
-    }
-  });
-  if (!isFlushing) queueMicrotask(flushEffects);
+const untrack = fn => { const p = activeEffect; activeEffect = null; try { return fn(); } finally { activeEffect = p; } };
+
+const onMount = fn => {
+  if (activeOwner) (activeOwner._mounts ||= []).push(fn);
 };
 
+// Reactive state
+const $ = (val, key = null) => {
+  const subs = new Set();
+  if (isFunc(val)) {
+    let cache, dirty = true;
+    const computed = () => {
+      if (dirty) {
+        const prev = activeEffect;
+        activeEffect = computed;
+        try {
+          const next = val();
+          if (!Object.is(cache, next)) { cache = next; dirty = false; trackUpdate(subs, true); }
+        } finally { activeEffect = prev; }
+      }
+      trackUpdate(subs);
+      return cache;
+    };
+    computed._isComputed = true;
+    computed._subs = subs;
+    computed._dirty = true;
+    computed._deps = null;
+    computed._disposed = false;
+    computed.markDirty = () => { dirty = true; };
+    computed.stop = () => {
+      computed._disposed = true;
+      if (computed._deps) { computed._deps.forEach(depSet => depSet.delete(computed)); computed._deps.clear(); }
+      subs.clear();
+    };
+    if (activeOwner) onUnmount(computed.stop);
+    return computed;
+  }
+  if (key) try { val = JSON.parse(localStorage.getItem(key)) ?? val; } catch (e) { }
+  return (...args) => {
+    if (args.length) {
+      const next = isFunc(args[0]) ? args[0](val) : args[0];
+      if (!Object.is(val, next)) { val = next; if (key) localStorage.setItem(key, JSON.stringify(val)); trackUpdate(subs, true); }
+    }
+    trackUpdate(subs);
+    return val;
+  };
+};
+
+const $$ = (obj, cache = new WeakMap()) => {
+  if (!isObj(obj)) return obj;
+  if (cache.has(obj)) return cache.get(obj);
+  const subs = {};
+  const proxy = new Proxy(obj, {
+    get: (t, k) => { trackUpdate(subs[k] ??= new Set()); return isObj(t[k]) ? $$(t[k], cache) : t[k]; },
+    set: (t, k, v) => { if (!Object.is(t[k], v)) { t[k] = v; if (subs[k]) trackUpdate(subs[k], true); } return true; }
+  });
+  cache.set(obj, proxy);
+  return proxy;
+};
+
+// Watchers
+const Watch = (sources, cb) => {
+  if (cb === undefined) {
+    const effect = createEffect(sources);
+    effect();
+    return () => dispose(effect);
+  }
+  const effect = createEffect(() => {
+    const vals = Array.isArray(sources) ? sources.map(s => s()) : sources();
+    untrack(() => cb(vals));
+  });
+  effect();
+  return () => dispose(effect);
+};
+
+const cleanupNode = node => {
+  if (node._cleanups) { node._cleanups.forEach(fn => fn()); node._cleanups.clear(); }
+  if (node._ownerEffect) dispose(node._ownerEffect);
+  if (node.childNodes) node.childNodes.forEach(cleanupNode);
+};
+
+// --- Seguridad optimizada ---
+const DANGEROUS_PROTOCOL = /^\s*(javascript|data|vbscript):/i;
+const isDangerousAttr = key => key === 'src' || key === 'href' || key.startsWith('on');
+
+const validateAttr = (key, val) => {
+  if (val == null || val === false) return null;
+  if (isDangerousAttr(key)) {
+    const sVal = String(val);
+    if (DANGEROUS_PROTOCOL.test(sVal)) {
+      console.warn(`[SigPro] Bloqueado protocolo peligroso en ${key}`);
+      return '#';
+    }
+  }
+  return val;
+};
+
+// CreateElement
+const Tag = (tag, props = {}, children = []) => {
+  if (props instanceof Node || isArr(props) || !isObj(props)) { children = props; props = {}; }
+  if (isFunc(tag)) {
+    const ctx = { _mounts: [], _cleanups: new Set() };
+    const effect = createEffect(() => {
+      const result = tag(props, { children, emit: (ev, ...args) => props[`on${ev[0].toUpperCase()}${ev.slice(1)}`]?.(...args) });
+      effect._result = result;
+      return result;
+    });
+    effect();
+    ctx._mounts = effect._mounts || [];
+    ctx._cleanups = effect._cleanups || new Set();
+    const result = effect._result;
+    const attachLifecycle = node => node && typeof node === 'object' && !node._isRuntime && (node._mounts = ctx._mounts, node._cleanups = ctx._cleanups, node._ownerEffect = effect);
+    isArr(result) ? result.forEach(attachLifecycle) : attachLifecycle(result);
+    if (result == null) return null;
+    if (result instanceof Node || (isArr(result) && result.every(n => n instanceof Node))) return result;
+    return doc.createTextNode(String(result));
+  }
+  const isSVG = /^(svg|path|circle|rect|line|polyline|polygon|g|defs|text|tspan|use)$/.test(tag);
+  const el = isSVG ? doc.createElementNS("http://www.w3.org/2000/svg", tag) : doc.createElement(tag);
+  el._cleanups = new Set();
+
+  for (let k in props) {
+    if (!props.hasOwnProperty(k)) continue;
+    let v = props[k];
+    if (k === "ref") { isFunc(v) ? v(el) : (v.current = el); continue; }
+    if (k.startsWith("on")) {
+      const ev = k.slice(2).toLowerCase();
+      el.addEventListener(ev, v);
+      const off = () => el.removeEventListener(ev, v);
+      el._cleanups.add(off);
+      onUnmount(off);
+    } else if (isFunc(v)) {
+      const effect = createEffect(() => {
+        const val = validateAttr(k, v());
+        if (k === "class") el.className = val || "";
+        else if (val == null) el.removeAttribute(k);
+        else if (k in el && !isSVG) el[k] = val;
+        else el.setAttribute(k, val === true ? "" : val);
+      });
+      effect();
+      el._cleanups.add(() => dispose(effect));
+      onUnmount(() => dispose(effect));
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && (k === "value" || k === "checked")) {
+        const evType = k === "checked" ? "change" : "input";
+        el.addEventListener(evType, ev => v(ev.target[k]));
+      }
+    } else {
+      const val = validateAttr(k, v);
+      if (val != null) {
+        if (k in el && !isSVG) el[k] = val;
+        else el.setAttribute(k, val === true ? "" : val);
+      }
+    }
+  }
+
+  const append = c => {
+    if (isArr(c)) return c.forEach(append);
+    if (isFunc(c)) {
+      const anchor = doc.createTextNode("");
+      el.appendChild(anchor);
+      let currentNodes = [];
+      const effect = createEffect(() => {
+        const res = c();
+        const next = (isArr(res) ? res : [res]).map(ensureNode);
+        currentNodes.forEach(n => {
+          if (n._isRuntime) n.destroy();
+          else cleanupNode(n);
+          if (n.parentNode) n.remove();
+        });
+        let ref = anchor;
+        for (let i = next.length - 1; i >= 0; i--) {
+          const node = next[i];
+          if (node.parentNode !== ref.parentNode) ref.parentNode?.insertBefore(node, ref);
+          if (node._mounts) node._mounts.forEach(fn => fn());
+          ref = node;
+        }
+        currentNodes = next;
+      });
+      effect();
+      el._cleanups.add(() => dispose(effect));
+      onUnmount(() => dispose(effect));
+    } else {
+      const node = ensureNode(c);
+      el.appendChild(node);
+      if (node._mounts) node._mounts.forEach(fn => fn());
+    }
+  };
+  append(children);
+  return el;
+};
+
+// Render
 const Render = (renderFn) => {
   const cleanups = new Set();
-  const previousOwner = currentOwner;
-  const container = createEl("div");
+  const mounts = [];
+  const previousOwner = activeOwner;
+  const container = doc.createElement("div");
   container.style.display = "contents";
-  currentOwner = { cleanups };
+  activeOwner = { _cleanups: cleanups, _mounts: mounts };
 
   const processResult = (result) => {
     if (!result) return;
@@ -75,14 +288,15 @@ const Render = (renderFn) => {
     } else if (isArr(result)) {
       result.forEach(processResult);
     } else {
-      container.appendChild(result instanceof Node ? result : createText(result));
+      container.appendChild(result instanceof Node ? result : doc.createTextNode(String(result == null ? "" : result)));
     }
   };
 
   try {
     processResult(renderFn({ onCleanup: (fn) => cleanups.add(fn) }));
-  } finally { currentOwner = previousOwner; }
+  } finally { activeOwner = previousOwner; }
 
+  mounts.forEach(fn => fn());
   return {
     _isRuntime: true,
     container,
@@ -94,347 +308,109 @@ const Render = (renderFn) => {
   };
 };
 
-const $ = (initialValue, storageKey = null) => {
-  const subscribers = new Set();
-
-  if (isFunc(initialValue)) {
-    let cachedValue, isDirty = true;
-    const effect = () => {
-      if (effect._deleted) return;
-      effect._deps.forEach((dep) => dep.delete(effect));
-      effect._deps.clear();
-
-      runWithContext(effect, () => {
-        const newValue = initialValue();
-        if (!Object.is(cachedValue, newValue) || isDirty) {
-          cachedValue = newValue;
-          isDirty = false;
-          triggerUpdate(subscribers);
-        }
-      });
-    };
-
-    assign(effect, {
-      _deps: new Set(),
-      _isComputed: true,
-      _subs: subscribers,
-      _deleted: false,
-      markDirty: () => (isDirty = true),
-      stop: () => {
-        effect._deleted = true;
-        effect._deps.forEach((dep) => dep.delete(effect));
-        subscribers.clear();
-      }
-    });
-
-    if (currentOwner) currentOwner.cleanups.add(effect.stop);
-    return () => { if (isDirty) effect(); trackSubscription(subscribers); return cachedValue; };
-  }
-
-  let value = initialValue;
-  if (storageKey) {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved !== null) value = JSON.parse(saved);
-    } catch (e) { console.warn("SigPro Storage Lock", e); }
-  }
-
-  return (...args) => {
-    if (args.length) {
-      const nextValue = isFunc(args[0]) ? args[0](value) : args[0];
-      if (!Object.is(value, nextValue)) {
-        value = nextValue;
-        if (storageKey) localStorage.setItem(storageKey, JSON.stringify(value));
-        triggerUpdate(subscribers);
+// If
+const If = (cond, ifYes, ifNot = null, trans = null) => {
+  const anchor = doc.createTextNode("");
+  const root = Tag("div", { style: "display:contents" }, [anchor]);
+  let currentView = null, last = null;
+  Watch(
+    () => !!(isFunc(cond) ? cond() : cond),
+    (show) => {
+      if (show === last) return;
+      last = show;
+      const disposeView = () => { if (currentView) { currentView.destroy(); currentView = null; } };
+      if (currentView && !show && trans?.out) trans.out(currentView.container, disposeView);
+      else disposeView();
+      const content = show ? ifYes : ifNot;
+      if (content) {
+        currentView = Render(() => isFunc(content) ? content() : content);
+        root.insertBefore(currentView.container, anchor);
+        if (trans?.in) trans.in(currentView.container);
       }
     }
-    trackSubscription(subscribers);
-    return value;
-  };
+  );
+  return root;
 };
 
-const $$ = (object, cache = new WeakMap()) => {
-  if (!isObj(object)) return object;
-  if (cache.has(object)) return cache.get(object);
-
-  const keySubscribers = {};
-  const proxy = new Proxy(object, {
-    get(target, key) {
-      if (activeEffect) trackSubscription(keySubscribers[key] ??= new Set());
-      const value = Reflect.get(target, key);
-      return isObj(value) ? $$(value, cache) : value;
-    },
-    set(target, key, value) {
-      if (Object.is(target[key], value)) return true;
-      const success = Reflect.set(target, key, value);
-      if (keySubscribers[key]) triggerUpdate(keySubscribers[key]);
-      return success;
-    }
-  });
-
-  cache.set(object, proxy);
-  return proxy;
-};
-
-const Watch = (target, callbackFn) => {
-  const isExplicit = isArr(target);
-  const callback = isExplicit ? callbackFn : target;
-  if (!isFunc(callback)) return () => { };
-
-  const owner = currentOwner;
-  const runner = () => {
-    if (runner._deleted) return;
-    runner._deps.forEach((dep) => dep.delete(runner));
-    runner._deps.clear();
-    runner._cleanups.forEach((cleanup) => cleanup());
-    runner._cleanups.clear();
-
-    const previousOwner = currentOwner;
-    runner.depth = activeEffect ? activeEffect.depth + 1 : 0;
-
-    runWithContext(runner, () => {
-      currentOwner = { cleanups: runner._cleanups };
-      if (isExplicit) {
-        runWithContext(null, callback);
-        target.forEach((dep) => isFunc(dep) && dep());
-      } else {
-        callback();
-      }
-      currentOwner = previousOwner;
-    });
-  };
-
-  assign(runner, {
-    _deps: new Set(),
-    _cleanups: new Set(),
-    _deleted: false,
-    stop: () => {
-      if (runner._deleted) return;
-      runner._deleted = true;
-      effectQueue.delete(runner);
-      runner._deps.forEach((dep) => dep.delete(runner));
-      runner._cleanups.forEach((cleanup) => cleanup());
-      if (owner) owner.cleanups.delete(runner.stop);
-    }
-  });
-
-  if (owner) owner.cleanups.add(runner.stop);
-  runner();
-  return runner.stop;
-};
-
-const Tag = (tag, props = {}, children = []) => {
-  if (props instanceof Node || isArr(props) || !isObj(props)) {
-    children = props; props = {};
-  }
-
-  const isSVG = /^(svg|path|circle|rect|line|polyline|polygon|g|defs|text|tspan|use)$/.test(tag);
-  const element = isSVG
-    ? doc.createElementNS("http://www.w3.org/2000/svg", tag)
-    : createEl(tag);
-
-  element._cleanups = new Set();
-  element.onUnmount = (fn) => element._cleanups.add(fn);
-  const booleanAttributes = ["disabled", "checked", "required", "readonly", "selected", "multiple", "autofocus"];
-
-  const updateAttribute = (name, value) => {
-    const sanitized = (name === 'src' || name === 'href') && String(value).toLowerCase().includes('javascript:') ? '#' : value;
-    if (booleanAttributes.includes(name)) {
-      element[name] = !!sanitized;
-      sanitized ? element.setAttribute(name, "") : element.removeAttribute(name);
-    } else {
-      sanitized == null ? element.removeAttribute(name) : element.setAttribute(name, sanitized);
-    }
-  };
-
-  for (let [key, value] of Object.entries(props)) {
-    if (key === "ref") { (isFunc(value) ? value(element) : (value.current = element)); continue; }
-
-    const isSignal = isFunc(value);
-    if (key.startsWith("on")) {
-      const eventName = key.slice(2).toLowerCase().split(".")[0];
-      element.addEventListener(eventName, value);
-      element._cleanups.add(() => element.removeEventListener(eventName, value));
-    } else if (isSignal) {
-      element._cleanups.add(Watch(() => {
-        const currentVal = value();
-        key === "class" ? (element.className = currentVal || "") : updateAttribute(key, currentVal);
-      }));
-      if (["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName) && (key === "value" || key === "checked")) {
-        const event = key === "checked" ? "change" : "input";
-        const handler = (e) => value(e.target[key]);
-        element.addEventListener(event, handler);
-        element._cleanups.add(() => element.removeEventListener(event, handler));
-      }
-    } else {
-      updateAttribute(key, value);
-    }
-  }
-
-  const appendChildNode = (child) => {
-    if (isArr(child)) return child.forEach(appendChildNode);
-    if (isFunc(child)) {
-      const marker = createText("");
-      element.appendChild(marker);
-      let currentNodes = [];
-      element._cleanups.add(Watch(() => {
-        const result = child();
-        const nextNodes = (isArr(result) ? result : [result]).map((node) =>
-          node?._isRuntime ? node.container : node instanceof Node ? node : createText(node)
-        );
-        currentNodes.forEach((node) => { cleanupNode(node); node.remove(); });
-        nextNodes.forEach((node) => marker.parentNode?.insertBefore(node, marker));
-        currentNodes = nextNodes;
-      }));
-    } else {
-      element.appendChild(child instanceof Node ? child : createText(child));
-    }
-  };
-
-  appendChildNode(children);
-  return element;
-};
-
-const If = (condition, thenVal, otherwiseVal = null, transition = null) => {
-  const marker = createText("");
-  const container = Tag("div", { style: "display:contents" }, [marker]);
-  let currentView = null, lastState = null;
-
-  Watch(() => {
-    const state = !!(isFunc(condition) ? condition() : condition);
-    if (state === lastState) return;
-    lastState = state;
-
-    const dispose = () => { if (currentView) currentView.destroy(); currentView = null; };
-
-    if (currentView && !state && transition?.out) {
-      transition.out(currentView.container, dispose);
-    } else {
-      dispose();
-    }
-
-    const branch = state ? thenVal : otherwiseVal;
-    if (branch) {
-      currentView = Render(() => isFunc(branch) ? branch() : branch);
-      container.insertBefore(currentView.container, marker);
-      if (state && transition?.in) transition.in(currentView.container);
-    }
-  });
-
-  return container;
-};
-
-const For = (source, renderFn, keyFn, tag = "div", props = { style: "display:contents" }) => {
-  const marker = createText("");
-  const container = Tag(tag, props, [marker]);
-  let viewCache = new Map();
-
-  Watch(() => {
-    const items = (isFunc(source) ? source() : source) || [];
+// For
+const For = (src, itemFn, keyFn) => {
+  const anchor = doc.createTextNode("");
+  const root = Tag("div", { style: "display:contents" }, [anchor]);
+  let cache = new Map();
+  Watch(() => (isFunc(src) ? src() : src) || [], (items) => {
     const nextCache = new Map();
-    const order = [];
-
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      const key = keyFn ? keyFn(item, i) : i;
-      let view = viewCache.get(key);
-
-      if (!view) {
-        const result = renderFn(item, i);
-        view = result instanceof Node 
-          ? { container: result, destroy: () => { cleanupNode(result); result.remove(); } } 
-          : Render(() => result);
-      }
-
-      viewCache.delete(key);
+    const nextOrder = [];
+    const newItems = items || [];
+    for (let i = 0; i < newItems.length; i++) {
+      const item = newItems[i];
+      const key = keyFn ? keyFn(item, i) : (item?.id ?? i);
+      let view = cache.get(key);
+      if (!view) view = Render(() => itemFn(item, i)); else cache.delete(key);
       nextCache.set(key, view);
-      order.push(key);
+      nextOrder.push(view);
     }
-
-    viewCache.forEach(v => v.destroy());
-
-    let anchor = marker;
-    for (let i = order.length - 1; i >= 0; i--) {
-      const view = nextCache.get(order[i]);
-      if (view.container.nextSibling !== anchor) {
-        container.insertBefore(view.container, anchor);
-      }
-      anchor = view.container;
+    cache.forEach(view => view.destroy());
+    let lastRef = anchor;
+    for (let i = nextOrder.length - 1; i >= 0; i--) {
+      const view = nextOrder[i];
+      const node = view.container;
+      if (node.nextSibling !== lastRef) root.insertBefore(node, lastRef);
+      lastRef = node;
     }
-    viewCache = nextCache;
+    cache = nextCache;
   });
-
-  return container;
+  return root;
 };
 
-const Router = (routes) => {
-  const currentPath = $(window.location.hash.replace(/^#/, "") || "/");
-  window.addEventListener("hashchange", () => currentPath(window.location.hash.replace(/^#/, "") || "/"));
-  const outlet = Tag("div", { class: "router-transition" });
+// Router
+const Router = routes => {
+  const getHash = () => window.location.hash.slice(1) || "/";
+  const path = $(getHash());
+  const handler = () => path(getHash());
+  window.addEventListener("hashchange", handler);
+  onUnmount(() => window.removeEventListener("hashchange", handler));
+  const outlet = Tag("div", { class: "router-outlet" });
   let currentView = null;
-
-  Watch([currentPath], async () => {
-    const path = currentPath();
+  Watch([path], () => {
+    const cur = path();
     const route = routes.find(r => {
-      const routeParts = r.path.split("/").filter(Boolean);
-      const pathParts = path.split("/").filter(Boolean);
-      return routeParts.length === pathParts.length && routeParts.every((part, i) => part.startsWith(":") || part === pathParts[i]);
+      const p1 = r.path.split("/").filter(Boolean);
+      const p2 = cur.split("/").filter(Boolean);
+      return p1.length === p2.length && p1.every((p, i) => p[0] === ":" || p === p2[i]);
     }) || routes.find(r => r.path === "*");
-
     if (route) {
-      let component = route.component;
-      if (isFunc(component) && component.toString().includes('import')) {
-        component = (await component()).default || (await component());
-      }
-
+      currentView?.destroy();
       const params = {};
-      route.path.split("/").filter(Boolean).forEach((part, i) => {
-        if (part.startsWith(":")) params[part.slice(1)] = path.split("/").filter(Boolean)[i];
-      });
-
-      if (currentView) currentView.destroy();
-      if (Router.params) Router.params(params);
-
-      currentView = Render(() => {
-        try {
-          return isFunc(component) ? component(params) : component;
-        } catch (e) {
-          return Tag("div", { class: "p-4 text-error" }, "Error loading view");
-        }
-      });
-      outlet.appendChild(currentView.container);
+      route.path.split("/").filter(Boolean).forEach((p, i) => { if (p[0] === ":") params[p.slice(1)] = cur.split("/").filter(Boolean)[i]; });
+      Router.params(params);
+      currentView = Render(() => isFunc(route.component) ? route.component(params) : route.component);
+      outlet.replaceChildren(currentView.container);
     }
   });
   return outlet;
 };
-
 Router.params = $({});
-Router.to = (path) => (window.location.hash = path.replace(/^#?\/?/, "#/"));
+Router.to = p => window.location.hash = p.replace(/^#?\/?/, "#/");
 Router.back = () => window.history.back();
 Router.path = () => window.location.hash.replace(/^#/, "") || "/";
 
-const Mount = (component, target) => {
-  const targetEl = typeof target === "string" ? doc.querySelector(target) : target;
-  if (!targetEl) return;
-  if (MOUNTED_NODES.has(targetEl)) MOUNTED_NODES.get(targetEl).destroy();
-  const instance = Render(isFunc(component) ? component : () => component);
-  targetEl.replaceChildren(instance.container);
-  MOUNTED_NODES.set(targetEl, instance);
-  return instance;
+// Mount
+const Mount = (comp, target) => {
+  const t = typeof target === "string" ? doc.querySelector(target) : target;
+  if (!t) return;
+  if (MOUNTED_NODES.has(t)) MOUNTED_NODES.get(t).destroy();
+  const inst = Render(isFunc(comp) ? comp : () => comp);
+  t.replaceChildren(inst.container);
+  MOUNTED_NODES.set(t, inst);
+  return inst;
 };
 
-
-const SigPro = { $, $$, Render, Watch, Tag, If, For, Router, Mount };
+const SigPro = Object.freeze({ $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount });
 
 if (typeof window !== "undefined") {
-  assign(window, SigPro);
-  const tags = `div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer address ul ol li dl dt dd a em strong small i b u mark time sub sup pre code blockquote details summary dialog form label input textarea select button option fieldset legend table thead tbody tfoot tr th td caption img video audio canvas svg iframe picture source progress meter`.split(" ");
-  tags.forEach((tag) => {
-    const helper = tag[0].toUpperCase() + tag.slice(1);
-    if (!(helper in window)) window[helper] = (p, c) => Tag(tag, p, c);
-  });
-  window.SigPro = Object.freeze(SigPro);
+  Object.assign(window, SigPro);
+  "div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer ul ol li a em strong pre code form label input textarea select button img svg"
+    .split(" ").forEach(t => window[t[0].toUpperCase() + t.slice(1)] = (p, c) => SigPro.Tag(t, p, c));
 }
-
-export { $, $$, Render, Watch, Tag, If, For, Router, Mount };
+export { $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount };
 export default SigPro;
