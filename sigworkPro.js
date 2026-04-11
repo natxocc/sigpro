@@ -128,16 +128,16 @@ const trigger = (subs) => {
 
 export const $ = (initialValue) => {
     const subs = new Set();
-    return {
-        get value() {
+    return (newVal) => {
+        if (newVal === undefined) {
             track(subs);
             return initialValue;
-        },
-        set value(newVal) {
-            if (Object.is(newVal, initialValue)) return;
+        }
+        if (!Object.is(newVal, initialValue)) {
             initialValue = newVal;
             trigger(subs);
-        },
+        }
+        return initialValue;
     };
 };
 
@@ -149,7 +149,7 @@ export const persistent = (initialValue, storageKey) => {
     } catch (e) {}
     const sig = $(stored);
     Watch(() => {
-        localStorage.setItem(storageKey, JSON.stringify(sig.value));
+        localStorage.setItem(storageKey, JSON.stringify(sig()));
     });
     return sig;
 };
@@ -163,28 +163,27 @@ export const computed = (fn) => {
         if (!Object.is(newValue, cachedValue)) {
             cachedValue = newValue;
             dirty = false;
-            s.value = newValue;
+            s(newValue);
         }
     });
     if (currentComponentContext) {
         currentComponentContext.unmount.push(stop);
     }
-    return {
-        get value() {
-            if (dirty) {
-                cachedValue = fn();
-                dirty = false;
-                s.value = cachedValue;
-            }
-            return s.value;
+    const signal = () => {
+        if (dirty) {
+            cachedValue = fn();
+            dirty = false;
+            s(cachedValue);
         }
+        return s();
     };
+    return signal;
 };
 
 export const watch = (source, callback) => {
     let first = true, oldVal;
     return Watch(() => {
-        const newVal = isFunction(source) ? source() : source.value;
+        const newVal = isFunction(source) ? source() : source;
         if (!first) untrack(() => callback(newVal, oldVal));
         else first = false;
         oldVal = newVal;
@@ -401,11 +400,11 @@ export const Router = ({ routes }) => {
     const outlet = Tag('div', { class: 'router-outlet' });
     const getHash = () => window.location.hash.slice(1) || '/';
     const path = $(getHash());
-    const handler = () => { path.value = getHash(); };
+    const handler = () => { path(getHash()); };
     window.addEventListener('hashchange', handler);
     onUnmount(() => window.removeEventListener('hashchange', handler));
     Watch(() => {
-        const current = path.value;
+        const current = path();
         const matched = routes.find(r => {
             const rSeg = r.path.split('/').filter(Boolean);
             const pSeg = current.split('/').filter(Boolean);
