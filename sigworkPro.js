@@ -126,58 +126,69 @@ const trigger = (subs) => {
     scheduleFlush();
 };
 
-export const $ = (initialValue) => {
+export const $ = (initialValue, storageKey) => {
+    if (isFunction(initialValue)) {
+        let dirty = true, cached;
+        const s = $();
+        const stop = Watch(() => {
+            const v = initialValue();
+            if (!Object.is(v, cached)) { cached = v; dirty = false; s(v); }
+        });
+        if (currentComponentContext) currentComponentContext.unmount.push(stop);
+        const signal = (newVal) => {
+            if (newVal === undefined) {
+                if (dirty) { cached = initialValue(); dirty = false; s(cached); }
+                return s();
+            }
+            return s(newVal);
+        };
+        return signal;
+    }
+    
     const subs = new Set();
-    return (newVal) => {
+    let value = initialValue;
+    
+    if (storageKey) {
+        try {
+            const item = localStorage.getItem(storageKey);
+            if (item !== null) value = JSON.parse(item);
+        } catch (e) {}
+    }
+    
+    const signal = (newVal) => {
         if (newVal === undefined) {
             track(subs);
-            return initialValue;
+            return value;
         }
-        if (!Object.is(newVal, initialValue)) {
-            initialValue = newVal;
+        const next = isFunction(newVal) ? newVal(value) : newVal;
+        if (!Object.is(next, value)) {
+            value = next;
+            if (storageKey) {
+                try { localStorage.setItem(storageKey, JSON.stringify(value)); } catch (e) {}
+            }
             trigger(subs);
         }
-        return initialValue;
+        return value;
     };
-};
-
-export const persistent = (initialValue, storageKey) => {
-    let stored = initialValue;
-    try {
-        const item = localStorage.getItem(storageKey);
-        if (item !== null) stored = JSON.parse(item);
-    } catch (e) {}
-    const sig = $(stored);
-    Watch(() => {
-        localStorage.setItem(storageKey, JSON.stringify(sig()));
-    });
-    return sig;
-};
-
-export const computed = (fn) => {
-    const s = $();
-    let dirty = true;
-    let cachedValue;
-    const stop = Watch(() => {
-        const newValue = fn();
-        if (!Object.is(newValue, cachedValue)) {
-            cachedValue = newValue;
-            dirty = false;
-            s(newValue);
-        }
-    });
-    if (currentComponentContext) {
-        currentComponentContext.unmount.push(stop);
+    
+    if (storageKey) {
+        const sync = Watch(() => { signal(value); });
+        if (currentComponentContext) currentComponentContext.unmount.push(sync);
     }
-    const signal = () => {
-        if (dirty) {
-            cachedValue = fn();
-            dirty = false;
-            s(cachedValue);
-        }
-        return s();
-    };
+    
     return signal;
+};
+
+export const set = (signal, path, value) => {
+    if (value === undefined) {
+        signal(isFunction(path) ? path(signal()) : path);
+    } else {
+        const keys = path.split('.');
+        const last = keys.pop();
+        const obj = keys.reduce((o, k) => ({ ...o, [k]: { ...o[k] } }), { ...signal() });
+        obj[last] = value;
+        signal(obj);
+    }
 };
 
 export const watch = (source, callback) => {
@@ -311,6 +322,12 @@ export const Tag = (tag, props = {}, ...children) => {
         } else if (isFunction(v)) {
             const stopAttr = Watch(() => setProperty(el, k, v(), isSVG));
             registerNodeCleanup(el, stopAttr);
+            if (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && (k === 'value' || k === 'checked')) {
+                const evType = k === 'checked' ? 'change' : 'input';
+                const handler = (e) => v(e.target[k]);
+                el.addEventListener(evType, handler);
+                onUnmount(() => el.removeEventListener(evType, handler));
+            }
         } else {
             setProperty(el, k, v, isSVG);
         }
@@ -416,12 +433,15 @@ export const Router = ({ routes }) => {
             matched.path.split('/').filter(Boolean).forEach((s, i) => {
                 if (s[0] === ':') params[s.slice(1)] = current.split('/').filter(Boolean)[i];
             });
+            Router.params(params);
             const view = Tag(matched.component, { params });
             outlet.appendChild(view);
         }
     });
     return outlet;
 };
+
+Router.params = $({});
 
 export const navigate = (path) => { window.location.hash = path; };
 export const currentPath = () => window.location.hash.slice(1) || '/';
@@ -441,4 +461,4 @@ export const createApp = (Root, rootProps = {}) => (selector) => {
     globalThis[tag[0].toUpperCase() + tag.slice(1)] = (props, ...children) => Tag(tag, props, ...children);
 });
 
-export default { $, Watch, computed, watch, untrack, Tag, If, For, Transition, Router, createApp, removeNode, navigate, currentPath, onMount, onUnmount, persistent };
+export default { $, set, Watch, watch, untrack, Tag, If, For, Transition, Router, createApp, removeNode, navigate, currentPath, onMount, onUnmount };
