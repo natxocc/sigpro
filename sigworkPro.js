@@ -60,7 +60,7 @@ const createEffect = (fn) => {
         children: new Set(),
         depth: activeEffect ? activeEffect.depth + 1 : 0,
         disposed: false,
-        owner: activeEffect // <-- CLAVE: Herencia de contexto
+        owner: activeEffect
     };
     effect.execute = () => {
         if (effect.disposed) return;
@@ -88,7 +88,6 @@ const createEffect = (fn) => {
 
 export const Watch = createEffect;
 
-// --- CONTEXTO ROBUSTO (6 líneas) ---
 const getComponentContext = () => {
     let eff = activeEffect;
     while (eff) {
@@ -110,13 +109,11 @@ export const removeNode = node => {
     }
     if (node._raf) cancelAnimationFrame(node._raf);
     if (node.componentStop) node.componentStop();
-    
     const ctx = node.componentContext;
     if (ctx) {
         ctx.unmount.forEach(fn => fn());
         ctx.unmount = [];
     }
-    
     if (node.leaveTransition) {
         node.leaveTransition(() => node.remove());
     } else {
@@ -312,7 +309,6 @@ export const Tag = (tag, props = {}, ...children) => {
         const ctx = { mount: [], unmount: [], provisions: {} };
         let rendered;
         const stop = Watch(() => {
-            // Asignamos el contexto al efecto actual para que los hijos lo encuentren
             if (activeEffect) activeEffect.componentContext = ctx;
             rendered = tag(props, { children, emit: (ev, ...args) => {
                 const h = props[`on${ev[0].toUpperCase()}${ev.slice(1)}`];
