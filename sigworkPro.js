@@ -214,7 +214,7 @@ const validateAttr = (key, val) => {
     if (isDangerousAttr(key)) {
         const sVal = String(val);
         if (DANGEROUS_PROTOCOL.test(sVal)) {
-            console.warn(`[SigWork] Bloqueado protocolo peligroso en ${key}`);
+            console.warn(`[SP] Bloqueado protocolo peligroso en ${key}`);
             return '#';
         }
     }
@@ -380,14 +380,6 @@ export const For = ({ each, key, children }) => {
     };
 };
 
-export const Animate = {
-    fadeIn: (el, duration = 300) => el.animate([{ opacity: 0 }, { opacity: 1 }], { duration, fill: 'forwards' }),
-    fadeOut: (el, duration = 300) => {
-        const anim = el.animate([{ opacity: 1 }, { opacity: 0 }], { duration, fill: 'forwards' });
-        return anim;
-    }
-};
-
 export const Router = ({ routes }) => {
     const outlet = Tag('div', { class: 'router-outlet' });
     const getHash = () => window.location.hash.slice(1) || '/';
@@ -436,4 +428,4 @@ export const createApp = (Root, rootProps = {}) => selector => {
     globalThis[tag[0].toUpperCase() + tag.slice(1)] = (props, ...children) => Tag(tag, props, ...children);
 });
 
-export default { $, set, Watch, watch, untrack, Tag, If, For, Animate, Router, createApp, removeNode, navigate, currentPath, onMount, onUnmount };
+export default { $, set, Watch, watch, untrack, Tag, If, For, Router, createApp, removeNode, navigate, currentPath, onMount, onUnmount };
