@@ -100,7 +100,7 @@ const getComponentContext = () => {
 export const removeNode = node => {
     if (!node) return;
     if (node.childNodes) {
-        node.childNodes.forEach(child => removeNode(child));
+        [...node.childNodes].forEach(removeNode);
     }
     const disposers = nodeDisposers.get(node);
     if (disposers) {
@@ -108,7 +108,7 @@ export const removeNode = node => {
         nodeDisposers.delete(node);
     }
     if (node._raf) cancelAnimationFrame(node._raf);
-    if (node.componentStop) node.componentStop();
+    if (node._stop) node._stop();
     const ctx = node.componentContext;
     if (ctx) {
         ctx.unmount.forEach(fn => fn());
@@ -117,7 +117,7 @@ export const removeNode = node => {
     if (node.leaveTransition) {
         node.leaveTransition(() => node.remove());
     } else {
-        node.remove();
+        node.remove?.();
     }
 };
 
@@ -186,6 +186,35 @@ export const $ = (initialValue, storageKey) => {
     return signal;
 };
 
+export const computed = fn => {
+    let dirty = true;
+    let cache;
+    const subs = new Set();
+    const evaluate = () => {
+        if (!dirty) return cache;
+        const prev = activeEffect;
+        activeEffect = null;
+        try {
+            cache = fn();
+        } finally {
+            activeEffect = prev;
+        }
+        dirty = false;
+        trigger(subs);
+        return cache;
+    };
+    const signal = () => {
+        track(subs);
+        return evaluate();
+    };
+    const effect = createEffect(() => {
+        fn();
+        dirty = true;
+        trigger(subs);
+    });
+    return signal;
+};
+
 export const set = (signal, path, value) => {
     if (value === undefined) {
         signal(isFunction(path) ? path(signal()) : path);
@@ -218,6 +247,7 @@ export const onMount = fn => {
     const ctx = getComponentContext();
     if (ctx) ctx.mount.push(fn);
 };
+
 export const onUnmount = fn => {
     const ctx = getComponentContext();
     if (ctx) ctx.unmount.push(fn);
@@ -275,23 +305,30 @@ const appendChildNode = (parent, child) => {
         let currentNodes = [];
         const stop = Watch(() => {
             const raw = child();
-            const next = (Array.isArray(raw) ? raw : [raw])
-                .flat(Infinity)
-                .filter(v => v != null)
-                .map(v => isNode(v) ? v : doc.createTextNode(String(v)));
-            for (const n of currentNodes) {
-                if (!next.includes(n)) removeNode(n);
-            }
-            let ref = anchor;
-            for (let i = next.length - 1; i >= 0; i--) {
-                const n = next[i];
-                if (n.parentNode !== parent) {
-                    parent.insertBefore(n, ref);
-                    if (n.componentContext) n.componentContext.mount.forEach(f => f());
+            if (raw?._isFor) {
+                raw._reconcile(parent);
+                currentNodes = raw();
+            } else {
+                const next = (Array.isArray(raw) ? raw : [raw])
+                    .flat(Infinity)
+                    .filter(v => v != null)
+                    .map(v => isNode(v) ? v : doc.createTextNode(String(v)));
+                for (const n of currentNodes) {
+                    if (!next.includes(n)) removeNode(n);
                 }
-                ref = n;
+                let ref = anchor;
+                for (let i = next.length - 1; i >= 0; i--) {
+                    const n = next[i];
+                    if (n.parentNode !== parent) {
+                        parent.insertBefore(n, ref);
+                    } else if (n.nextSibling !== next[i + 1]) {
+                        parent.insertBefore(n, ref);
+                    }
+                    if (n.componentContext) n.componentContext.mount.forEach(f => f());
+                    ref = n;
+                }
+                currentNodes = next;
             }
-            currentNodes = next;
         });
         registerNodeCleanup(anchor, stop);
     } else if (isNode(child)) {
@@ -318,7 +355,16 @@ export const Tag = (tag, props = {}, ...children) => {
         });
         if (isNode(rendered)) {
             rendered.componentContext = ctx;
-            rendered.componentStop = stop;
+            rendered._stop = stop;
+            queueMicrotask(() => ctx.mount.forEach(fn => fn()));
+        } else if (Array.isArray(rendered)) {
+            rendered.forEach(node => {
+                if (isNode(node)) {
+                    node.componentContext = ctx;
+                    node._stop = stop;
+                }
+            });
+            queueMicrotask(() => ctx.mount.forEach(fn => fn()));
         }
         return rendered;
     }
@@ -348,52 +394,69 @@ export const Tag = (tag, props = {}, ...children) => {
 
 export const If = (cond, thenFn, elseFn = null, hooks = {}) => {
     let lastResult = null;
-    let node = null;
+    let nodes = [];
     let exitPromise = null;
     return () => {
         const condition = !!(isFunction(cond) ? cond() : cond);
-        if (condition === lastResult) return node;
-        if (node) {
+        if (condition === lastResult) return nodes.length === 1 ? nodes[0] : nodes;
+        if (nodes.length) {
             if (hooks.leave) {
                 if (exitPromise && exitPromise.cancel) exitPromise.cancel();
-                const anim = hooks.leave(node);
+                const anim = hooks.leave(nodes);
                 exitPromise = anim;
                 if (anim && anim.finished) {
-                    anim.finished.then(() => removeNode(node));
+                    anim.finished.then(() => nodes.forEach(n => removeNode(n)));
                 } else {
-                    removeNode(node);
+                    nodes.forEach(n => removeNode(n));
                 }
             } else {
-                removeNode(node);
+                nodes.forEach(n => removeNode(n));
             }
         }
         lastResult = condition;
-        const newNode = condition ? thenFn() : elseFn?.();
-        node = newNode;
-        if (node && hooks.enter) hooks.enter(node);
-        return node;
+        const newNodes = condition ? thenFn() : elseFn?.() ?? [];
+        const newArr = (Array.isArray(newNodes) ? newNodes : [newNodes]).flat(Infinity).filter(v => v != null);
+        nodes = newArr;
+        if (nodes.length && hooks.enter) hooks.enter(nodes);
+        return nodes.length === 1 ? nodes[0] : nodes;
     };
 };
 
 export const For = ({ each, key, children }) => {
     let cache = new Map();
-    return () => {
+    let order = [];
+    const reconcile = (parent) => {
         const items = isFunction(each) ? each() : each || [];
-        const newCache = new Map();
-        const nodes = [];
+        const newMap = new Map();
+        const newOrder = [];
+        const getKey = (item, i) => key ? (isFunction(key) ? key(item, i) : item[key]) : i;
         for (let i = 0; i < items.length; i++) {
             const item = items[i];
-            const itemKey = key ? (isFunction(key) ? key(item, i) : item[key]) : i;
-            let node = cache.get(itemKey);
+            const k = getKey(item, i);
+            let node = cache.get(k);
             if (!node) node = Tag(children[0], { item, index: i });
-            newCache.set(itemKey, node);
-            nodes.push(node);
-            cache.delete(itemKey);
+            newMap.set(k, node);
+            newOrder.push(node);
+            cache.delete(k);
+        }
+        if (parent) {
+            let ref = null;
+            for (let i = newOrder.length - 1; i >= 0; i--) {
+                const node = newOrder[i];
+                if (node.nextSibling !== newOrder[i + 1]) {
+                    parent.insertBefore(node, ref);
+                }
+                ref = node;
+            }
         }
         for (const node of cache.values()) removeNode(node);
-        cache = newCache;
-        return nodes;
+        cache = newMap;
+        order = newOrder;
     };
+    const renderFn = () => order;
+    renderFn._isFor = true;
+    renderFn._reconcile = reconcile;
+    return renderFn;
 };
 
 export const Router = ({ routes }) => {
@@ -402,7 +465,7 @@ export const Router = ({ routes }) => {
     const path = $(getHash());
     const handler = () => { path(getHash()); };
     window.addEventListener('hashchange', handler);
-    onUnmount(() => window.removeEventListener('hashchange', handler));
+    registerNodeCleanup(outlet, () => window.removeEventListener('hashchange', handler));
     Watch(() => {
         const current = path();
         const matched = routes.find(r => {
@@ -444,4 +507,4 @@ export const createApp = (Root, rootProps = {}) => selector => {
     globalThis[tag[0].toUpperCase() + tag.slice(1)] = (props, ...children) => Tag(tag, props, ...children);
 });
 
-export default { $, set, Watch, watch, untrack, Tag, If, For, Router, createApp, removeNode, navigate, currentPath, onMount, onUnmount };
+export default { $, set, Watch, watch, computed, untrack, Tag, If, For, Router, createApp, removeNode, navigate, currentPath, onMount, onUnmount };
