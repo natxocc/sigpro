@@ -306,6 +306,7 @@ const Render = renderFn => {
   const previousOwner = activeOwner
   const container = doc.createElement("div")
   container.style.display = "contents"
+  container.setAttribute("role", "presentation")   // ← único cambio real
   activeOwner = { _cleanups: cleanups, _mounts: mounts }
 
   const processResult = result => {
