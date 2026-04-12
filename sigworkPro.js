@@ -1,11 +1,10 @@
-const isFunction = (v) => typeof v === 'function';
-const isNode = (v) => v instanceof Node;
+const isFunction = v => typeof v === 'function';
+const isNode = v => v instanceof Node;
 const doc = typeof document !== "undefined" ? document : null;
 
 let activeEffect = null;
 const pendingEffects = new Set();
 let flushScheduled = false;
-
 const nodeDisposers = new WeakMap();
 
 const registerNodeCleanup = (node, disposer) => {
@@ -32,7 +31,7 @@ const scheduleFlush = () => {
     }
 };
 
-const disposeEffectTree = (effect) => {
+const disposeEffectTree = effect => {
     if (effect.disposed) return;
     effect.disposed = true;
     const stack = [effect];
@@ -53,7 +52,7 @@ const disposeEffectTree = (effect) => {
     }
 };
 
-const createEffect = (fn) => {
+const createEffect = fn => {
     const effect = {
         execute: null,
         dependencies: new Set(),
@@ -88,7 +87,7 @@ const createEffect = (fn) => {
 
 export const Watch = createEffect;
 
-export const removeNode = (node) => {
+export const removeNode = node => {
     if (!node) return;
     if (node.childNodes) {
         node.childNodes.forEach(child => removeNode(child));
@@ -111,14 +110,14 @@ export const removeNode = (node) => {
     }
 };
 
-const track = (subs) => {
+const track = subs => {
     if (activeEffect && !activeEffect.disposed) {
         subs.add(activeEffect);
         activeEffect.dependencies.add(subs);
     }
 };
 
-const trigger = (subs) => {
+const trigger = subs => {
     if (!subs) return;
     for (const eff of subs) {
         if (eff !== activeEffect && !eff.disposed) pendingEffects.add(eff);
@@ -135,7 +134,7 @@ export const $ = (initialValue, storageKey) => {
             if (!Object.is(v, cached)) { cached = v; dirty = false; s(v); }
         });
         if (currentComponentContext) currentComponentContext.unmount.push(stop);
-        const signal = (newVal) => {
+        const signal = newVal => {
             if (newVal === undefined) {
                 if (dirty) { cached = initialValue(); dirty = false; s(cached); }
                 return s();
@@ -144,18 +143,15 @@ export const $ = (initialValue, storageKey) => {
         };
         return signal;
     }
-    
     const subs = new Set();
     let value = initialValue;
-    
     if (storageKey) {
         try {
             const item = localStorage.getItem(storageKey);
             if (item !== null) value = JSON.parse(item);
         } catch (e) {}
     }
-    
-    const signal = (newVal) => {
+    const signal = newVal => {
         if (newVal === undefined) {
             track(subs);
             return value;
@@ -170,12 +166,10 @@ export const $ = (initialValue, storageKey) => {
         }
         return value;
     };
-    
     if (storageKey) {
         const sync = Watch(() => { signal(value); });
         if (currentComponentContext) currentComponentContext.unmount.push(sync);
     }
-    
     return signal;
 };
 
@@ -201,7 +195,7 @@ export const watch = (source, callback) => {
     });
 };
 
-export const untrack = (fn) => {
+export const untrack = fn => {
     const prev = activeEffect;
     activeEffect = null;
     try { return fn(); } finally { activeEffect = prev; }
@@ -209,8 +203,8 @@ export const untrack = (fn) => {
 
 let currentComponentContext = null;
 
-export const onMount = (fn) => currentComponentContext?.mount.push(fn);
-export const onUnmount = (fn) => currentComponentContext?.unmount.push(fn);
+export const onMount = fn => currentComponentContext?.mount.push(fn);
+export const onUnmount = fn => currentComponentContext?.unmount.push(fn);
 
 const DANGEROUS_PROTOCOL = /^\s*(javascript|data|vbscript):/i;
 const isDangerousAttr = key => key === 'src' || key === 'href' || key.startsWith('on');
@@ -324,7 +318,7 @@ export const Tag = (tag, props = {}, ...children) => {
             registerNodeCleanup(el, stopAttr);
             if (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && (k === 'value' || k === 'checked')) {
                 const evType = k === 'checked' ? 'change' : 'input';
-                const handler = (e) => v(e.target[k]);
+                const handler = e => v(e.target[k]);
                 el.addEventListener(evType, handler);
                 onUnmount(() => el.removeEventListener(evType, handler));
             }
@@ -336,15 +330,31 @@ export const Tag = (tag, props = {}, ...children) => {
     return el;
 };
 
-export const If = ({ when, children }) => {
+export const If = (cond, thenFn, elseFn = null, hooks = {}) => {
     let lastResult = null;
     let node = null;
+    let exitPromise = null;
     return () => {
-        const condition = !!(isFunction(when) ? when() : when);
+        const condition = !!(isFunction(cond) ? cond() : cond);
         if (condition === lastResult) return node;
-        if (node) removeNode(node);
+        if (node) {
+            if (hooks.leave) {
+                if (exitPromise && exitPromise.cancel) exitPromise.cancel();
+                const anim = hooks.leave(node);
+                exitPromise = anim;
+                if (anim && anim.finished) {
+                    anim.finished.then(() => removeNode(node));
+                } else {
+                    removeNode(node);
+                }
+            } else {
+                removeNode(node);
+            }
+        }
         lastResult = condition;
-        node = condition ? children[0] : (children[1] || null);
+        const newNode = condition ? thenFn() : elseFn?.();
+        node = newNode;
+        if (node && hooks.enter) hooks.enter(node);
         return node;
     };
 };
@@ -359,9 +369,7 @@ export const For = ({ each, key, children }) => {
             const item = items[i];
             const itemKey = key ? (isFunction(key) ? key(item, i) : item[key]) : i;
             let node = cache.get(itemKey);
-            if (!node) {
-                node = Tag(children[0], { item, index: i });
-            }
+            if (!node) node = Tag(children[0], { item, index: i });
             newCache.set(itemKey, node);
             nodes.push(node);
             cache.delete(itemKey);
@@ -372,45 +380,12 @@ export const For = ({ each, key, children }) => {
     };
 };
 
-export const Transition = ({ enter, leave, children }) => {
-    const decorate = (el) => {
-        if (!isNode(el)) return el;
-        if (enter) {
-            const [from, active, to] = enter;
-            el._raf = requestAnimationFrame(() => {
-                el.classList.add(active);
-                el._raf = requestAnimationFrame(() => {
-                    el.classList.add(from);
-                    el.classList.remove(active);
-                    el.classList.add(to);
-                    const onEnd = () => {
-                        el.classList.remove(to, from);
-                        el.removeEventListener('transitionend', onEnd);
-                    };
-                    el.addEventListener('transitionend', onEnd, { once: true });
-                });
-            });
-        }
-        if (leave) {
-            const [from, active, to] = leave;
-            el.leaveTransition = (done) => {
-                el.classList.add(active);
-                el._raf = requestAnimationFrame(() => {
-                    el.classList.add(from);
-                    el.classList.remove(active);
-                    el.classList.add(to);
-                    const onEnd = () => {
-                        el.classList.remove(to, from);
-                        done();
-                    };
-                    el.addEventListener('transitionend', onEnd, { once: true });
-                });
-            };
-        }
-        return el;
-    };
-    const child = children[0];
-    return isFunction(child) ? () => decorate(child()) : decorate(child);
+export const Animate = {
+    fadeIn: (el, duration = 300) => el.animate([{ opacity: 0 }, { opacity: 1 }], { duration, fill: 'forwards' }),
+    fadeOut: (el, duration = 300) => {
+        const anim = el.animate([{ opacity: 1 }, { opacity: 0 }], { duration, fill: 'forwards' });
+        return anim;
+    }
 };
 
 export const Router = ({ routes }) => {
@@ -443,10 +418,10 @@ export const Router = ({ routes }) => {
 
 Router.params = $({});
 
-export const navigate = (path) => { window.location.hash = path; };
+export const navigate = path => { window.location.hash = path; };
 export const currentPath = () => window.location.hash.slice(1) || '/';
 
-export const createApp = (Root, rootProps = {}) => (selector) => {
+export const createApp = (Root, rootProps = {}) => selector => {
     const target = typeof selector === 'string' ? doc.querySelector(selector) : selector;
     if (target.appUnmount) target.appUnmount();
     const app = Tag(Root, rootProps);
@@ -461,4 +436,4 @@ export const createApp = (Root, rootProps = {}) => (selector) => {
     globalThis[tag[0].toUpperCase() + tag.slice(1)] = (props, ...children) => Tag(tag, props, ...children);
 });
 
-export default { $, set, Watch, watch, untrack, Tag, If, For, Transition, Router, createApp, removeNode, navigate, currentPath, onMount, onUnmount };
+export default { $, set, Watch, watch, untrack, Tag, If, For, Animate, Router, createApp, removeNode, navigate, currentPath, onMount, onUnmount };
