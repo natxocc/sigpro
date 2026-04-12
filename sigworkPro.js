@@ -52,7 +52,7 @@ const disposeEffectTree = effect => {
     }
 };
 
-const createEffect = fn => {
+const createEffect = (fn) => {
     const effect = {
         execute: null,
         dependencies: new Set(),
@@ -60,6 +60,7 @@ const createEffect = fn => {
         children: new Set(),
         depth: activeEffect ? activeEffect.depth + 1 : 0,
         disposed: false,
+        owner: activeEffect // <-- CLAVE: Herencia de contexto
     };
     effect.execute = () => {
         if (effect.disposed) return;
@@ -87,6 +88,16 @@ const createEffect = fn => {
 
 export const Watch = createEffect;
 
+// --- CONTEXTO ROBUSTO (6 líneas) ---
+const getComponentContext = () => {
+    let eff = activeEffect;
+    while (eff) {
+        if (eff.componentContext) return eff.componentContext;
+        eff = eff.owner;
+    }
+    return null;
+};
+
 export const removeNode = node => {
     if (!node) return;
     if (node.childNodes) {
@@ -99,10 +110,13 @@ export const removeNode = node => {
     }
     if (node._raf) cancelAnimationFrame(node._raf);
     if (node.componentStop) node.componentStop();
-    if (node.componentContext) {
-        node.componentContext.unmount.forEach(fn => fn());
-        node.componentContext.unmount = [];
+    
+    const ctx = node.componentContext;
+    if (ctx) {
+        ctx.unmount.forEach(fn => fn());
+        ctx.unmount = [];
     }
+    
     if (node.leaveTransition) {
         node.leaveTransition(() => node.remove());
     } else {
@@ -133,7 +147,8 @@ export const $ = (initialValue, storageKey) => {
             const v = initialValue();
             if (!Object.is(v, cached)) { cached = v; dirty = false; s(v); }
         });
-        if (currentComponentContext) currentComponentContext.unmount.push(stop);
+        const ctx = getComponentContext();
+        if (ctx) ctx.unmount.push(stop);
         const signal = newVal => {
             if (newVal === undefined) {
                 if (dirty) { cached = initialValue(); dirty = false; s(cached); }
@@ -168,7 +183,8 @@ export const $ = (initialValue, storageKey) => {
     };
     if (storageKey) {
         const sync = Watch(() => { signal(value); });
-        if (currentComponentContext) currentComponentContext.unmount.push(sync);
+        const ctx = getComponentContext();
+        if (ctx) ctx.unmount.push(sync);
     }
     return signal;
 };
@@ -201,10 +217,14 @@ export const untrack = fn => {
     try { return fn(); } finally { activeEffect = prev; }
 };
 
-let currentComponentContext = null;
-
-export const onMount = fn => currentComponentContext?.mount.push(fn);
-export const onUnmount = fn => currentComponentContext?.unmount.push(fn);
+export const onMount = fn => {
+    const ctx = getComponentContext();
+    if (ctx) ctx.mount.push(fn);
+};
+export const onUnmount = fn => {
+    const ctx = getComponentContext();
+    if (ctx) ctx.unmount.push(fn);
+};
 
 const DANGEROUS_PROTOCOL = /^\s*(javascript|data|vbscript):/i;
 const isDangerousAttr = key => key === 'src' || key === 'href' || key.startsWith('on');
@@ -289,17 +309,17 @@ const SVG_TAGS = /^(svg|path|circle|rect|line|polyline|polygon|g|defs|text|tspan
 export const Tag = (tag, props = {}, ...children) => {
     children = children.flat(Infinity);
     if (isFunction(tag)) {
-        const prevCtx = currentComponentContext;
-        const ctx = { mount: [], unmount: [], provisions: { ...(prevCtx?.provisions || {}) } };
-        currentComponentContext = ctx;
+        const ctx = { mount: [], unmount: [], provisions: {} };
         let rendered;
         const stop = Watch(() => {
+            // Asignamos el contexto al efecto actual para que los hijos lo encuentren
+            if (activeEffect) activeEffect.componentContext = ctx;
             rendered = tag(props, { children, emit: (ev, ...args) => {
                 const h = props[`on${ev[0].toUpperCase()}${ev.slice(1)}`];
                 if (isFunction(h)) h(...args);
             }});
+            if (activeEffect) activeEffect.componentContext = null;
         });
-        currentComponentContext = prevCtx;
         if (isNode(rendered)) {
             rendered.componentContext = ctx;
             rendered.componentStop = stop;
