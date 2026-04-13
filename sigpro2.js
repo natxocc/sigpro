@@ -325,7 +325,10 @@ const Render = renderFn => {
 
   try {
     processResult(renderFn({ onCleanup: fn => cleanups.add(fn) }))
-  } finally { activeOwner = previousOwner }
+  } finally {
+    activeOwner = previousOwner
+    activeEffect = previousEffect
+  }
 
   mounts.forEach(fn => fn())
   return {
@@ -455,16 +458,19 @@ const Mount = (comp, target) => {
 
 const set = (signal, path, value) => {
   if (value === undefined) {
-    signal(isFunc(path) ? path(signal()) : path);
-  } else {
-    const keys = path.split('.');
-    const last = keys.pop();
-    const current = signal();
-    const obj = keys.reduce((o, k) => ({ ...o, [k]: { ...o[k] } }), { ...current });
-    obj[last] = value;
-    signal(obj);
+    signal(isFunc(path) ? path(signal()) : path)
+    return
   }
-};
+  const keys = path.split('.')
+  const last = keys.pop()
+  const current = signal()
+  const root = { ...current }
+  let acc = root
+  for (const k of keys) acc = acc[k] = { ...acc[k] }
+  acc[last] = value
+  
+  signal(root)
+}
 
 const SigPro = Object.freeze({ $, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, set })
 
