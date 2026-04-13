@@ -342,19 +342,31 @@ const If = (cond, ifYes, ifNot = null, trans = null) => {
   const root = Tag("div", { style: "display:contents" }, [anchor])
   let currentView = null
   let last = null
+  let exitPromise = null
+
   Watch(
     () => !!(isFunc(cond) ? cond() : cond),
     show => {
       if (show === last) return
       last = show
+
       const disposeView = () => {
         if (currentView) {
           currentView.destroy()
           currentView = null
         }
       }
-      if (currentView && !show && trans?.out) trans.out(currentView.container, disposeView)
-      else disposeView()
+
+      if (currentView && !show && trans?.out) {
+        if (exitPromise && exitPromise.cancel) exitPromise.cancel()
+        const anim = trans.out(currentView.container, disposeView)
+        exitPromise = anim
+        if (anim && anim.finished) anim.finished.then(disposeView)
+        else disposeView()
+      } else {
+        disposeView()
+      }
+
       const content = show ? ifYes : ifNot
       if (content) {
         currentView = Render(() => isFunc(content) ? content() : content)
@@ -439,7 +451,20 @@ const Mount = (comp, target) => {
   return inst
 }
 
-const SigPro = Object.freeze({ $, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount })
+const set = (signal, path, value) => {
+    if (value === undefined) {
+        signal(isFunc(path) ? path(signal()) : path);
+    } else {
+        const keys = path.split('.');
+        const last = keys.pop();
+        const current = signal();
+        const obj = keys.reduce((o, k) => ({ ...o, [k]: { ...o[k] } }), { ...current });
+        obj[last] = value;
+        signal(obj);
+    }
+};
+
+const SigPro = Object.freeze({ $, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, set })
 
 if (typeof window !== "undefined") {
   Object.assign(window, SigPro)
@@ -447,5 +472,5 @@ if (typeof window !== "undefined") {
     .split(" ").forEach(t => window[t[0].toUpperCase() + t.slice(1)] = (p, c) => SigPro.Tag(t, p, c))
 }
 
-export { $, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount }
+export { $, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, set }
 export default SigPro
