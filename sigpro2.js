@@ -8,6 +8,7 @@ const ensureNode = n => n?._isRuntime ? n.container : (n instanceof Node ? n : d
 let activeEffect = null
 let activeOwner = null
 let isFlushing = false
+let batchDepth = 0
 const effectQueue = new Set()
 const MOUNTED_NODES = new WeakMap()
 
@@ -94,6 +95,18 @@ const flush = () => {
   isFlushing = false
 }
 
+const batch = fn => {
+  batchDepth++
+  try {
+    return fn()
+  } finally {
+    batchDepth--
+    if (batchDepth === 0 && effectQueue.size > 0 && !isFlushing) {
+      flush()
+    }
+  }
+}
+
 const trackUpdate = (subs, trigger = false) => {
   if (!trigger && activeEffect && !activeEffect._disposed) {
     subs.add(activeEffect)
@@ -110,7 +123,7 @@ const trackUpdate = (subs, trigger = false) => {
         hasQueue = true
       }
     })
-    if (hasQueue && !isFlushing) queueMicrotask(flush)
+    if (hasQueue && !isFlushing && batchDepth === 0) queueMicrotask(flush)
   }
 }
 
@@ -456,7 +469,7 @@ const Mount = (comp, target) => {
   return inst
 }
 
-const SigPro = Object.freeze({ $, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, set })
+const SigPro = Object.freeze({ $, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, batch, set })
 
 if (typeof window !== "undefined") {
   Object.assign(window, SigPro)
@@ -464,5 +477,5 @@ if (typeof window !== "undefined") {
     .split(" ").forEach(t => window[t[0].toUpperCase() + t.slice(1)] = (p, c) => SigPro.Tag(t, p, c))
 }
 
-export { $, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, set }
+export { $, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, batch, set }
 export default SigPro
