@@ -37,24 +37,24 @@ const onUnmount = fn => {
 
 const createEffect = (fn, isComputed = false) => {
   const effect = () => {
-    if (effect._disposed) return
-    if (effect._deps) effect._deps.forEach(depSet => depSet.delete(effect))
-    if (effect._cleanups) {
-      effect._cleanups.forEach(cl => cl())
-      effect._cleanups.clear()
-    }
-    const prevEffect = activeEffect
-    const prevOwner = activeOwner
-    activeEffect = activeOwner = effect
-    try {
-      const res = fn()
-      effect._result = res
-      return res
-    } finally {
-      activeEffect = prevEffect
-      activeOwner = prevOwner
-    }
+  if (effect._disposed) return
+  if (effect._deps) effect._deps.forEach(s => s.delete(effect))
+  if (effect._cleanups) {
+    effect._cleanups.forEach(c => c())
+    effect._cleanups.clear()
   }
+  const prevEffect = activeEffect
+  const prevOwner = activeOwner
+  activeEffect = activeOwner = effect
+  try {
+    return effect._result = fn()
+  } catch (e) {
+    console.error("[SigPro]", e)
+  } finally {
+    activeEffect = prevEffect
+    activeOwner = prevOwner
+  }
+}
   effect._deps = effect._cleanups = effect._children = null
   effect._disposed = false
   effect._isComputed = isComputed
