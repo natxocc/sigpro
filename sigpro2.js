@@ -11,7 +11,6 @@ let isFlushing = false
 const effectQueue = new Set()
 const MOUNTED_NODES = new WeakMap()
 
-// effect cleanup
 const dispose = eff => {
   if (!eff || eff._disposed) return
   eff._disposed = true
@@ -33,7 +32,6 @@ const dispose = eff => {
   }
 }
 
-// helpers
 const onMount = fn => {
   if (activeOwner) (activeOwner._mounts ||= []).push(fn)
 }
@@ -57,7 +55,6 @@ const untrack = fn => {
   try { return fn() } finally { activeEffect = p }
 }
 
-// effect creation
 const createEffect = (fn, isComputed = false) => {
   const effect = () => {
   if (effect._disposed) return
@@ -117,7 +114,6 @@ const trackUpdate = (subs, trigger = false) => {
   }
 }
 
-// signal creation
 const $ = (val, key = null) => {
   const subs = new Set()
   if (isFunc(val)) {
@@ -170,7 +166,6 @@ const $ = (val, key = null) => {
   }
 }
 
-// create Watch
 const Watch = (sources, cb) => {
   if (cb === undefined) {
     const effect = createEffect(sources)
@@ -209,7 +204,6 @@ const validateAttr = (key, val) => {
   return val
 }
 
-// create Tag
 const Tag = (tag, props = {}, children = []) => {
   if (props instanceof Node || isArr(props) || !isObj(props)) {
     children = props
@@ -322,7 +316,6 @@ const Tag = (tag, props = {}, children = []) => {
   return el
 }
 
-// create Render
 const Render = renderFn => {
   const cleanups = new Set()
   const mounts = []
@@ -330,7 +323,7 @@ const Render = renderFn => {
   const previousEffect = activeEffect
   const container = doc.createElement("div")
   container.style.display = "contents"
-  container.setAttribute("role", "presentation")   // ← único cambio real
+  container.setAttribute("role", "presentation")
   activeOwner = { _cleanups: cleanups, _mounts: mounts }
   activeEffect = null
 
@@ -365,49 +358,31 @@ const Render = renderFn => {
   }
 }
 
-// create If
-const If = (cond, ifYes, ifNot = null, trans = null) => {
+const If = (cond, ifYes, ifNot = null) => {
   const anchor = doc.createTextNode("")
   const root = Tag("div", { style: "display:contents" }, [anchor])
   let currentView = null
-  let last = null
-  let exitPromise = null
 
   Watch(
     () => !!(isFunc(cond) ? cond() : cond),
     show => {
-      if (show === last) return
-      last = show
-
-      const disposeView = () => {
-        if (currentView) {
-          currentView.destroy()
-          currentView = null
-        }
-      }
-
-      if (currentView && !show && trans?.out) {
-        if (exitPromise && exitPromise.cancel) exitPromise.cancel()
-        const anim = trans.out(currentView.container, disposeView)
-        exitPromise = anim
-        if (anim && anim.finished) anim.finished.then(disposeView)
-        else disposeView()
-      } else {
-        disposeView()
+      if (currentView) {
+        currentView.destroy()
+        currentView = null
       }
 
       const content = show ? ifYes : ifNot
       if (content) {
         currentView = Render(() => isFunc(content) ? content() : content)
         root.insertBefore(currentView.container, anchor)
-        if (trans?.in) trans.in(currentView.container)
       }
     }
   )
+
+  onUnmount(() => currentView?.destroy())
   return root
 }
 
-// create For
 const For = (src, itemFn, keyFn) => {
   const anchor = doc.createTextNode("")
   const root = Tag("div", { style: "display:contents" }, [anchor])
@@ -438,7 +413,6 @@ const For = (src, itemFn, keyFn) => {
   return root
 }
 
-// create Router
 const Router = routes => {
   const getHash = () => window.location.hash.slice(1) || "/"
   const path = $(getHash())
