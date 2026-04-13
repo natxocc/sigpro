@@ -1,3 +1,4 @@
+// sigpro 1.2.0
 const isFunc = f => typeof f === "function"
 const isObj = o => o && typeof o === "object"
 const isArr = Array.isArray
@@ -29,6 +30,10 @@ const dispose = eff => {
       e._deps.clear()
     }
   }
+}
+
+const onMount = fn => {
+  if (activeOwner) (activeOwner._mounts ||= []).push(fn)
 }
 
 const onUnmount = fn => {
@@ -98,10 +103,6 @@ const untrack = fn => {
   const p = activeEffect
   activeEffect = null
   try { return fn() } finally { activeEffect = p }
-}
-
-const onMount = fn => {
-  if (activeOwner) (activeOwner._mounts ||= []).push(fn)
 }
 
 const $ = (val, key = null) => {
@@ -463,18 +464,11 @@ const Mount = (comp, target) => {
 }
 
 const set = (signal, path, value) => {
-  if (value === undefined) {
-    signal(isFunc(path) ? path(signal()) : path)
-    return
-  }
-  const keys = path.split('.')
-  const last = keys.pop()
-  const current = signal()
-  const root = { ...current }
-  let acc = root
-  for (const k of keys) acc = acc[k] = { ...acc[k] }
-  acc[last] = value
-  
+  if (value === undefined) return signal(isFunc(path) ? path(signal()) : path)
+  const keys = path.split('.'), root = { ...signal() }
+  let acc = root, k
+  for (k of keys.slice(0, -1)) acc = acc[k] = { ...(acc[k] || {}) }
+  acc[keys.at(-1)] = value
   signal(root)
 }
 
