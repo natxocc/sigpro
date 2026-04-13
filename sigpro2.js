@@ -11,6 +11,7 @@ let isFlushing = false
 const effectQueue = new Set()
 const MOUNTED_NODES = new WeakMap()
 
+// effect cleanup
 const dispose = eff => {
   if (!eff || eff._disposed) return
   eff._disposed = true
@@ -32,6 +33,7 @@ const dispose = eff => {
   }
 }
 
+// helpers
 const onMount = fn => {
   if (activeOwner) (activeOwner._mounts ||= []).push(fn)
 }
@@ -40,6 +42,22 @@ const onUnmount = fn => {
   if (activeOwner) (activeOwner._cleanups ||= new Set()).add(fn)
 }
 
+const set = (signal, path, value) => {
+  if (value === undefined) return signal(isFunc(path) ? path(signal()) : path)
+  const keys = path.split('.'), root = { ...signal() }
+  let acc = root, k
+  for (k of keys.slice(0, -1)) acc = acc[k] = { ...(acc[k] || {}) }
+  acc[keys.at(-1)] = value
+  signal(root)
+}
+
+const untrack = fn => {
+  const p = activeEffect
+  activeEffect = null
+  try { return fn() } finally { activeEffect = p }
+}
+
+// effect creation
 const createEffect = (fn, isComputed = false) => {
   const effect = () => {
   if (effect._disposed) return
@@ -99,12 +117,7 @@ const trackUpdate = (subs, trigger = false) => {
   }
 }
 
-const untrack = fn => {
-  const p = activeEffect
-  activeEffect = null
-  try { return fn() } finally { activeEffect = p }
-}
-
+// signal creation
 const $ = (val, key = null) => {
   const subs = new Set()
   if (isFunc(val)) {
@@ -157,6 +170,7 @@ const $ = (val, key = null) => {
   }
 }
 
+// create Watch
 const Watch = (sources, cb) => {
   if (cb === undefined) {
     const effect = createEffect(sources)
@@ -195,6 +209,7 @@ const validateAttr = (key, val) => {
   return val
 }
 
+// create Tag
 const Tag = (tag, props = {}, children = []) => {
   if (props instanceof Node || isArr(props) || !isObj(props)) {
     children = props
@@ -307,6 +322,7 @@ const Tag = (tag, props = {}, children = []) => {
   return el
 }
 
+// create Render
 const Render = renderFn => {
   const cleanups = new Set()
   const mounts = []
@@ -349,6 +365,7 @@ const Render = renderFn => {
   }
 }
 
+// create If
 const If = (cond, ifYes, ifNot = null, trans = null) => {
   const anchor = doc.createTextNode("")
   const root = Tag("div", { style: "display:contents" }, [anchor])
@@ -390,6 +407,7 @@ const If = (cond, ifYes, ifNot = null, trans = null) => {
   return root
 }
 
+// create For
 const For = (src, itemFn, keyFn) => {
   const anchor = doc.createTextNode("")
   const root = Tag("div", { style: "display:contents" }, [anchor])
@@ -420,13 +438,14 @@ const For = (src, itemFn, keyFn) => {
   return root
 }
 
+// create Router
 const Router = routes => {
   const getHash = () => window.location.hash.slice(1) || "/"
   const path = $(getHash())
   const handler = () => path(getHash())
   window.addEventListener("hashchange", handler)
   onUnmount(() => window.removeEventListener("hashchange", handler))
-  const outlet = Tag("div", { class: "router-outlet" })
+  const hook = Tag("div", { class: "router-hook" })
   let currentView = null
   Watch([path], () => {
     const cur = path()
@@ -443,10 +462,10 @@ const Router = routes => {
       })
       Router.params(params)
       currentView = Render(() => isFunc(route.component) ? route.component(params) : route.component)
-      outlet.replaceChildren(currentView.container)
+      hook.replaceChildren(currentView.container)
     }
   })
-  return outlet
+  return hook
 }
 Router.params = $({})
 Router.to = p => window.location.hash = p.replace(/^#?\/?/, "#/")
@@ -461,15 +480,6 @@ const Mount = (comp, target) => {
   t.replaceChildren(inst.container)
   MOUNTED_NODES.set(t, inst)
   return inst
-}
-
-const set = (signal, path, value) => {
-  if (value === undefined) return signal(isFunc(path) ? path(signal()) : path)
-  const keys = path.split('.'), root = { ...signal() }
-  let acc = root, k
-  for (k of keys.slice(0, -1)) acc = acc[k] = { ...(acc[k] || {}) }
-  acc[keys.at(-1)] = value
-  signal(root)
 }
 
 const SigPro = Object.freeze({ $, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, set })
