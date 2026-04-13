@@ -10,6 +10,8 @@ let activeOwner = null
 let isFlushing = false
 let batchDepth = 0
 const effectQueue = new Set()
+const proxyCache = new WeakMap()
+const ITER = Symbol('iter')
 const MOUNTED_NODES = new WeakMap()
 
 const dispose = eff => {
@@ -41,15 +43,6 @@ const onUnmount = fn => {
   if (activeOwner) (activeOwner._cleanups ||= new Set()).add(fn)
 }
 
-const set = (signal, path, value) => {
-  if (value === undefined) return signal(isFunc(path) ? path(signal()) : path)
-  const keys = path.split('.'), root = { ...signal() }
-  let acc = root, k
-  for (k of keys.slice(0, -1)) acc = acc[k] = { ...(acc[k] || {}) }
-  acc[keys.at(-1)] = value
-  signal(root)
-}
-
 const untrack = fn => {
   const p = activeEffect
   activeEffect = null
@@ -58,24 +51,24 @@ const untrack = fn => {
 
 const createEffect = (fn, isComputed = false) => {
   const effect = () => {
-  if (effect._disposed) return
-  if (effect._deps) effect._deps.forEach(s => s.delete(effect))
-  if (effect._cleanups) {
-    effect._cleanups.forEach(c => c())
-    effect._cleanups.clear()
+    if (effect._disposed) return
+    if (effect._deps) effect._deps.forEach(s => s.delete(effect))
+    if (effect._cleanups) {
+      effect._cleanups.forEach(c => c())
+      effect._cleanups.clear()
+    }
+    const prevEffect = activeEffect
+    const prevOwner = activeOwner
+    activeEffect = activeOwner = effect
+    try {
+      return effect._result = fn()
+    } catch (e) {
+      console.error("[SigPro]", e)
+    } finally {
+      activeEffect = prevEffect
+      activeOwner = prevOwner
+    }
   }
-  const prevEffect = activeEffect
-  const prevOwner = activeOwner
-  activeEffect = activeOwner = effect
-  try {
-    return effect._result = fn()
-  } catch (e) {
-    console.error("[SigPro]", e)
-  } finally {
-    activeEffect = prevEffect
-    activeOwner = prevOwner
-  }
-}
   effect._deps = effect._cleanups = effect._children = null
   effect._disposed = false
   effect._isComputed = isComputed
@@ -95,7 +88,7 @@ const flush = () => {
   isFlushing = false
 }
 
-const batch = fn => {
+const Batch = fn => {
   batchDepth++
   try {
     return fn()
@@ -179,6 +172,50 @@ const $ = (val, key = null) => {
   }
 }
 
+const $$ = (target) => {
+  if (!isObj(target)) return target
+
+  if (proxyCache.has(target)) return proxyCache.get(target)
+
+  const subsMap = new Map()
+  const getSubs = (k) => {
+    let s = subsMap.get(k)
+    if (!s) subsMap.set(k, s = new Set())
+    return s
+  }
+
+  const proxy = new Proxy(target, {
+    get(t, k) {
+      trackUpdate(getSubs(k))
+      return $$(t[k])
+    },
+    set(t, k, v) {
+      const isNew = !(k in t)
+      if (!Object.is(t[k], v)) {
+        t[k] = v
+        trackUpdate(getSubs(k), true)
+        if (isNew) trackUpdate(getSubs(ITER), true)
+      }
+      return true
+    },
+    deleteProperty(t, k) {
+      const res = Reflect.deleteProperty(t, k)
+      if (res) {
+        trackUpdate(getSubs(k), true)
+        trackUpdate(getSubs(ITER), true)
+      }
+      return res
+    },
+    ownKeys(t) {
+      trackUpdate(getSubs(ITER))
+      return Reflect.ownKeys(t)
+    }
+  })
+
+  proxyCache.set(target, proxy)
+  return proxy
+}
+
 const Watch = (sources, cb) => {
   if (cb === undefined) {
     const effect = createEffect(sources)
@@ -223,35 +260,35 @@ const Tag = (tag, props = {}, children = []) => {
     props = {}
   }
   if (isFunc(tag)) {
-  const ctx = { _mounts: [], _cleanups: new Set() }
-  const effect = createEffect(() => {
-    const result = tag(props, {
-      children,
-      emit: (ev, ...args) => props[`on${ev[0].toUpperCase()}${ev.slice(1)}`]?.(...args)
+    const ctx = { _mounts: [], _cleanups: new Set() }
+    const effect = createEffect(() => {
+      const result = tag(props, {
+        children,
+        emit: (ev, ...args) => props[`on${ev[0].toUpperCase()}${ev.slice(1)}`]?.(...args)
+      })
+      effect._result = result
+      return result
     })
-    effect._result = result
-    return result
-  })
-  effect()
-  
-  const result = effect._result
-  if (result == null) return null
+    effect()
 
-  const node = (result instanceof Node || (isArr(result) && result.every(n => n instanceof Node)))
-    ? result
-    : doc.createTextNode(String(result))
-  
-  const attach = n => {
-    if (isObj(n) && !n._isRuntime) {
-      n._mounts = effect._mounts || []
-      n._cleanups = effect._cleanups || new Set()
-      n._ownerEffect = effect
+    const result = effect._result
+    if (result == null) return null
+
+    const node = (result instanceof Node || (isArr(result) && result.every(n => n instanceof Node)))
+      ? result
+      : doc.createTextNode(String(result))
+
+    const attach = n => {
+      if (isObj(n) && !n._isRuntime) {
+        n._mounts = effect._mounts || []
+        n._cleanups = effect._cleanups || new Set()
+        n._ownerEffect = effect
+      }
     }
+
+    isArr(node) ? node.forEach(attach) : attach(node)
+    return node
   }
-  
-  isArr(node) ? node.forEach(attach) : attach(node)
-  return node
-}
   const isSVG = /^(svg|path|circle|rect|line|polyline|polygon|g|defs|text|tspan|use)$/.test(tag)
   const el = isSVG ? doc.createElementNS("http://www.w3.org/2000/svg", tag) : doc.createElement(tag)
   el._cleanups = new Set()
@@ -469,7 +506,7 @@ const Mount = (comp, target) => {
   return inst
 }
 
-const SigPro = Object.freeze({ $, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, batch, set })
+const SigPro = Object.freeze({ $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, Batch })
 
 if (typeof window !== "undefined") {
   Object.assign(window, SigPro)
@@ -477,5 +514,5 @@ if (typeof window !== "undefined") {
     .split(" ").forEach(t => window[t[0].toUpperCase() + t.slice(1)] = (p, c) => SigPro.Tag(t, p, c))
 }
 
-export { $, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, batch, set }
+export { $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, Batch }
 export default SigPro
