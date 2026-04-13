@@ -200,29 +200,35 @@ const Tag = (tag, props = {}, children = []) => {
     props = {}
   }
   if (isFunc(tag)) {
-    const ctx = { _mounts: [], _cleanups: new Set() }
-    const effect = createEffect(() => {
-      const result = tag(props, {
-        children,
-        emit: (ev, ...args) => props[`on${ev[0].toUpperCase()}${ev.slice(1)}`]?.(...args)
-      })
-      effect._result = result
-      return result
+  const ctx = { _mounts: [], _cleanups: new Set() }
+  const effect = createEffect(() => {
+    const result = tag(props, {
+      children,
+      emit: (ev, ...args) => props[`on${ev[0].toUpperCase()}${ev.slice(1)}`]?.(...args)
     })
-    effect()
-    ctx._mounts = effect._mounts || []
-    ctx._cleanups = effect._cleanups || new Set()
-    const result = effect._result
-    const attachLifecycle = node => node && typeof node === 'object' && !node._isRuntime && (
-      node._mounts = ctx._mounts,
-      node._cleanups = ctx._cleanups,
-      node._ownerEffect = effect
-    )
-    isArr(result) ? result.forEach(attachLifecycle) : attachLifecycle(result)
-    if (result == null) return null
-    if (result instanceof Node || (isArr(result) && result.every(n => n instanceof Node))) return result
-    return doc.createTextNode(String(result))
+    effect._result = result
+    return result
+  })
+  effect()
+  
+  const result = effect._result
+  if (result == null) return null
+
+  const node = (result instanceof Node || (isArr(result) && result.every(n => n instanceof Node)))
+    ? result
+    : doc.createTextNode(String(result))
+  
+  const attach = n => {
+    if (isObj(n) && !n._isRuntime) {
+      n._mounts = effect._mounts || []
+      n._cleanups = effect._cleanups || new Set()
+      n._ownerEffect = effect
+    }
   }
+  
+  isArr(node) ? node.forEach(attach) : attach(node)
+  return node
+}
   const isSVG = /^(svg|path|circle|rect|line|polyline|polygon|g|defs|text|tspan|use)$/.test(tag)
   const el = isSVG ? doc.createElementNS("http://www.w3.org/2000/svg", tag) : doc.createElement(tag)
   el._cleanups = new Set()
