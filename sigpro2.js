@@ -47,8 +47,8 @@ const createEffect = (fn, isComputed = false) => {
     const prevOwner = activeOwner
     activeEffect = activeOwner = effect
     try {
-      const res = isComputed ? fn() : (fn(), undefined)
-      if (!isComputed) effect._result = res
+      const res = fn()
+      effect._result = res
       return res
     } finally {
       activeEffect = prevEffect
@@ -77,7 +77,7 @@ const flush = () => {
 const trackUpdate = (subs, trigger = false) => {
   if (!trigger && activeEffect && !activeEffect._disposed) {
     subs.add(activeEffect)
-    ;(activeEffect._deps ||= new Set()).add(subs)
+      ; (activeEffect._deps ||= new Set()).add(subs)
   } else if (trigger) {
     let hasQueue = false
     subs.forEach(e => {
@@ -141,7 +141,7 @@ const $ = (val, key = null) => {
     if (activeOwner) onUnmount(computed.stop)
     return computed
   }
-  if (key) try { val = JSON.parse(localStorage.getItem(key)) ?? val } catch (e) {}
+  if (key) try { val = JSON.parse(localStorage.getItem(key)) ?? val } catch (e) { }
   return (...args) => {
     if (args.length) {
       const next = isFunc(args[0]) ? args[0](val) : args[0]
@@ -304,10 +304,12 @@ const Render = renderFn => {
   const cleanups = new Set()
   const mounts = []
   const previousOwner = activeOwner
+  const previousEffect = activeEffect
   const container = doc.createElement("div")
   container.style.display = "contents"
   container.setAttribute("role", "presentation")   // ← único cambio real
   activeOwner = { _cleanups: cleanups, _mounts: mounts }
+  activeEffect = null
 
   const processResult = result => {
     if (!result) return
@@ -452,16 +454,16 @@ const Mount = (comp, target) => {
 }
 
 const set = (signal, path, value) => {
-    if (value === undefined) {
-        signal(isFunc(path) ? path(signal()) : path);
-    } else {
-        const keys = path.split('.');
-        const last = keys.pop();
-        const current = signal();
-        const obj = keys.reduce((o, k) => ({ ...o, [k]: { ...o[k] } }), { ...current });
-        obj[last] = value;
-        signal(obj);
-    }
+  if (value === undefined) {
+    signal(isFunc(path) ? path(signal()) : path);
+  } else {
+    const keys = path.split('.');
+    const last = keys.pop();
+    const current = signal();
+    const obj = keys.reduce((o, k) => ({ ...o, [k]: { ...o[k] } }), { ...current });
+    obj[last] = value;
+    signal(obj);
+  }
 };
 
 const SigPro = Object.freeze({ $, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, set })
