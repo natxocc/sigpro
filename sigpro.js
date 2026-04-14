@@ -1,4 +1,4 @@
-// sigpro 1.2.2
+// sigpro 1.2.3
 const isFunc = f => typeof f === "function"
 const isObj = o => o && typeof o === "object"
 const isArr = Array.isArray
