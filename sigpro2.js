@@ -1,4 +1,4 @@
-// sigpro 1.2.1
+// sigpro 1.2.2
 const isFunc = f => typeof f === "function"
 const isObj = o => o && typeof o === "object"
 const isArr = Array.isArray
@@ -194,7 +194,7 @@ const $$ = (target) => {
       const isNew = !Reflect.has(t, k)
       const oldV = Reflect.get(t, k, receiver)
       const result = Reflect.set(t, k, v, receiver)
-      
+
       if (result && !Object.is(oldV, v)) {
         trackUpdate(getSubs(k), true)
         if (isNew) trackUpdate(getSubs(ITER), true)
@@ -292,7 +292,8 @@ const Tag = (tag, props = {}, children = []) => {
     isArr(node) ? node.forEach(attach) : attach(node)
     return node
   }
-  const isSVG = /^(svg|path|circle|rect|line|polyline|polygon|g|defs|text|tspan|use)$/.test(tag)
+  const SVG_TAGS = /^(svg|path|circle|rect|line|polyline|polygon|g|defs|text|tspan|use|image|ellipse|foreignObject|linearGradient|radialGradient|stop|pattern|mask|clipPath|filter|feColorMatrix|feBlend|feGaussianBlur|animate|animateTransform|set|metadata|desc|title|symbol|marker|view|switch|a|altGlyph|altGlyphDef|altGlyphItem|glyph|glyphRef|hkern|vkern|font|font-face|font-face-format|font-face-name|font-face-src|font-face-uri|missing-glyph|mpath|textPath|tref|tbreak)$/i;
+  const isSVG = SVG_TAGS.test(tag);
   const el = isSVG ? doc.createElementNS("http://www.w3.org/2000/svg", tag) : doc.createElement(tag)
   el._cleanups = new Set()
 
@@ -301,6 +302,11 @@ const Tag = (tag, props = {}, children = []) => {
     let v = props[k]
     if (k === "ref") {
       isFunc(v) ? v(el) : (v.current = el)
+      continue
+    }
+    if (isSVG && k.startsWith("xlink:")) {
+      const ns = "http://www.w3.org/1999/xlink"
+      val == null ? el.removeAttributeNS(ns, k.slice(6)) : el.setAttributeNS(ns, k.slice(6), val)
       continue
     }
     if (k.startsWith("on")) {
