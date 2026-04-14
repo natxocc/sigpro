@@ -7,9 +7,10 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    # Usamos la imagen oficial de Bun para que el entorno sea exacto al que usas al programar
     container:
-      image: oven/bun:latest 
+      image: oven/bun:latest
+      # ESTO SOLUCIONA EL ERROR DE RED:
+      options: --network host
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
@@ -17,13 +18,10 @@ jobs:
       - name: Instalar dependencias
         run: bun install
 
-      # Opcional: si tienes un script de build (ej: para generar archivos .js desde .ts)
-      # - name: Build
-      #   run: bun run build
-
       - name: Publicar en NPM
         run: |
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+          # Usamos el publish de bun o npm, ambos funcionan si las dependencias están listas
           npm publish --access public
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
