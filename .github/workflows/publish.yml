@@ -1,20 +1,36 @@
+name: Publish to NPM
+
+on:
+  release:
+    types: [published]
+
 jobs:
   publish:
     runs-on: ubuntu-latest
-    # Usamos una imagen con Node/Git ya instalados para el checkout
+    # IMPORTANTE: Usamos Node porque la imagen 'bullseye' SÍ tiene Git instalado
     container:
-      image: node:20-bullseye 
+      image: node:20-bullseye
       options: --add-host git.natxocc.com:host-gateway
+    
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
+        with:
+          # Al tener Git en la imagen, esto ya no usará la "REST API" (ZIP)
+          # sino un "git clone" normal, que es mucho más fiable.
+          fetch-depth: 1
 
       - name: Instalar Bun
-        run: curl -fsSL https://bun.sh/install | bash && ln -s $HOME/.bun/bin/bun /usr/local/bin/bun
-
-      - name: Instalar y Publicar
         run: |
-          bun install
+          apt-get update && apt-get install -y curl unzip
+          curl -fsSL https://bun.sh/install | bash
+          # Añadimos Bun al PATH manualmente para esta sesión
+          echo "$HOME/.bun/bin" >> $GITHUB_PATH
+      
+      - name: Publicar en NPM
+        run: |
+          # Ahora que tenemos Bun y el código, publicamos
+          /root/.bun/bin/bun install
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
           npm publish --access public
         env:
