@@ -502,6 +502,43 @@ Router.to = p => window.location.hash = p.replace(/^#?\/?/, "#/")
 Router.back = () => window.history.back()
 Router.path = () => window.location.hash.replace(/^#/, "") || "/"
 
+const Anim = (show, render, { enter, leave } = {}) => {
+  const wrap = Tag('div', { style: 'display:contents' })
+  let view = null
+
+  const wait = (el, callback) => {
+    let done = false
+    const finish = () => !done && (done = true, callback())
+    if (!el) return finish()
+    ;['transitionend', 'animationend'].forEach(ev => el.addEventListener(ev, finish, { once: true }))
+    setTimeout(finish, 500)
+  }
+
+  Watch(show, on => {
+    if (on && !view) {
+      view = Render(render)
+      const el = view.container.firstChild
+      wrap.appendChild(view.container)
+      
+      if (enter && el) {
+        el.classList.add(enter); el.clientTop
+        el.classList.add(enter + '-active')
+        wait(el, () => el.classList.remove(enter, enter + '-active'))
+      }
+    } else if (!on && view) {
+      const el = view.container.firstChild
+      const destroy = () => { view?.destroy(); view = null }
+      
+      if (leave && el) {
+        el.classList.add(leave)
+        wait(el, destroy)
+      } else destroy()
+    }
+  })
+
+  return onUnmount(() => view?.destroy()), wrap
+}
+
 const Mount = (comp, target) => {
   const t = typeof target === "string" ? doc.querySelector(target) : target
   if (!t) return
@@ -512,7 +549,7 @@ const Mount = (comp, target) => {
   return inst
 }
 
-const SigPro = Object.freeze({ $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, Batch })
+const SigPro = Object.freeze({ $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, Anim, Batch })
 
 if (typeof window !== "undefined") {
   Object.assign(window, SigPro)
@@ -520,5 +557,5 @@ if (typeof window !== "undefined") {
     .split(" ").forEach(t => window[t[0].toUpperCase() + t.slice(1)] = (p, c) => SigPro.Tag(t, p, c))
 }
 
-export { $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, Batch }
+export { $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, Anim, Batch }
 export default SigPro
