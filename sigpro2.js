@@ -1,4 +1,4 @@
-// sigpro 1.2.0
+// sigpro 1.2.1
 const isFunc = f => typeof f === "function"
 const isObj = o => o && typeof o === "object"
 const isArr = Array.isArray
@@ -106,7 +106,6 @@ const trackUpdate = (subs, trigger = false) => {
       ; (activeEffect._deps ||= new Set()).add(subs)
   } else if (trigger && subs.size > 0) {
     let hasQueue = false
-    // Optimización: for...of evita el overhead de crear callbacks
     for (const e of subs) {
       if (e === activeEffect || e._disposed) continue
       if (e._isComputed) {
@@ -188,9 +187,7 @@ const $$ = (target) => {
 
   proxy = new Proxy(target, {
     get(t, k, receiver) {
-      // Ignoramos symbols internos de JS para evitar fugas/ciclos
       if (typeof k !== 'symbol') trackUpdate(getSubs(k))
-      // Reflect y receiver preservan el 'this' si el target tiene getters
       return $$(Reflect.get(t, k, receiver))
     },
     set(t, k, v, receiver) {
@@ -506,20 +503,18 @@ const Anim = (show, render, { enter, leave } = {}) => {
   const wrap = Tag('div', { style: 'display:contents' })
   let view = null
 
-  const wait = (el, callback) => {
+  const wait = (el, cb) => {
     let done = false
-    const finish = () => !done && (done = true, callback())
+    const finish = () => !done && (done = true, cb())
     if (!el) return finish()
-    ;['transitionend', 'animationend'].forEach(ev => el.addEventListener(ev, finish, { once: true }))
+    'transitionend animationend'.split(' ').map(e => el.addEventListener(e, finish, { once: true }))
     setTimeout(finish, 500)
   }
 
   Watch(show, on => {
     if (on && !view) {
-      view = Render(render)
-      const el = view.container.firstChild
+      const el = (view = Render(render)).container.firstChild
       wrap.appendChild(view.container)
-      
       if (enter && el) {
         el.classList.add(enter); el.clientTop
         el.classList.add(enter + '-active')
@@ -527,12 +522,8 @@ const Anim = (show, render, { enter, leave } = {}) => {
       }
     } else if (!on && view) {
       const el = view.container.firstChild
-      const destroy = () => { view?.destroy(); view = null }
-      
-      if (leave && el) {
-        el.classList.add(leave)
-        wait(el, destroy)
-      } else destroy()
+      const del = () => (view?.destroy(), view = null)
+      leave && el ? (el.classList.add(leave), wait(el, del)) : del()
     }
   })
 
