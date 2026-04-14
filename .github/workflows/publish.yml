@@ -2,24 +2,28 @@ name: Publish to NPM
 
 on:
   release:
-    types: [published] # Se dispara cuando creas una "Release" en GitHub
+    types: [published]
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
+    # Usamos la imagen oficial de Bun para que el entorno sea exacto al que usas al programar
+    container:
+      image: oven/bun:latest 
     steps:
-      - uses: actions/checkout@v4
-      
-      # Usamos Bun ya que tu proyecto lo usa
-      - uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
+      - name: Checkout código
+        uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Instalar dependencias
         run: bun install
 
-      - name: Authenticate with NPM
-        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
+      # Opcional: si tienes un script de build (ej: para generar archivos .js desde .ts)
+      # - name: Build
+      #   run: bun run build
 
-      - name: Publish to NPM
-        run: npm publish --access public
+      - name: Publicar en NPM
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+          npm publish --access public
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
