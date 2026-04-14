@@ -9,11 +9,18 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: oven/bun:latest
-      # ESTO SOLUCIONA EL ERROR DE RED:
-      options: --network host
+      # Forzamos a que este contenedor sepa quién es tu dominio
+      options: --add-host git.natxocc.com:host-gateway
     steps:
+      # Instalamos git manualmente por si la imagen de bun es muy ligera
+      - name: Install Git
+        run: apt-get update && apt-get install -y git
+
       - name: Checkout código
         uses: actions/checkout@v4
+        with:
+          # Esto obliga a usar Git en lugar de descargar un ZIP por API
+          force-bin: true 
 
       - name: Instalar dependencias
         run: bun install
@@ -21,7 +28,6 @@ jobs:
       - name: Publicar en NPM
         run: |
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
-          # Usamos el publish de bun o npm, ambos funcionan si las dependencias están listas
           npm publish --access public
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
