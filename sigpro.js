@@ -1,4 +1,4 @@
-// sigpro 1.2.0
+// sigpro 1.2.2
 const isFunc = f => typeof f === "function"
 const isObj = o => o && typeof o === "object"
 const isArr = Array.isArray
@@ -104,10 +104,10 @@ const trackUpdate = (subs, trigger = false) => {
   if (!trigger && activeEffect && !activeEffect._disposed) {
     subs.add(activeEffect)
       ; (activeEffect._deps ||= new Set()).add(subs)
-  } else if (trigger) {
+  } else if (trigger && subs.size > 0) {
     let hasQueue = false
-    subs.forEach(e => {
-      if (e === activeEffect || e._disposed) return
+    for (const e of subs) {
+      if (e === activeEffect || e._disposed) continue
       if (e._isComputed) {
         e._dirty = true
         if (e._subs) trackUpdate(e._subs, true)
@@ -115,7 +115,7 @@ const trackUpdate = (subs, trigger = false) => {
         effectQueue.add(e)
         hasQueue = true
       }
-    })
+    }
     if (hasQueue && !isFlushing && batchDepth === 0) queueMicrotask(flush)
   }
 }
@@ -175,36 +175,39 @@ const $ = (val, key = null) => {
 const $$ = (target) => {
   if (!isObj(target)) return target
 
-  if (proxyCache.has(target)) return proxyCache.get(target)
+  let proxy = proxyCache.get(target)
+  if (proxy) return proxy
 
   const subsMap = new Map()
   const getSubs = (k) => {
     let s = subsMap.get(k)
-    if (!s) subsMap.set(k, s = new Set())
+    if (!s) subsMap.set(k, (s = new Set()))
     return s
   }
 
-  const proxy = new Proxy(target, {
-    get(t, k) {
-      trackUpdate(getSubs(k))
-      return $$(t[k])
+  proxy = new Proxy(target, {
+    get(t, k, receiver) {
+      if (typeof k !== 'symbol') trackUpdate(getSubs(k))
+      return $$(Reflect.get(t, k, receiver))
     },
-    set(t, k, v) {
-      const isNew = !(k in t)
-      if (!Object.is(t[k], v)) {
-        t[k] = v
+    set(t, k, v, receiver) {
+      const isNew = !Reflect.has(t, k)
+      const oldV = Reflect.get(t, k, receiver)
+      const result = Reflect.set(t, k, v, receiver)
+
+      if (result && !Object.is(oldV, v)) {
         trackUpdate(getSubs(k), true)
         if (isNew) trackUpdate(getSubs(ITER), true)
       }
-      return true
+      return result
     },
     deleteProperty(t, k) {
-      const res = Reflect.deleteProperty(t, k)
-      if (res) {
+      const result = Reflect.deleteProperty(t, k)
+      if (result) {
         trackUpdate(getSubs(k), true)
         trackUpdate(getSubs(ITER), true)
       }
-      return res
+      return result
     },
     ownKeys(t) {
       trackUpdate(getSubs(ITER))
@@ -289,7 +292,7 @@ const Tag = (tag, props = {}, children = []) => {
     isArr(node) ? node.forEach(attach) : attach(node)
     return node
   }
-  const isSVG = /^(svg|path|circle|rect|line|polyline|polygon|g|defs|text|tspan|use)$/.test(tag)
+  const isSVG = /^(svg|path|circle|rect|line|poly(line|gon)|g|defs|text(path)?|tspan|use|symbol|image|marker|ellipse)$/i.test(tag);
   const el = isSVG ? doc.createElementNS("http://www.w3.org/2000/svg", tag) : doc.createElement(tag)
   el._cleanups = new Set()
 
@@ -298,6 +301,11 @@ const Tag = (tag, props = {}, children = []) => {
     let v = props[k]
     if (k === "ref") {
       isFunc(v) ? v(el) : (v.current = el)
+      continue
+    }
+    if (isSVG && k.startsWith("xlink:")) {
+      const ns = "http://www.w3.org/1999/xlink"
+      val == null ? el.removeAttributeNS(ns, k.slice(6)) : el.setAttributeNS(ns, k.slice(6), val)
       continue
     }
     if (k.startsWith("on")) {
@@ -496,6 +504,37 @@ Router.to = p => window.location.hash = p.replace(/^#?\/?/, "#/")
 Router.back = () => window.history.back()
 Router.path = () => window.location.hash.replace(/^#/, "") || "/"
 
+const Anim = (show, render, { enter, leave } = {}) => {
+  const wrap = Tag('div', { style: 'display:contents' })
+  let view = null
+
+  const wait = (el, cb) => {
+    let done = false
+    const finish = () => !done && (done = true, cb())
+    if (!el) return finish()
+    'transitionend animationend'.split(' ').map(e => el.addEventListener(e, finish, { once: true }))
+    setTimeout(finish, 500)
+  }
+
+  Watch(show, on => {
+    if (on && !view) {
+      const el = (view = Render(render)).container.firstChild
+      wrap.appendChild(view.container)
+      if (enter && el) {
+        el.classList.add(enter); el.clientTop
+        el.classList.add(enter + '-active')
+        wait(el, () => el.classList.remove(enter, enter + '-active'))
+      }
+    } else if (!on && view) {
+      const el = view.container.firstChild
+      const del = () => (view?.destroy(), view = null)
+      leave && el ? (el.classList.add(leave), wait(el, del)) : del()
+    }
+  })
+
+  return onUnmount(() => view?.destroy()), wrap
+}
+
 const Mount = (comp, target) => {
   const t = typeof target === "string" ? doc.querySelector(target) : target
   if (!t) return
@@ -506,7 +545,7 @@ const Mount = (comp, target) => {
   return inst
 }
 
-const SigPro = Object.freeze({ $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, Batch })
+const SigPro = Object.freeze({ $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, Anim, Batch })
 
 if (typeof window !== "undefined") {
   Object.assign(window, SigPro)
@@ -514,5 +553,5 @@ if (typeof window !== "undefined") {
     .split(" ").forEach(t => window[t[0].toUpperCase() + t.slice(1)] = (p, c) => SigPro.Tag(t, p, c))
 }
 
-export { $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, Batch }
+export { $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, Anim, Batch }
 export default SigPro
