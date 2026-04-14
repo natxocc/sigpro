@@ -7,30 +7,16 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    # IMPORTANTE: Usamos Node porque la imagen 'bullseye' SÍ tiene Git instalado
     container:
-      image: node:20-bullseye
-      options: --add-host git.natxocc.com:host-gateway
-    
+      image: node:20 # Usamos esta porque npm ya viene dentro
+      options: --network host # ESTO es lo que hace que vea tu red local
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
-        with:
-          # Al tener Git en la imagen, esto ya no usará la "REST API" (ZIP)
-          # sino un "git clone" normal, que es mucho más fiable.
-          fetch-depth: 1
 
-      - name: Instalar Bun
-        run: |
-          apt-get update && apt-get install -y curl unzip
-          curl -fsSL https://bun.sh/install | bash
-          # Añadimos Bun al PATH manualmente para esta sesión
-          echo "$HOME/.bun/bin" >> $GITHUB_PATH
-      
       - name: Publicar en NPM
         run: |
-          # Ahora que tenemos Bun y el código, publicamos
-          /root/.bun/bin/bun install
+          npm install # Instala lo que necesite tu paquete
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
           npm publish --access public
         env:
