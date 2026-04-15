@@ -5,6 +5,7 @@ on:
   push:
     tags:
       - 'v*'
+
 permissions:
   packages: write
   contents: read
@@ -12,7 +13,6 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    # AÑADIMOS ESTO (Igual que en tu Deploy Docs)
     container:
       image: node:20-bullseye
       options: >-
@@ -24,15 +24,12 @@ jobs:
       - name: Checkout código
         uses: actions/checkout@v4
         env:
-          # Tu truco de GIT_CONFIG_PARAMETERS es genial, mantenlo
           GIT_CONFIG_PARAMETERS: "'url.https://git.natxocc.com/.insteadOf=http://gitea:3000/'"
 
       - name: Instalar Bun
         run: |
           curl -fsSL https://bun.sh/install | bash
           echo "$HOME/.bun/bin" >> $GITHUB_PATH
-        # Nota: Usamos comando directo porque algunas Actions de terceros 
-        # a veces fallan dentro de contenedores personalizados.
 
       - name: Instalar dependencias
         run: |
@@ -46,18 +43,21 @@ jobs:
 
       - name: Configurar Registro Gitea y Publicar
         run: |
-          # 1. Definimos la URL base del registro de NPM en tu Gitea
-          # Para paquetes sin scope, usamos la ruta base /npm/
+          # 1. Definimos la URL exacta del registro (sin protocolo para el token)
           REGISTRY_URL="git.natxocc.com/api/packages/natxocc/npm/"
-
-          # 2. Configuramos el .npmrc de forma manual y limpia
-          # Importante: La línea del token DEBE empezar por // y NO llevar https:
-          echo "//${REGISTRY_URL}:_authToken=${{ secrets.GITHUB_TOKEN }}" > ~/.npmrc
           
-          # 3. Forzamos a NPM a usar este registro para TODO en esta ejecución
-          # y deshabilitamos el chequeo estricto de SSL si fuera necesario
+          # 2. Limpiamos cualquier .npmrc previo para evitar conflictos
+          rm -f .npmrc ~/.npmrc
+          
+          # 3. Creamos la configuración de autenticación manual
+          # Importante: Usamos GITEA_TOKEN (tu PAT) y forzamos always-auth
+          echo "//${REGISTRY_URL}:_authToken=${{ secrets.GITEA_TOKEN }}" > ~/.npmrc
+          echo "//${REGISTRY_URL}:always-auth=true" >> ~/.npmrc
+          
+          # 4. Configuramos el registro por defecto para esta sesión de npm
           npm config set registry "https://${REGISTRY_URL}"
           
-          # 4. Publicar
-          # Añadimos --no-git-checks para evitar que npm intente validar el estado del repo
-          npm publish --userconfig ~/.npmrc
+          # 5. Publicamos
+          # Usamos --userconfig para asegurar que use el archivo que acabamos de crear
+          # Usamos --ignore-scripts para evitar que el 'prepublishOnly' vuelva a lanzar el build de Bun
+          npm publish --userconfig ~/.npmrc --ignore-scripts
