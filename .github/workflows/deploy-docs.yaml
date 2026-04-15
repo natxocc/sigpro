@@ -8,17 +8,25 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # QUITAMOS la sección 'container' por completo
+    # NO usamos container: para tener acceso directo a las carpetas del NAS
+    
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
         env:
-          GIT_CONFIG_PARAMETERS: "'url.https://git.natxocc.com/.insteadOf=http://gitea:3000/'"
+          # Forzamos a Git a usar la URL interna del contenedor 'gitea'
+          # Esto saltará el problema del DNS y el estancamiento en el fetch
+          GIT_CONFIG_PARAMETERS: "'url.http://gitea:3000/.insteadOf=https://git.natxocc.com/'"
 
       - name: Copiar archivos directamente
         run: |
-          # Como corre en el host del runner, ya tiene acceso a la ruta
+          # Verificamos qué archivos hemos bajado
+          ls -R docs/
+          
+          # Copiamos a la ruta que ya sabemos que el Runner ve perfectamente
           cp -r docs/. /volume1/webdocs/sigpro/
+          
+          echo "✅ Despliegue completado. Archivos en el NAS:"
           ls -la /volume1/webdocs/sigpro
