@@ -28,10 +28,10 @@
   "homepage": "https://natxocc.github.io/sigpro/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/natxocc/sigpro.git"
+    "url": "https://git.natxocc.com/natxocc/sigpro"
   },
   "bugs": {
-    "url": "https://github.com/natxocc/sigpro/issues"
+    "url": "https://git.natxocc.com/natxocc/sigpro/issues"
   },
   "scripts": {
     "clean": "rm -rf dist",
