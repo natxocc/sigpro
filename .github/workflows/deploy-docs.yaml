@@ -17,7 +17,7 @@ jobs:
         --dns 192.168.1.1
         --add-host git.natxocc.com:host-gateway
         --add-host gitea:host-gateway
-        -v /volume1/web/sigpro:/target_folder
+        -v /volume1/webdocs/sigpro:/target_folder
 
     steps:
       - name: Checkout código
