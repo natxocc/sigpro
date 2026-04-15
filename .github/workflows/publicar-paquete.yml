@@ -1,36 +1,48 @@
 name: Publicar Paquete SigPro (NPM)
 
 on:
-  workflow_dispatch: # Botón manual
+  workflow_dispatch:
   push:
     tags:
-      - 'v*' # Se ejecuta al subir un tag como v1.2.12
+      - 'v*'
 
 jobs:
   publish:
-    runs-on: ubuntu-latest # Usará tu runner configurado
+    runs-on: ubuntu-latest
+    # AÑADIMOS ESTO (Igual que en tu Deploy Docs)
+    container:
+      image: node:20-bullseye
+      options: >-
+        --dns 192.168.1.1
+        --add-host git.natxocc.com:host-gateway
+        --add-host gitea:host-gateway
+
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
         env:
+          # Tu truco de GIT_CONFIG_PARAMETERS es genial, mantenlo
           GIT_CONFIG_PARAMETERS: "'url.https://git.natxocc.com/.insteadOf=http://gitea:3000/'"
 
       - name: Instalar Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
+        run: |
+          curl -fsSL https://bun.sh/install | bash
+          echo "$HOME/.bun/bin" >> $GITHUB_PATH
+        # Nota: Usamos comando directo porque algunas Actions de terceros 
+        # a veces fallan dentro de contenedores personalizados.
 
       - name: Instalar dependencias
-        run: bun install
+        run: |
+          export PATH="$HOME/.bun/bin:$PATH"
+          bun install
 
       - name: Ejecutar Build
-        run: bun run build
-
-      - name: Configurar Registro Gitea
         run: |
-          # Configura el registro de Gitea para el scope de tu usuario/paquete
+          export PATH="$HOME/.bun/bin:$PATH"
+          bun run build
+
+      - name: Configurar Registro Gitea y Publicar
+        run: |
           echo "@natxocc:registry=https://git.natxocc.com/api/packages/natxocc/npm/" >> .npmrc
           echo "//git.natxocc.com/api/packages/natxocc/npm/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> .npmrc
-
-      - name: Publicar en Gitea
-        run: npm publish
+          npm publish
