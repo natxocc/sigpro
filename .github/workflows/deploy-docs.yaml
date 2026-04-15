@@ -25,12 +25,11 @@ jobs:
         with:
           fetch-depth: 1
         env:
-          # Configuración de red que ya sabemos que funciona
           GIT_CONFIG_PARAMETERS: "'url.https://git.natxocc.com/.insteadOf=http://gitea:3000/'"
 
       - name: Copiar archivos a Web Station
         run: |
-          # Usamos la ruta real del NAS que ahora el contenedor también ve
+          # Ahora la ruta existe porque el config.yaml autorizó el montaje
           rm -rf /volume1/webdocs/sigpro/* 2>/dev/null || true
           cp -r docs/. /volume1/webdocs/sigpro/
           ls -la /volume1/webdocs/sigpro
