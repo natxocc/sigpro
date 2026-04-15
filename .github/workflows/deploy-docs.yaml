@@ -11,17 +11,32 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # VOLVEMOS al contenedor porque es el que sabe resolver la red
+    container:
+      image: node:20-bullseye
+      options: >-
+        --dns 192.168.1.1
+        --add-host git.natxocc.com:host-gateway
+        --add-host gitea:host-gateway
+        -v /volume1/webdocs/sigpro:/target_folder
+
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
         env:
-          # Configuración de red que ya sabemos que funciona
-          GIT_CONFIG_PARAMETERS: "'url.http://192.168.1.100:3333/.insteadOf=https://git.natxocc.com/'"
+          # Mantenemos tu configuración original que SÍ llegaba a conectar
+          GIT_CONFIG_PARAMETERS: "'url.https://git.natxocc.com/.insteadOf=http://gitea:3000/'"
 
-      - name: Copiar archivos a Web Station
+      - name: Copiar archivos
         run: |
-          cp -r docs/. /volume1/webdocs/sigpro/
-          ls -la /volume1/webdocs/sigpro/
-          chmod -R 755 /volume1/webdocs/sigpro/
+          # Usamos el mapeo que definimos en 'options' (-v ...:/target_folder)
+          # Esto evita que Node tenga que adivinar rutas del NAS
+          cp -r docs/. /target_folder/
+          
+          echo "Verificando archivos en el destino:"
+          ls -la /target_folder
+          
+          # Ajustamos permisos
+          chmod -R 755 /target_folder
