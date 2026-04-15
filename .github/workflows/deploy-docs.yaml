@@ -9,7 +9,13 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # IMPORTANTE: Hemos eliminado la línea 'container:', ahora corre en el host del runner
+    container:
+      image: node:20-bullseye
+      options: >-
+        --dns 192.168.1.1
+        --add-host git.natxocc.com:host-gateway
+        --add-host gitea:host-gateway
+        -v /volume1/web/sigpro:/target_folder
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
@@ -20,16 +26,12 @@ jobs:
 
       - name: Sincronizar archivos
         run: |
-          # 1. Verificamos si la carpeta existe en el NAS
-          if [ -d "/volume1/web/sigpro" ]; then
-            echo "Carpeta destino encontrada."
-          else
-            echo "ERROR: No veo /volume1/web/sigpro. Revisa los montajes de Docker del Runner."
-            exit 1
-          fi
-
-          # 2. Sincronizamos (el runner ya suele tener rsync o cp)
-          rsync -av --delete docs/ /volume1/web/sigpro/
+          # 1. Instalamos rsync rápido
+          apt-get update && apt-get install -y rsync
           
-          # 3. Ajustamos permisos para Web Station
-          chmod -R 755 /volume1/web/sigpro/
+          # 2. Sincronizamos a la carpeta que mapeamos en 'options'
+          # Dentro del contenedor se llama /target_folder, pero escribe en /volume1/web/sigpro
+          rsync -av --delete docs/ /target_folder/
+          
+          # 3. Ajustamos permisos
+          chmod -R 755 /target_folder
