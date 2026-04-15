@@ -8,24 +8,25 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     container:
-      # Usamos Bullseye porque ya incluye Git y NPM compatibles
       image: node:20-bullseye
       options: >-
         --dns 192.168.1.1
-        --add-host git.natxocc.com:host-gateway
+        --add-host gitea:192.168.1.100
+        --add-host git.natxocc.com:192.168.1.100
     steps:
-      # 1. Forzamos a Git a confiar en el directorio (evita errores de permisos en Docker)
-      - name: Configurar Git Safe Directory
-        run: git config --global --add safe.directory /workspace/natxocc/sigpro
+      - name: Configurar Entorno
+        run: |
+          # Esto obliga a Git a redirigir CUALQUIER URL que use el puerto 3000 al puerto 3333
+          # Por si Gitea le envía la URL interna al runner
+          git config --global url."http://192.168.1.100:3333/".insteadOf "http://gitea:3000/"
+          git config --global --add safe.directory /workspace/natxocc/sigpro
+          git config --global http.sslVerify false
 
-      # 2. Descargamos el código
       - name: Checkout código
         uses: actions/checkout@v4
         with:
-          # Esto obliga a usar el binario de Git instalado en Node-Bullseye
           fetch-depth: 1
 
-      # 3. Instalamos dependencias y publicamos
       - name: Publicar en NPM
         run: |
           npm install
