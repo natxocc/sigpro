@@ -12,7 +12,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     container:
-      image: node:20-bullseye  # <--- Esta imagen ya tiene Node, así que checkout funcionará
+      image: node:20-bullseye
       options: >-
         --dns 192.168.1.1
         --add-host git.natxocc.com:host-gateway
@@ -21,20 +21,21 @@ jobs:
 
     steps:
       - name: Instalar rsync
-        run: |
-          apt-get update && apt-get install -y rsync
-
-      - name: Forzar Dominio Limpio
-        run: |
-          git config --global url."http://git.natxocc.com/".insteadOf "http://gitea:3000/"
-          git config --global --add safe.directory /workspace/natxocc/sigpro
+        run: apt-get update && apt-get install -y rsync
 
       - name: Checkout código
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+        env:
+          # Usamos exactamente la misma cadena que te funcionó en NPM
+          GIT_CONFIG_PARAMETERS: "'url.https://git.natxocc.com/.insteadOf=http://gitea:3000/'"
 
       - name: Sincronizar archivos a Web Station
         run: |
-          # Sincronizamos el contenido de docs/ al volumen mapeado en Synology
+          # Verificamos contenido
+          ls -R docs/
+          # Sincronizamos a la carpeta del NAS mapeada
           rsync -av --delete docs/ /target_folder/
+          # Permisos para asegurar que Web Station pueda leer
+          chmod -R 755 /target_folder
