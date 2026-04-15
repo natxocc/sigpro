@@ -5,29 +5,32 @@ on:
     types: [published]
 
 jobs:
-  publish:
+  build:
     runs-on: ubuntu-latest
     container:
       image: node:20-bullseye
-      options: >-
-        --add-host gitea:192.168.1.100
-        --add-host git.natxocc.com:192.168.1.100
+      # Esto lo mete en el mismo "pasillo" que Gitea
+      options: --network gitea_net
     steps:
-      - name: Forzar resolución y puerto
+      - name: Configurar Git Interno
         run: |
-          # Si Gitea pide el puerto 3000, lo mandamos al 3333 que es el que tienes abierto
-          git config --global url."http://192.168.1.100:3333/".insteadOf "http://gitea:3000/"
+          # Forzamos que confíe en el directorio
           git config --global --add safe.directory /workspace/natxocc/sigpro
-          git config --global http.sslVerify false
+          # Por si acaso Gitea envía la IP en lugar del nombre, lo redirigimos al nombre interno
+          git config --global url."http://gitea:3000/".insteadOf "http://192.168.1.100:3333/"
 
-      - name: Checkout código
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
-      - name: Publicar en NPM
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Publicar
         run: |
-          npm install
+          bun install
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
           npm publish --access public
         env:
