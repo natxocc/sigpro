@@ -11,14 +11,6 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    container:
-      image: node:20-bullseye
-      options: >-
-        --dns 192.168.1.1
-        --add-host git.natxocc.com:host-gateway
-        --add-host gitea:host-gateway
-        -v /volume1/webdocs/sigpro:/volume1/webdocs/sigpro
-
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
