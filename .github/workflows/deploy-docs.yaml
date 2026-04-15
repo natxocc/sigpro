@@ -1,0 +1,20 @@
+name: Deploy Docs to Web Station
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**' # Solo se dispara si cambias algo dentro de la carpeta docs
+
+jobs:
+  deploy:
+    runs-on: self-hosted # Tu runner debe tener esta etiqueta
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Sincronizar archivos
+        run: |
+          # Copia el contenido de /docs del repo a la carpeta de Web Station
+          # rsync es ideal porque solo copia lo que ha cambiado
+          rsync -av --delete docs/ /volume1/web/sigpro/
