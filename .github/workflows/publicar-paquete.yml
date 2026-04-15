@@ -6,10 +6,6 @@ on:
     tags:
       - 'v*'
 
-permissions:
-  packages: write
-  contents: read
-
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -31,31 +27,28 @@ jobs:
           curl -fsSL https://bun.sh/install | bash
           echo "$HOME/.bun/bin" >> $GITHUB_PATH
 
-      - name: Instalar dependencias
+      - name: Build y Preparación
         run: |
           export PATH="$HOME/.bun/bin:$PATH"
           bun install
-
-      - name: Ejecutar Build
-        run: |
-          export PATH="$HOME/.bun/bin:$PATH"
           bun run build
-
-      - name: Publicar vía API (Gitea 1.25.x)
-        run: |
-          # 1. Crear el paquete .tgz
-          npm pack
           
-          # 2. Capturar el nombre del archivo generado
-          TARBALL_NAME=$(ls sigpro-*.tgz | head -n 1)
-          echo "Subiendo archivo: $TARBALL_NAME"
+          # Cambiamos el nombre en package.json temporalmente para que Gitea lo acepte
+          # de "sigpro" a "@natxocc/sigpro"
+          sed -i 's/"name": "sigpro"/"name": "@natxocc\/sigpro"/' package.json
+          
+          # Creamos el paquete .tgz
+          npm pack
 
-          # 3. Publicación mediante PUT Binario
-          # En Gitea 1.25, para paquetes NPM sin scope, la URL es:
-          # /api/packages/{owner}/npm
-          # SIN barra final.
+      - name: Publicar vía API (PUT Directo)
+        run: |
+          TARBALL_NAME=$(ls natxocc-sigpro-*.tgz | head -n 1)
+          
+          # La URL oficial de Gitea para publicar paquetes NPM es esta:
+          # https://git.natxocc.com/api/packages/natxocc/npm/
+          
           curl -v -X PUT \
                -H "Authorization: token ${{ secrets.GITEA_TOKEN }}" \
                -H "Content-Type: application/octet-stream" \
                --data-binary "@${TARBALL_NAME}" \
-               "https://git.natxocc.com/api/packages/natxocc/npm"
+               "https://git.natxocc.com/api/packages/natxocc/npm/"
