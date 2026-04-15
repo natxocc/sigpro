@@ -9,16 +9,17 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: node:20-bullseye
-      options: >-
-        --dns 192.168.1.1
-        --add-host gitea:192.168.1.100
-        --add-host git.natxocc.com:192.168.1.100
+      # IMPORTANTE: Conectar a la red interna
+      options: --network gitea_net
     steps:
-      - name: Configurar Entorno
+      - name: Configurar Túnel Interno
         run: |
-          # Esto obliga a Git a redirigir CUALQUIER URL que use el puerto 3000 al puerto 3333
-          # Por si Gitea le envía la URL interna al runner
-          git config --global url."http://192.168.1.100:3333/".insteadOf "http://gitea:3000/"
+          # REDIRECCIÓN MAESTRA:
+          # Cualquier intento de ir a la IP externa puerto 3333
+          # se redirige al nombre interno 'gitea' puerto 3000
+          git config --global url."http://gitea:3000/".insteadOf "http://192.168.1.100:3333/"
+          
+          # Configuraciones de seguridad necesarias
           git config --global --add safe.directory /workspace/natxocc/sigpro
           git config --global http.sslVerify false
 
