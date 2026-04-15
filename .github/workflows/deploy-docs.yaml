@@ -2,40 +2,34 @@ name: Deploy Docs to Synology
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - 'docs/**'
+    branches: [main]
+    paths: ['docs/**']
   workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    container:
-      image: node:20-bullseye
-      options: >-
-        --dns 192.168.1.1
-        --add-host git.natxocc.com:host-gateway
-        --add-host gitea:host-gateway
-        -v /volume1/web/sigpro:/target_folder
-
+    # IMPORTANTE: Hemos eliminado la línea 'container:', ahora corre en el host del runner
     steps:
-      - name: Instalar rsync
-        run: apt-get update && apt-get install -y rsync
-
       - name: Checkout código
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
         env:
-          # Usamos exactamente la misma cadena que te funcionó en NPM
           GIT_CONFIG_PARAMETERS: "'url.https://git.natxocc.com/.insteadOf=http://gitea:3000/'"
 
-      - name: Sincronizar archivos a Web Station
+      - name: Sincronizar archivos
         run: |
-          # Verificamos contenido
-          ls -R docs/
-          # Sincronizamos a la carpeta del NAS mapeada
-          rsync -av --delete docs/ /target_folder/
-          # Permisos para asegurar que Web Station pueda leer
-          chmod -R 755 /target_folder
+          # 1. Verificamos si la carpeta existe en el NAS
+          if [ -d "/volume1/web/sigpro" ]; then
+            echo "Carpeta destino encontrada."
+          else
+            echo "ERROR: No veo /volume1/web/sigpro. Revisa los montajes de Docker del Runner."
+            exit 1
+          fi
+
+          # 2. Sincronizamos (el runner ya suele tener rsync o cp)
+          rsync -av --delete docs/ /volume1/web/sigpro/
+          
+          # 3. Ajustamos permisos para Web Station
+          chmod -R 755 /volume1/web/sigpro/
