@@ -17,7 +17,7 @@ jobs:
         --dns 192.168.1.1
         --add-host git.natxocc.com:host-gateway
         --add-host gitea:host-gateway
-        -v /volume1/webdocs/sigpro:/target_folder
+        -v /volume1/webdocs/sigpro:/volume1/webdocs/sigpro
 
     steps:
       - name: Checkout código
@@ -30,9 +30,11 @@ jobs:
 
       - name: Copiar archivos a Web Station
         run: |
-          # 1. Limpiamos el destino (opcional, equivalente al --delete de rsync)
-          # Solo borra contenido si la carpeta destino existe y tiene algo
-          rm -rf /target_folder/* 2>/dev/null || true
+          # Usamos la ruta real del NAS que ahora el contenedor también ve
+          rm -rf /volume1/webdocs/sigpro/* 2>/dev/null || true
+          cp -r docs/. /volume1/webdocs/sigpro/
+          ls -la /volume1/webdocs/sigpro
+          chmod -R 755 /volume1/webdocs/sigpro
 
           # 2. Copiamos el contenido de docs/ a la carpeta mapeada
           # El punto final en 'docs/.' copia el contenido, no la carpeta en sí
