@@ -6,6 +6,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        env:
+          GIT_CONFIG_PARAMETERS: "'url.https://git.natxocc.com/.insteadOf=http://gitea:3000/'"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
