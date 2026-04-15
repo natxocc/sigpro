@@ -8,16 +8,24 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     container:
+      # Usamos Bullseye porque ya incluye Git y NPM compatibles
       image: node:20-bullseye
       options: >-
-        --network gitea_net
+        --dns 192.168.1.1
         --add-host git.natxocc.com:host-gateway
     steps:
+      # 1. Forzamos a Git a confiar en el directorio (evita errores de permisos en Docker)
+      - name: Configurar Git Safe Directory
+        run: git config --global --add safe.directory /workspace/natxocc/sigpro
+
+      # 2. Descargamos el código
       - name: Checkout código
         uses: actions/checkout@v4
         with:
+          # Esto obliga a usar el binario de Git instalado en Node-Bullseye
           fetch-depth: 1
 
+      # 3. Instalamos dependencias y publicamos
       - name: Publicar en NPM
         run: |
           npm install
