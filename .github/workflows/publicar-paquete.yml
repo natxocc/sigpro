@@ -1,36 +1,34 @@
-name: Generar Paquete Docker
+name: Publicar Paquete SigPro (NPM)
 
 on:
-  # Permite ejecutarlo manualmente desde la pestaña "Acciones"
-  workflow_dispatch:
-  # Opcional: que se ejecute solo al crear una "Release" o etiqueta (tag)
+  workflow_dispatch: # Botón manual
   push:
     tags:
-      - 'v*'
+      - 'v*' # Se ejecuta al subir un tag como v1.2.12
 
 jobs:
-  build-and-push:
-    runs-on: ubuntu-latest # Esto coincidirá con el label de tu runner
+  publish:
+    runs-on: ubuntu-latest # Usará tu runner configurado
     steps:
-      - name: Checkout del código
+      - name: Checkout código
         uses: actions/checkout@v4
 
-      - name: Configurar Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login en Gitea Docker Registry
-        uses: docker/login-action@v3
+      - name: Instalar Bun
+        uses: oven-sh/setup-bun@v1
         with:
-          registry: git.natxocc.com
-          username: ${{ gitea.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }} # Gitea genera este token automáticamente
+          bun-version: latest
 
-      - name: Construir y Subir imagen
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          # El nombre será: git.natxocc.com/usuario/repositorio:latest
-          tags: |
-            git.natxocc.com/${{ gitea.repository }}:latest
-            git.natxocc.com/${{ gitea.repository }}:${{ gitea.ref_name }}
+      - name: Instalar dependencias
+        run: bun install
+
+      - name: Ejecutar Build
+        run: bun run build
+
+      - name: Configurar Registro Gitea
+        run: |
+          # Configura el registro de Gitea para el scope de tu usuario/paquete
+          echo "@natxocc:registry=https://git.natxocc.com/api/packages/natxocc/npm/" >> .npmrc
+          echo "//git.natxocc.com/api/packages/natxocc/npm/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> .npmrc
+
+      - name: Publicar en Gitea
+        run: npm publish
