@@ -1,4 +1,4 @@
-name: Publicar Paquete SigPro (Gitea)
+name: Publicar Paquete SigPro (NPM)
 
 on:
   workflow_dispatch:
@@ -19,27 +19,26 @@ jobs:
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
-        env:
-          GIT_CONFIG_PARAMETERS: "'url.https://git.natxocc.com/.insteadOf=http://gitea:3000/'"
 
       - name: Instalar Bun
         run: |
           curl -fsSL https://bun.sh/install | bash
           echo "$HOME/.bun/bin" >> $GITHUB_PATH
 
-      - name: Build
+      - name: Instalar y Build
         run: |
           export PATH="$HOME/.bun/bin:$PATH"
           bun install
           bun run build
 
-      - name: Publicar en Gitea
+      - name: Configurar Registro y Publicar
         run: |
-          # 1. Configuramos el .npmrc para usar el token automático de Gitea
-          # Importante: Gitea espera el token en formato Bearer para su API de paquetes
-          echo "@natxocc:registry=https://git.natxocc.com/api/packages/natxocc/npm/" > .npmrc
-          echo "//git.natxocc.com/api/packages/natxocc/npm/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> .npmrc
+          # 1. Definimos la URL del registro
+          REGISTRY="git.natxocc.com/api/packages/natxocc/npm/"
           
-          # 2. Publicamos usando el comando normal de npm
-          # Gitea 1.25 gestionará la subida si el .npmrc está bien formado
-          npm publish
+          # 2. Configuramos el .npmrc usando tu nuevo secreto PACK_TOKEN
+          # Importante: Hemos cambiado GITEA_TOKEN por PACK_TOKEN aquí:
+          echo "//${REGISTRY}:_authToken=${{ secrets.PACK_TOKEN }}" > ~/.npmrc
+          
+          # 3. Publicamos forzando el registro
+          npm publish --registry "https://${REGISTRY}" --userconfig ~/.npmrc
