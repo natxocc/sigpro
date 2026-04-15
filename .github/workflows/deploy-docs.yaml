@@ -30,16 +30,6 @@ jobs:
 
       - name: Copiar archivos a Web Station
         run: |
-          # 1. Limpiamos el destino (opcional, equivalente al --delete de rsync)
-          # Solo borra contenido si la carpeta destino existe y tiene algo
-          rm -rf /volume1/webdocs/sigpro/* 2>/dev/null || true
-
-          # 2. Copiamos el contenido de docs/ a la carpeta mapeada
-          # El punto final en 'docs/.' copia el contenido, no la carpeta en sí
           cp -r docs/. /volume1/webdocs/sigpro/
-
-          # 3. Verificamos que los archivos están en el destino (se verá en el log)
-          ls -la /target_folder
-
-          # 4. Ajustamos permisos para que Web Station (usuario http) pueda leer
+          ls -la /volume1/webdocs/sigpro/
           chmod -R 755 /volume1/webdocs/sigpro/
