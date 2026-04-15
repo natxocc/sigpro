@@ -8,10 +8,9 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     container:
-      # Usamos bullseye porque ya trae Git 2.18+ y npm instalados
       image: node:20-bullseye
       options: >-
-        --add-host gitea:host-gateway
+        --network gitea_net
         --add-host git.natxocc.com:host-gateway
     steps:
       - name: Checkout código
@@ -21,8 +20,6 @@ jobs:
 
       - name: Publicar en NPM
         run: |
-          # Si usas Bun habitualmente, puedes instalarlo aquí rápido, 
-          # si no, npm install funcionará igual:
           npm install
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
           npm publish --access public
