@@ -17,6 +17,3 @@
   * [Tags](api/tags.md)
   * [Global Store](api/global.md)
   * [JSX Style](api/jsx.md)
-
-* **UI Components**
-  * [Quick Start](ui/quick.md)

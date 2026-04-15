@@ -1,4 +1,4 @@
-// sigpro
+// sigpro 1.2.12
 const isFunc = f => typeof f === "function"
 const isObj = o => o && typeof o === "object"
 const isArr = Array.isArray
@@ -123,19 +123,21 @@ const trackUpdate = (subs, trigger = false) => {
 const $ = (val, key = null) => {
   const subs = new Set()
   if (isFunc(val)) {
-    let cache, dirty = true
+    let cache
     const computed = () => {
-      if (dirty) {
+      if (computed._dirty) {
         const prev = activeEffect
         activeEffect = computed
         try {
           const next = val()
           if (!Object.is(cache, next)) {
             cache = next
-            dirty = false
             trackUpdate(subs, true)
           }
-        } finally { activeEffect = prev }
+        } finally {
+          activeEffect = prev
+        }
+        computed._dirty = false
       }
       trackUpdate(subs)
       return cache
@@ -145,15 +147,7 @@ const $ = (val, key = null) => {
     computed._dirty = true
     computed._deps = null
     computed._disposed = false
-    computed.markDirty = () => { dirty = true }
-    computed.stop = () => {
-      computed._disposed = true
-      if (computed._deps) {
-        computed._deps.forEach(depSet => depSet.delete(computed))
-        computed._deps.clear()
-      }
-      subs.clear()
-    }
+    computed.stop = () => { }
     if (activeOwner) onUnmount(computed.stop)
     return computed
   }

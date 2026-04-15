@@ -19,6 +19,7 @@
   },
   "files": [
     "index.js",
+    "sigpro.js",
     "dist",
     "sigpro",
     "vite",

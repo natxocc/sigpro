@@ -40,6 +40,7 @@
     If: () => If,
     For: () => For,
     Batch: () => Batch,
+    Anim: () => Anim,
     $$: () => $$,
     $: () => $
   });
@@ -154,11 +155,11 @@
     if (!trigger && activeEffect && !activeEffect._disposed) {
       subs.add(activeEffect);
       (activeEffect._deps ||= new Set).add(subs);
-    } else if (trigger) {
+    } else if (trigger && subs.size > 0) {
       let hasQueue = false;
-      subs.forEach((e) => {
+      for (const e of subs) {
         if (e === activeEffect || e._disposed)
-          return;
+          continue;
         if (e._isComputed) {
           e._dirty = true;
           if (e._subs)
@@ -167,29 +168,29 @@
           effectQueue.add(e);
           hasQueue = true;
         }
-      });
+      }
       if (hasQueue && !isFlushing && batchDepth === 0)
         queueMicrotask(flush);
     }
   };
-  var $ = (val, key = null) => {
+  var $ = (val2, key = null) => {
     const subs = new Set;
-    if (isFunc(val)) {
-      let cache, dirty = true;
+    if (isFunc(val2)) {
+      let cache;
       const computed = () => {
-        if (dirty) {
+        if (computed._dirty) {
           const prev = activeEffect;
           activeEffect = computed;
           try {
-            const next = val();
+            const next = val2();
             if (!Object.is(cache, next)) {
               cache = next;
-              dirty = false;
               trackUpdate(subs, true);
             }
           } finally {
             activeEffect = prev;
           }
+          computed._dirty = false;
         }
         trackUpdate(subs);
         return cache;
@@ -199,44 +200,35 @@
       computed._dirty = true;
       computed._deps = null;
       computed._disposed = false;
-      computed.markDirty = () => {
-        dirty = true;
-      };
-      computed.stop = () => {
-        computed._disposed = true;
-        if (computed._deps) {
-          computed._deps.forEach((depSet) => depSet.delete(computed));
-          computed._deps.clear();
-        }
-        subs.clear();
-      };
+      computed.stop = () => {};
       if (activeOwner)
         onUnmount(computed.stop);
       return computed;
     }
     if (key)
       try {
-        val = JSON.parse(localStorage.getItem(key)) ?? val;
+        val2 = JSON.parse(localStorage.getItem(key)) ?? val2;
       } catch (e) {}
     return (...args) => {
       if (args.length) {
-        const next = isFunc(args[0]) ? args[0](val) : args[0];
-        if (!Object.is(val, next)) {
-          val = next;
+        const next = isFunc(args[0]) ? args[0](val2) : args[0];
+        if (!Object.is(val2, next)) {
+          val2 = next;
           if (key)
-            localStorage.setItem(key, JSON.stringify(val));
+            localStorage.setItem(key, JSON.stringify(val2));
           trackUpdate(subs, true);
         }
       }
       trackUpdate(subs);
-      return val;
+      return val2;
     };
   };
   var $$ = (target) => {
     if (!isObj(target))
       return target;
-    if (proxyCache.has(target))
-      return proxyCache.get(target);
+    let proxy = proxyCache.get(target);
+    if (proxy)
+      return proxy;
     const subsMap = new Map;
     const getSubs = (k) => {
       let s = subsMap.get(k);
@@ -244,28 +236,30 @@
         subsMap.set(k, s = new Set);
       return s;
     };
-    const proxy = new Proxy(target, {
-      get(t, k) {
-        trackUpdate(getSubs(k));
-        return $$(t[k]);
+    proxy = new Proxy(target, {
+      get(t, k, receiver) {
+        if (typeof k !== "symbol")
+          trackUpdate(getSubs(k));
+        return $$(Reflect.get(t, k, receiver));
       },
-      set(t, k, v) {
-        const isNew = !(k in t);
-        if (!Object.is(t[k], v)) {
-          t[k] = v;
+      set(t, k, v, receiver) {
+        const isNew = !Reflect.has(t, k);
+        const oldV = Reflect.get(t, k, receiver);
+        const result = Reflect.set(t, k, v, receiver);
+        if (result && !Object.is(oldV, v)) {
           trackUpdate(getSubs(k), true);
           if (isNew)
             trackUpdate(getSubs(ITER), true);
         }
-        return true;
+        return result;
       },
       deleteProperty(t, k) {
-        const res = Reflect.deleteProperty(t, k);
-        if (res) {
+        const result = Reflect.deleteProperty(t, k);
+        if (result) {
           trackUpdate(getSubs(k), true);
           trackUpdate(getSubs(ITER), true);
         }
-        return res;
+        return result;
       },
       ownKeys(t) {
         trackUpdate(getSubs(ITER));
@@ -300,17 +294,17 @@
   };
   var DANGEROUS_PROTOCOL = /^\s*(javascript|data|vbscript):/i;
   var isDangerousAttr = (key) => key === "src" || key === "href" || key.startsWith("on");
-  var validateAttr = (key, val) => {
-    if (val == null || val === false)
+  var validateAttr = (key, val2) => {
+    if (val2 == null || val2 === false)
       return null;
     if (isDangerousAttr(key)) {
-      const sVal = String(val);
+      const sVal = String(val2);
       if (DANGEROUS_PROTOCOL.test(sVal)) {
         console.warn(`[SigPro] Bloqueado protocolo peligroso en ${key}`);
         return "#";
       }
     }
-    return val;
+    return val2;
   };
   var Tag = (tag, props = {}, children = []) => {
     if (props instanceof Node || isArr(props) || !isObj(props)) {
@@ -342,7 +336,7 @@
       isArr(node) ? node.forEach(attach) : attach(node);
       return node;
     }
-    const isSVG = /^(svg|path|circle|rect|line|polyline|polygon|g|defs|text|tspan|use)$/.test(tag);
+    const isSVG = /^(svg|path|circle|rect|line|poly(line|gon)|g|defs|text(path)?|tspan|use|symbol|image|marker|ellipse)$/i.test(tag);
     const el = isSVG ? doc.createElementNS("http://www.w3.org/2000/svg", tag) : doc.createElement(tag);
     el._cleanups = new Set;
     for (let k in props) {
@@ -353,6 +347,11 @@
         isFunc(v) ? v(el) : v.current = el;
         continue;
       }
+      if (isSVG && k.startsWith("xlink:")) {
+        const ns = "http://www.w3.org/1999/xlink";
+        val == null ? el.removeAttributeNS(ns, k.slice(6)) : el.setAttributeNS(ns, k.slice(6), val);
+        continue;
+      }
       if (k.startsWith("on")) {
         const ev = k.slice(2).toLowerCase();
         el.addEventListener(ev, v);
@@ -361,15 +360,15 @@
         onUnmount(off);
       } else if (isFunc(v)) {
         const effect = createEffect(() => {
-          const val = validateAttr(k, v());
+          const val2 = validateAttr(k, v());
           if (k === "class")
-            el.className = val || "";
-          else if (val == null)
+            el.className = val2 || "";
+          else if (val2 == null)
             el.removeAttribute(k);
           else if (k in el && !isSVG)
-            el[k] = val;
+            el[k] = val2;
           else
-            el.setAttribute(k, val === true ? "" : val);
+            el.setAttribute(k, val2 === true ? "" : val2);
         });
         effect();
         el._cleanups.add(() => dispose(effect));
@@ -379,12 +378,12 @@
           el.addEventListener(evType, (ev) => v(ev.target[k]));
         }
       } else {
-        const val = validateAttr(k, v);
-        if (val != null) {
+        const val2 = validateAttr(k, v);
+        if (val2 != null) {
           if (k in el && !isSVG)
-            el[k] = val;
+            el[k] = val2;
           else
-            el.setAttribute(k, val === true ? "" : val);
+            el.setAttribute(k, val2 === true ? "" : val2);
         }
       }
     }
@@ -552,6 +551,35 @@
   Router.to = (p) => window.location.hash = p.replace(/^#?\/?/, "#/");
   Router.back = () => window.history.back();
   Router.path = () => window.location.hash.replace(/^#/, "") || "/";
+  var Anim = (show, render, { enter, leave } = {}) => {
+    const wrap = Tag("div", { style: "display:contents" });
+    let view = null;
+    const wait = (el, cb) => {
+      let done = false;
+      const finish = () => !done && (done = true, cb());
+      if (!el)
+        return finish();
+      "transitionend animationend".split(" ").map((e) => el.addEventListener(e, finish, { once: true }));
+      setTimeout(finish, 500);
+    };
+    Watch(show, (on) => {
+      if (on && !view) {
+        const el = (view = Render(render)).container.firstChild;
+        wrap.appendChild(view.container);
+        if (enter && el) {
+          el.classList.add(enter);
+          el.clientTop;
+          el.classList.add(enter + "-active");
+          wait(el, () => el.classList.remove(enter, enter + "-active"));
+        }
+      } else if (!on && view) {
+        const el = view.container.firstChild;
+        const del = () => (view?.destroy(), view = null);
+        leave && el ? (el.classList.add(leave), wait(el, del)) : del();
+      }
+    });
+    return onUnmount(() => view?.destroy()), wrap;
+  };
   var Mount = (comp, target) => {
     const t = typeof target === "string" ? doc.querySelector(target) : target;
     if (!t)
@@ -563,7 +591,7 @@
     MOUNTED_NODES.set(t, inst);
     return inst;
   };
-  var SigPro = Object.freeze({ $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, Batch });
+  var SigPro = Object.freeze({ $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, Anim, Batch });
   if (typeof window !== "undefined") {
     Object.assign(window, SigPro);
     "div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer ul ol li a em strong pre code form label input textarea select button img svg".split(" ").forEach((t) => window[t[0].toUpperCase() + t.slice(1)] = (p, c) => SigPro.Tag(t, p, c));
