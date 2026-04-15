@@ -2,8 +2,10 @@ name: Deploy Docs to Synology
 
 on:
   push:
-    branches: [main]
-    paths: ['docs/**']
+    branches:
+      - main
+    paths:
+      - 'docs/**'
   workflow_dispatch:
 
 jobs:
@@ -16,22 +18,28 @@ jobs:
         --add-host git.natxocc.com:host-gateway
         --add-host gitea:host-gateway
         -v /volume1/web/sigpro:/target_folder
+
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
         env:
+          # Configuración de red que ya sabemos que funciona
           GIT_CONFIG_PARAMETERS: "'url.https://git.natxocc.com/.insteadOf=http://gitea:3000/'"
 
-      - name: Sincronizar archivos
+      - name: Copiar archivos a Web Station
         run: |
-          # 1. Instalamos rsync rápido
-          apt-get update && apt-get install -y rsync
-          
-          # 2. Sincronizamos a la carpeta que mapeamos en 'options'
-          # Dentro del contenedor se llama /target_folder, pero escribe en /volume1/web/sigpro
-          rsync -av --delete docs/ /target_folder/
-          
-          # 3. Ajustamos permisos
+          # 1. Limpiamos el destino (opcional, equivalente al --delete de rsync)
+          # Solo borra contenido si la carpeta destino existe y tiene algo
+          rm -rf /target_folder/* 2>/dev/null || true
+
+          # 2. Copiamos el contenido de docs/ a la carpeta mapeada
+          # El punto final en 'docs/.' copia el contenido, no la carpeta en sí
+          cp -r docs/. /target_folder/
+
+          # 3. Verificamos que los archivos están en el destino (se verá en el log)
+          ls -la /target_folder
+
+          # 4. Ajustamos permisos para que Web Station (usuario http) pueda leer
           chmod -R 755 /target_folder
