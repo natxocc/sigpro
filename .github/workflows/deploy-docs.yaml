@@ -18,7 +18,7 @@ jobs:
           fetch-depth: 1
         env:
           # Configuración de red que ya sabemos que funciona
-          GIT_CONFIG_PARAMETERS: "'url.https://git.natxocc.com/.insteadOf=http://gitea:3000/'"
+          GIT_CONFIG_PARAMETERS: "'url.http://gitea:3000/.insteadOf=https://git.natxocc.com/'"
 
       - name: Copiar archivos a Web Station
         run: |
