@@ -2,10 +2,7 @@ name: Deploy Docs to Synology
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - 'docs/**'
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -16,7 +13,6 @@ jobs:
       options: >-
         --dns 192.168.1.1
         --add-host git.natxocc.com:host-gateway
-        --add-host gitea:host-gateway
         -v /volume1/webdocs/sigpro:/volume1/webdocs/sigpro
 
     steps:
@@ -27,20 +23,17 @@ jobs:
         env:
           GIT_CONFIG_PARAMETERS: "'url.https://git.natxocc.com/.insteadOf=http://gitea:3000/'"
 
-      - name: Copiar archivos a Web Station
+      - name: Verificar visibilidad de carpeta
         run: |
-          # Ahora la ruta existe porque el config.yaml autorizó el montaje
-          rm -rf /volume1/webdocs/sigpro/* 2>/dev/null || true
+          echo "--- Verificando si el contenedor de Node ve el NAS ---"
+          if [ -d "/volume1/webdocs/sigpro" ]; then
+            echo "✅ Carpeta encontrada. El config.yaml funciona."
+          else
+            echo "❌ Carpeta NO encontrada. El Runner sigue bloqueando el volumen."
+            exit 1
+          fi
+
+      - name: Copiar archivos
+        run: |
           cp -r docs/. /volume1/webdocs/sigpro/
           ls -la /volume1/webdocs/sigpro
-          chmod -R 755 /volume1/webdocs/sigpro
-
-          # 2. Copiamos el contenido de docs/ a la carpeta mapeada
-          # El punto final en 'docs/.' copia el contenido, no la carpeta en sí
-          cp -r docs/. /target_folder/
-
-          # 3. Verificamos que los archivos están en el destino (se verá en el log)
-          ls -la /target_folder
-
-          # 4. Ajustamos permisos para que Web Station (usuario http) pueda leer
-          chmod -R 755 /target_folder
