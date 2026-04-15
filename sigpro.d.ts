@@ -1,5 +1,5 @@
 /**
- * SigPro 1.2.0
+ * SigPro 1.2.12
  * A minimalistic reactive UI library with fine-grained reactivity,
  * deep reactive proxies, and intuitive component composition.
  */
@@ -66,7 +66,7 @@ export function $$<T extends object>(target: T): DeepReactive<T>
 export type Signal<T> = {
   (): T
   (value: T | ((prev: T) => T)): void
-  
+
   // Internal properties (not meant for direct use)
   _isComputed?: boolean
   _subs?: Set<Effect>
@@ -85,7 +85,9 @@ export type DeepReactive<T> = T extends object
   ? {
       [K in keyof T]: T[K] extends object ? DeepReactive<T[K]> : T[K]
     } & {
-      [Symbol.iterator]?: T extends Iterable<infer U> ? () => Iterator<DeepReactive<U>> : never
+      [Symbol.iterator]?: T extends Iterable<infer U>
+        ? () => Iterator<DeepReactive<U>>
+        : never
     }
   : T
 
@@ -300,7 +302,7 @@ export function Mount(
  * @returns A container element that manages the conditional content
  *
  * @example
- * If($show, 
+ * If($show,
  *   () => Div("Visible content"),
  *   () => Div("Hidden state placeholder")
  * )
@@ -327,6 +329,31 @@ export function For<T>(
   src: T[] | (() => T[]) | Signal<T[]>,
   itemFn: (item: T, index: number) => any,
   keyFn?: (item: T, index: number) => string | number
+): HTMLDivElement
+
+/**
+ * Conditionally renders content with CSS transition animations.
+ *
+ * @param show - Reactive signal or boolean that controls visibility
+ * @param render - Function that returns the content to render when visible
+ * @param options - Animation configuration (optional)
+ * @param options.enter - CSS class for enter transition start
+ * @param options.leave - CSS class for leave transition start
+ * @returns A container element that manages the animated content
+ *
+ * @example
+ * Anim(isOpen,
+ *   () => Div({ class: "modal" }, "Modal content"),
+ *   {
+ *     enter: "fade-enter",
+ *     leave: "fade-leave"
+ *   }
+ * )
+ */
+export function Anim(
+  show: boolean | Signal<boolean> | (() => boolean),
+  render: () => any,
+  options?: { enter?: string; leave?: string }
 ): HTMLDivElement
 
 // ============================================================================
@@ -357,19 +384,19 @@ export namespace Router {
    * console.log(params.id) // from "/user/:id"
    */
   export const params: Signal<Record<string, string>>
-  
+
   /**
    * Navigate to a path.
    * @example
    * Router.to("/about")
    */
   export function to(path: string): void
-  
+
   /**
    * Go back in browser history.
    */
   export function back(): void
-  
+
   /**
    * Get the current path.
    */
@@ -403,31 +430,58 @@ export interface RouteDefinition {
  */
 
 /** Creates a `<div>` element */
-export function Div(props?: Record<string, any>, ...children: any[]): HTMLDivElement
+export function Div(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLDivElement
 
 /** Creates a `<span>` element */
-export function Span(props?: Record<string, any>, ...children: any[]): HTMLSpanElement
+export function Span(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLSpanElement
 
 /** Creates a `<p>` element */
-export function P(props?: Record<string, any>, ...children: any[]): HTMLParagraphElement
+export function P(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLParagraphElement
 
 /** Creates an `<h1>` element */
-export function H1(props?: Record<string, any>, ...children: any[]): HTMLHeadingElement
+export function H1(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLHeadingElement
 
 /** Creates an `<h2>` element */
-export function H2(props?: Record<string, any>, ...children: any[]): HTMLHeadingElement
+export function H2(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLHeadingElement
 
 /** Creates an `<h3>` element */
-export function H3(props?: Record<string, any>, ...children: any[]): HTMLHeadingElement
+export function H3(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLHeadingElement
 
 /** Creates an `<h4>` element */
-export function H4(props?: Record<string, any>, ...children: any[]): HTMLHeadingElement
+export function H4(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLHeadingElement
 
 /** Creates an `<h5>` element */
-export function H5(props?: Record<string, any>, ...children: any[]): HTMLHeadingElement
+export function H5(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLHeadingElement
 
 /** Creates an `<h6>` element */
-export function H6(props?: Record<string, any>, ...children: any[]): HTMLHeadingElement
+export function H6(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLHeadingElement
 
 /** Creates a `<br>` element */
 export function Br(props?: Record<string, any>): HTMLBRElement
@@ -436,55 +490,106 @@ export function Br(props?: Record<string, any>): HTMLBRElement
 export function Hr(props?: Record<string, any>): HTMLHRElement
 
 /** Creates a `<section>` element */
-export function Section(props?: Record<string, any>, ...children: any[]): HTMLElement
+export function Section(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLElement
 
 /** Creates an `<article>` element */
-export function Article(props?: Record<string, any>, ...children: any[]): HTMLElement
+export function Article(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLElement
 
 /** Creates an `<aside>` element */
-export function Aside(props?: Record<string, any>, ...children: any[]): HTMLElement
+export function Aside(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLElement
 
 /** Creates a `<nav>` element */
-export function Nav(props?: Record<string, any>, ...children: any[]): HTMLElement
+export function Nav(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLElement
 
 /** Creates a `<main>` element */
-export function Main(props?: Record<string, any>, ...children: any[]): HTMLElement
+export function Main(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLElement
 
 /** Creates a `<header>` element */
-export function Header(props?: Record<string, any>, ...children: any[]): HTMLElement
+export function Header(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLElement
 
 /** Creates a `<footer>` element */
-export function Footer(props?: Record<string, any>, ...children: any[]): HTMLElement
+export function Footer(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLElement
 
 /** Creates a `<ul>` element */
-export function Ul(props?: Record<string, any>, ...children: any[]): HTMLUListElement
+export function Ul(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLUListElement
 
 /** Creates an `<ol>` element */
-export function Ol(props?: Record<string, any>, ...children: any[]): HTMLOListElement
+export function Ol(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLOListElement
 
 /** Creates a `<li>` element */
-export function Li(props?: Record<string, any>, ...children: any[]): HTMLLIElement
+export function Li(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLLIElement
 
 /** Creates an `<a>` element */
-export function A(props?: Record<string, any>, ...children: any[]): HTMLAnchorElement
+export function A(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLAnchorElement
 
 /** Creates an `<em>` element */
-export function Em(props?: Record<string, any>, ...children: any[]): HTMLElement
+export function Em(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLElement
 
 /** Creates a `<strong>` element */
-export function Strong(props?: Record<string, any>, ...children: any[]): HTMLElement
+export function Strong(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLElement
 
 /** Creates a `<pre>` element */
-export function Pre(props?: Record<string, any>, ...children: any[]): HTMLPreElement
+export function Pre(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLPreElement
 
 /** Creates a `<code>` element */
-export function Code(props?: Record<string, any>, ...children: any[]): HTMLElement
+export function Code(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLElement
 
 /** Creates a `<form>` element */
-export function Form(props?: Record<string, any>, ...children: any[]): HTMLFormElement
+export function Form(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLFormElement
 
 /** Creates a `<label>` element */
-export function Label(props?: Record<string, any>, ...children: any[]): HTMLLabelElement
+export function Label(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLLabelElement
 
 /** Creates an `<input>` element */
 export function Input(props?: Record<string, any>): HTMLInputElement
@@ -493,16 +598,25 @@ export function Input(props?: Record<string, any>): HTMLInputElement
 export function Textarea(props?: Record<string, any>): HTMLTextAreaElement
 
 /** Creates a `<select>` element */
-export function Select(props?: Record<string, any>, ...children: any[]): HTMLSelectElement
+export function Select(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLSelectElement
 
 /** Creates a `<button>` element */
-export function Button(props?: Record<string, any>, ...children: any[]): HTMLButtonElement
+export function Button(
+  props?: Record<string, any>,
+  ...children: any[]
+): HTMLButtonElement
 
 /** Creates an `<img>` element */
 export function Img(props?: Record<string, any>): HTMLImageElement
 
 /** Creates an `<svg>` element */
-export function Svg(props?: Record<string, any>, ...children: any[]): SVGSVGElement
+export function Svg(
+  props?: Record<string, any>,
+  ...children: any[]
+): SVGSVGElement
 
 // ============================================================================
 // Default Export
@@ -520,6 +634,7 @@ declare const SigPro: {
   Mount: typeof Mount
   onMount: typeof onMount
   onUnmount: typeof onUnmount
+  Anim: typeof Anim
   Batch: typeof Batch
 }
 
@@ -539,9 +654,10 @@ declare global {
     Mount: typeof Mount
     onMount: typeof onMount
     onUnmount: typeof onUnmount
+    Anim: typeof Anim
     Batch: typeof Batch
     SigPro: typeof SigPro
-    
+
     // Tag helpers
     Div: typeof Div
     Span: typeof Span
