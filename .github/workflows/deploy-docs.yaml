@@ -1,21 +1,41 @@
-name: Deploy Docs to Web Station
+name: Deploy Docs to Synology
+
 on:
   push:
     branches:
       - main
     paths:
-      - 'docs/**' # Solo se dispara si cambias algo dentro de la carpeta docs
+      - 'docs/**'
   workflow_dispatch:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest # Tu runner debe tener esta etiqueta
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+    runs-on: ubuntu-latest
+    container:
+      # Usamos una imagen ligera que tenga rsync
+      image: alpine:latest
+      options: >-
+        --dns 192.168.1.1
+        --add-host git.natxocc.com:host-gateway
+        --add-host gitea:host-gateway
+        -v /volume1/web/sigpro:/target_folder  # <--- MAPEO CRÍTICO
 
-      - name: Sincronizar archivos
+    steps:
+      - name: Instalar dependencias
+        run: apk add --no-cache git rsync
+
+      - name: Forzar Dominio Limpio
         run: |
-          # Copia el contenido de /docs del repo a la carpeta de Web Station
-          # rsync es ideal porque solo copia lo que ha cambiado
-          rsync -av --delete docs/ /volume1/web/sigpro/
+          git config --global url."http://git.natxocc.com/".insteadOf "http://gitea:3000/"
+          git config --global --add safe.directory /workspace/natxocc/sigpro
+
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Sincronizar archivos a Web Station
+        run: |
+          # Sincronizamos el contenido de docs/ al volumen mapeado
+          # -a: archivos, -v: verbose, --delete: limpia archivos borrados
+          rsync -av --delete docs/ /target_folder/
