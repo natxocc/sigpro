@@ -1,0 +1,16 @@
+name: Build Project
+on: [push]
+jobs:
+  build-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+
+      - name: Install and Build
+        run: |
+          bun install
+          bun run build
