@@ -9,7 +9,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: self-hosted # Tu runner debe tener esta etiqueta
+    runs-on: ubuntu-latest # Tu runner debe tener esta etiqueta
     steps:
       - name: Checkout
         uses: actions/checkout@v3
