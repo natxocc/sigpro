@@ -43,6 +43,12 @@ jobs:
 
       - name: Configurar Registro Gitea y Publicar
         run: |
-          echo "@natxocc:registry=https://git.natxocc.com/api/packages/natxocc/npm/" >> .npmrc
-          echo "//git.natxocc.com/api/packages/natxocc/npm/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> .npmrc
+          # 1. Definimos el registro para tu scope @natxocc
+          npm config set @natxocc:registry https://git.natxocc.com/api/packages/natxocc/npm/
+          
+          # 2. Inyectamos el token directamente en el archivo de configuración global de npm dentro del contenedor
+          # Importante: La URL aquí NO debe llevar 'https:' y debe terminar en ':_authToken'
+          echo "//git.natxocc.com/api/packages/natxocc/npm/:_authToken=${{ secrets.GITHUB_TOKEN }}" > ~/.npmrc
+          
+          # 3. Publicamos (esto leerá el package.json y el .npmrc que acabamos de crear)
           npm publish
