@@ -8,13 +8,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    container:
-      image: node:20-bullseye
-      options: >-
-        --dns 192.168.1.1
-        --add-host git.natxocc.com:host-gateway
-        -v /volume1/webdocs/sigpro:/volume1/webdocs/sigpro
-
+    # QUITAMOS la sección 'container' por completo
     steps:
       - name: Checkout código
         uses: actions/checkout@v4
@@ -23,17 +17,8 @@ jobs:
         env:
           GIT_CONFIG_PARAMETERS: "'url.https://git.natxocc.com/.insteadOf=http://gitea:3000/'"
 
-      - name: Verificar visibilidad de carpeta
+      - name: Copiar archivos directamente
         run: |
-          echo "--- Verificando si el contenedor de Node ve el NAS ---"
-          if [ -d "/volume1/webdocs/sigpro" ]; then
-            echo "✅ Carpeta encontrada. El config.yaml funciona."
-          else
-            echo "❌ Carpeta NO encontrada. El Runner sigue bloqueando el volumen."
-            exit 1
-          fi
-
-      - name: Copiar archivos
-        run: |
+          # Como corre en el host del runner, ya tiene acceso a la ruta
           cp -r docs/. /volume1/webdocs/sigpro/
           ls -la /volume1/webdocs/sigpro
