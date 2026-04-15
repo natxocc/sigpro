@@ -11,14 +11,13 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # VOLVEMOS al contenedor porque es el que sabe resolver la red
     container:
       image: node:20-bullseye
       options: >-
         --dns 192.168.1.1
         --add-host git.natxocc.com:host-gateway
         --add-host gitea:host-gateway
-        -v /volume1/webdocs/sigpro:/target_folder
+        -v /volume1/webdocs/sigpro:/mnt/nas_docs  # <--- Cambiamos el nombre interno
 
     steps:
       - name: Checkout código
@@ -31,12 +30,9 @@ jobs:
 
       - name: Copiar archivos
         run: |
-          # Usamos el mapeo que definimos en 'options' (-v ...:/target_folder)
-          # Esto evita que Node tenga que adivinar rutas del NAS
-          cp -r docs/. /target_folder/
+          # Copiamos a la ruta montada
+          cp -r docs/. /mnt/nas_docs/
           
-          echo "Verificando archivos en el destino:"
-          ls -la /target_folder
-          
-          # Ajustamos permisos
-          chmod -R 755 /target_folder
+          # Esta es la prueba real. Si esto sale en el log y el runner
+          # está en modo 'privileged', los verás en el File Station.
+          ls -la /mnt/nas_docs
