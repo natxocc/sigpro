@@ -42,16 +42,16 @@ jobs:
           bun run build
 
       - name: Diagnóstico de API y URLs
-          run: |
-            echo "--- 1. Verificando Usuario y Token ---"
-            curl -H "Authorization: token ${{ secrets.GITEA_TOKEN }}" \
-                https://git.natxocc.com/api/v1/user
-            
-            echo -e "\n\n--- 2. Verificando Repositorio ---"
-            curl -H "Authorization: token ${{ secrets.GITEA_TOKEN }}" \
-                https://git.natxocc.com/api/v1/repos/natxocc/sigpro
-            
-            echo -e "\n\n--- 3. Verificando Endpoints de Paquetes ---"
-            # Probamos la ruta oficial de Gitea para listar paquetes de un propietario
-            curl -v -H "Authorization: token ${{ secrets.GITEA_TOKEN }}" \
-                https://git.natxocc.com/api/packages/natxocc/npm/sigpro
+        run: |
+          echo "--- 1. Verificando Usuario y Token ---"
+          curl -H "Authorization: token ${{ secrets.GITEA_TOKEN }}" \
+              https://git.natxocc.com/api/v1/user
+          
+          echo -e "\n\n--- 2. Verificando Repositorio ---"
+          curl -H "Authorization: token ${{ secrets.GITEA_TOKEN }}" \
+              https://git.natxocc.com/api/v1/repos/natxocc/sigpro
+          
+          echo -e "\n\n--- 3. Verificando Endpoints de Paquetes ---"
+          # Probamos la ruta oficial de Gitea para listar paquetes de un propietario
+          curl -v -H "Authorization: token ${{ secrets.GITEA_TOKEN }}" \
+              https://git.natxocc.com/api/packages/natxocc/npm/sigpro
