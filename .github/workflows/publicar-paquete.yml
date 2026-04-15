@@ -1,4 +1,4 @@
-name: Publicar Paquete SigPro (NPM)
+name: Publicar Paquete SigPro (Gitea)
 
 on:
   workflow_dispatch:
@@ -27,28 +27,19 @@ jobs:
           curl -fsSL https://bun.sh/install | bash
           echo "$HOME/.bun/bin" >> $GITHUB_PATH
 
-      - name: Build y Preparación
+      - name: Build
         run: |
           export PATH="$HOME/.bun/bin:$PATH"
           bun install
           bun run build
-          
-          # Cambiamos el nombre en package.json temporalmente para que Gitea lo acepte
-          # de "sigpro" a "@natxocc/sigpro"
-          sed -i 's/"name": "sigpro"/"name": "@natxocc\/sigpro"/' package.json
-          
-          # Creamos el paquete .tgz
-          npm pack
 
-      - name: Publicar vía API (PUT Directo)
+      - name: Publicar en Gitea
         run: |
-          TARBALL_NAME=$(ls natxocc-sigpro-*.tgz | head -n 1)
+          # 1. Configuramos el .npmrc para usar el token automático de Gitea
+          # Importante: Gitea espera el token en formato Bearer para su API de paquetes
+          echo "@natxocc:registry=https://git.natxocc.com/api/packages/natxocc/npm/" > .npmrc
+          echo "//git.natxocc.com/api/packages/natxocc/npm/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> .npmrc
           
-          # La URL oficial de Gitea para publicar paquetes NPM es esta:
-          # https://git.natxocc.com/api/packages/natxocc/npm/
-          
-          curl -v -X PUT \
-               -H "Authorization: token ${{ secrets.GITEA_TOKEN }}" \
-               -H "Content-Type: application/octet-stream" \
-               --data-binary "@${TARBALL_NAME}" \
-               "https://git.natxocc.com/api/packages/natxocc/npm/"
+          # 2. Publicamos usando el comando normal de npm
+          # Gitea 1.25 gestionará la subida si el .npmrc está bien formado
+          npm publish
