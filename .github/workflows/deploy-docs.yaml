@@ -17,25 +17,29 @@ jobs:
         --dns 192.168.1.1
         --add-host git.natxocc.com:host-gateway
         --add-host gitea:host-gateway
-        -v /volume1/webdocs/sigpro:/target_folder
+        -v /volume1/webdocs/sigpro:/volume1/webdocs/sigpro
 
     steps:
-      - name: Instalar rsync
-        run: apt-get update && apt-get install -y rsync
-
       - name: Checkout código
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
         env:
-          # Usamos exactamente la misma cadena que te funcionó en NPM
+          # Configuración de red que ya sabemos que funciona
           GIT_CONFIG_PARAMETERS: "'url.https://git.natxocc.com/.insteadOf=http://gitea:3000/'"
 
-      - name: Sincronizar archivos a Web Station
+      - name: Copiar archivos a Web Station
         run: |
-          # Verificamos contenido
-          ls -R docs/
-          # Sincronizamos a la carpeta del NAS mapeada
-          rsync -av --delete docs/ /target_folder/
-          # Permisos para asegurar que Web Station pueda leer
-          chmod -R 755 /target_folder
+          # 1. Limpiamos el destino (opcional, equivalente al --delete de rsync)
+          # Solo borra contenido si la carpeta destino existe y tiene algo
+          rm -rf /volume1/webdocs/sigpro/* 2>/dev/null || true
+
+          # 2. Copiamos el contenido de docs/ a la carpeta mapeada
+          # El punto final en 'docs/.' copia el contenido, no la carpeta en sí
+          cp -r docs/. /volume1/webdocs/sigpro/
+
+          # 3. Verificamos que los archivos están en el destino (se verá en el log)
+          ls -la /target_folder
+
+          # 4. Ajustamos permisos para que Web Station (usuario http) pueda leer
+          chmod -R 755 /volume1/webdocs/sigpro/
