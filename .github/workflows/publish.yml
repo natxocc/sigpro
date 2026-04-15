@@ -9,17 +9,21 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: node:20-bullseye
-      # Esto lo mete en el mismo "pasillo" que Gitea
-      options: --network gitea_net
+      options: >-
+        --dns 192.168.1.1
+        --add-host git.natxocc.com:host-gateway
+        --add-host gitea:host-gateway
     steps:
-      - name: Configurar Git Interno
+      - name: Forzar Dominio Limpio
         run: |
-          # Forzamos que confíe en el directorio
+          # Redirigimos cualquier intento (IP o nombre interno) al dominio limpio
+          git config --global url."http://git.natxocc.com/".insteadOf "http://gitea:3000/"
+          git config --global url."http://git.natxocc.com/".insteadOf "http://192.168.1.100:3333/"
+          
           git config --global --add safe.directory /workspace/natxocc/sigpro
-          # Por si acaso Gitea envía la IP en lugar del nombre, lo redirigimos al nombre interno
-          git config --global url."http://gitea:3000/".insteadOf "http://192.168.1.100:3333/"
+          git config --global http.sslVerify false
 
-      - name: Checkout
+      - name: Checkout código
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
@@ -28,7 +32,7 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Publicar
+      - name: Install & Publish
         run: |
           bun install
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
