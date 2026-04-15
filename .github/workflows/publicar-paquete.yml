@@ -41,23 +41,20 @@ jobs:
           export PATH="$HOME/.bun/bin:$PATH"
           bun run build
 
-      - name: Configurar Registro Gitea y Publicar
+      - name: Empaquetar y Publicar vía API (CURL)
         run: |
-          # 1. Definimos la URL exacta del registro (sin protocolo para el token)
-          REGISTRY_URL="git.natxocc.com/api/packages/natxocc/npm/"
+          # 1. Crear el archivo .tgz (empaquetado de npm)
+          # Esto generará un archivo llamado sigpro-1.2.12.tgz (o la versión que toque)
+          npm pack
           
-          # 2. Limpiamos cualquier .npmrc previo para evitar conflictos
-          rm -f .npmrc ~/.npmrc
-          
-          # 3. Creamos la configuración de autenticación manual
-          # Importante: Usamos GITEA_TOKEN (tu PAT) y forzamos always-auth
-          echo "//${REGISTRY_URL}:_authToken=${{ secrets.GITEA_TOKEN }}" > ~/.npmrc
-          echo "//${REGISTRY_URL}:always-auth=true" >> ~/.npmrc
-          
-          # 4. Configuramos el registro por defecto para esta sesión de npm
-          npm config set registry "https://${REGISTRY_URL}"
-          
-          # 5. Publicamos
-          # Usamos --userconfig para asegurar que use el archivo que acabamos de crear
-          # Usamos --ignore-scripts para evitar que el 'prepublishOnly' vuelva a lanzar el build de Bun
-          npm publish --userconfig ~/.npmrc --ignore-scripts
+          # 2. Capturar el nombre del archivo generado
+          TARBALL_NAME=$(ls sigpro-*.tgz | head -n 1)
+          echo "Archivo detectado: $TARBALL_NAME"
+
+          # 3. Subida directa mediante CURL a la API de Gitea
+          # Usamos el GITEA_TOKEN (PAT) que configuraste como secreto
+          # La URL apunta directamente al endpoint de carga de paquetes de Gitea
+          curl -v -X PUT \
+               -H "Authorization: token ${{ secrets.GITEA_TOKEN }}" \
+               -F "package=@${TARBALL_NAME}" \
+               "https://git.natxocc.com/api/packages/natxocc/npm/"
