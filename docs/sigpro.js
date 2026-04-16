@@ -3,27 +3,37 @@
   var __getOwnPropNames = Object.getOwnPropertyNames;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __hasOwnProp = Object.prototype.hasOwnProperty;
-  var __moduleCache = /* @__PURE__ */ new WeakMap;
+  function __accessProp(key) {
+    return this[key];
+  }
   var __toCommonJS = (from) => {
-    var entry = __moduleCache.get(from), desc;
+    var entry = (__moduleCache ??= new WeakMap).get(from), desc;
     if (entry)
       return entry;
     entry = __defProp({}, "__esModule", { value: true });
-    if (from && typeof from === "object" || typeof from === "function")
-      __getOwnPropNames(from).map((key) => !__hasOwnProp.call(entry, key) && __defProp(entry, key, {
-        get: () => from[key],
-        enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
-      }));
+    if (from && typeof from === "object" || typeof from === "function") {
+      for (var key of __getOwnPropNames(from))
+        if (!__hasOwnProp.call(entry, key))
+          __defProp(entry, key, {
+            get: __accessProp.bind(from, key),
+            enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
+          });
+    }
     __moduleCache.set(from, entry);
     return entry;
   };
+  var __moduleCache;
+  var __returnValue = (v) => v;
+  function __exportSetter(name, newValue) {
+    this[name] = __returnValue.bind(null, newValue);
+  }
   var __export = (target, all) => {
     for (var name in all)
       __defProp(target, name, {
         get: all[name],
         enumerable: true,
         configurable: true,
-        set: (newValue) => all[name] = () => newValue
+        set: __exportSetter.bind(all, name)
       });
   };
 
@@ -32,6 +42,7 @@
   __export(exports_sigpro, {
     onUnmount: () => onUnmount,
     onMount: () => onMount,
+    initDX: () => initDX,
     Watch: () => Watch,
     Tag: () => Tag,
     Router: () => Router,
@@ -591,9 +602,28 @@
     MOUNTED_NODES.set(t, inst);
     return inst;
   };
-  var SigPro = Object.freeze({ $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, Anim, Batch });
-  if (typeof window !== "undefined") {
-    Object.assign(window, SigPro);
-    "div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer ul ol li a em strong pre code form label input textarea select button img svg".split(" ").forEach((t) => window[t[0].toUpperCase() + t.slice(1)] = (p, c) => SigPro.Tag(t, p, c));
-  }
+  var SigPro = Object.freeze({
+    $,
+    $$,
+    Watch,
+    Tag,
+    Render,
+    If,
+    For,
+    Router,
+    Mount,
+    onMount,
+    onUnmount,
+    Anim,
+    Batch
+  });
+  var initDX = () => {
+    if (typeof window !== "undefined") {
+      Object.assign(window, SigPro);
+      "div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer ul ol li a em strong pre code form label input textarea select button img svg".split(" ").forEach((t) => {
+        const name = t[0].toUpperCase() + t.slice(1);
+        window[name] = (p, c) => Tag(t, p, c);
+      });
+    }
+  };
 })();
