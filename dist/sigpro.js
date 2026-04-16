@@ -616,4 +616,11 @@
     Anim,
     Batch
   });
+  if (typeof window !== "undefined") {
+    Object.assign(window, SigPro);
+    "div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer ul ol li a em strong pre code form label input textarea select button img svg".split(" ").forEach((t) => {
+      const name = t[0].toUpperCase() + t.slice(1);
+      window[name] = (p, c) => Tag(t, p, c);
+    });
+  }
 })();
