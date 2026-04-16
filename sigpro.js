@@ -543,7 +543,7 @@ const SigPro = Object.freeze({
   $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, Anim, Batch 
 })
 
-export const initDX = () => {
+// export const initDX = () => {
   // if (typeof window !== "undefined") {
     // Object.assign(window, SigPro)    
     // "div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer ul ol li a em strong pre code form label input textarea select button img svg"
@@ -552,7 +552,7 @@ export const initDX = () => {
     //     window[name] = (p, c) => Tag(t, p, c)
     //   })
   // }
-}
+// }
 
 export { $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, Anim, Batch }
 export default SigPro

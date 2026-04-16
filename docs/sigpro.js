@@ -42,7 +42,6 @@
   __export(exports_sigpro, {
     onUnmount: () => onUnmount,
     onMount: () => onMount,
-    initDX: () => initDX,
     Watch: () => Watch,
     Tag: () => Tag,
     Router: () => Router,
@@ -617,5 +616,4 @@
     Anim,
     Batch
   });
-  var initDX = () => {};
 })();

@@ -559,11 +559,9 @@ var SigPro = Object.freeze({
   Anim,
   Batch
 });
-var initDX = () => {};
 export {
   onUnmount,
   onMount,
-  initDX,
   Watch,
   Tag,
   Router,
