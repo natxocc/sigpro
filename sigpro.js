@@ -1,4 +1,4 @@
-// sigpro 1.2.13
+// sigpro 1.2.12
 const isFunc = f => typeof f === "function"
 const isObj = o => o && typeof o === "object"
 const isArr = Array.isArray
@@ -539,19 +539,12 @@ const Mount = (comp, target) => {
   return inst
 }
 
-const SigPro = Object.freeze({ 
-  $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, Anim, Batch 
-})
+const SigPro = Object.freeze({ $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, Anim, Batch })
 
-export const initDX = () => {
-  if (typeof window !== "undefined") {
-    Object.assign(window, SigPro)    
-    "div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer ul ol li a em strong pre code form label input textarea select button img svg"
-      .split(" ").forEach(t => {
-        const name = t[0].toUpperCase() + t.slice(1)
-        window[name] = (p, c) => Tag(t, p, c)
-      })
-  }
+if (typeof window !== "undefined") {
+  Object.assign(window, SigPro)
+  "div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer ul ol li a em strong pre code form label input textarea select button img svg"
+    .split(" ").forEach(t => window[t[0].toUpperCase() + t.slice(1)] = (p, c) => SigPro.Tag(t, p, c))
 }
 
 export { $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, Anim, Batch }
