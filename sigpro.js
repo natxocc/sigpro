@@ -539,18 +539,15 @@ const Mount = (comp, target) => {
   return inst
 }
 
-const SigPro = Object.freeze({
-  $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, Anim, Batch
-})
+const SigPro = Object.freeze({ $, $$, Watch, Tag, If, For, Router, Mount, onMount, onUnmount, Anim, Batch })
 
 if (typeof window !== "undefined") {
   Object.assign(window, SigPro)
-  "div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer ul ol li a em strong pre code form label input textarea select button img svg"
-    .split(" ").forEach(t => {
+  "div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer ul ol li dl dt dd a em strong pre code small sub sup b i u mark blockquote cite abbr time del ins kbd var form label input textarea select button option optgroup fieldset legend datalist output progress meter details summary dialog img svg video audio canvas figure figcaption picture source table thead tbody tfoot tr th td caption colgroup col iframe object embed template slot"
+  .split(" ").forEach(t => {
       const name = t[0].toUpperCase() + t.slice(1)
       window[name] = (p, c) => Tag(t, p, c)
     })
 }
 
-export { $, $$, Watch, Tag, Render, If, For, Router, Mount, onMount, onUnmount, Anim, Batch }
-export default SigPro
+export { $, $$, Watch, Tag, If, For, Router, Mount, onMount, onUnmount, Anim, Batch }
