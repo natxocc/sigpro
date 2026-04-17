@@ -1,0 +1,21 @@
+{
+  "folders": [
+    {
+      "path": ".",
+    },
+    {
+      "path": "../sigpro-ui",
+    },
+    {
+      "path": "../sigpro",
+    },
+  ],
+  "settings": {
+    "files.associations": {
+      "*.js": "javascript",
+    },
+    "emmet.includeLanguages": {
+      "javascript": "html",
+    },
+  },
+}
