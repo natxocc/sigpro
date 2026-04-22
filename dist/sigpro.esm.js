@@ -33,7 +33,7 @@ var dispose = (eff) => {
     }
   }
 };
-var _onUnmount = (fn) => {
+var onUnmount = (fn) => {
   if (activeOwner)
     (activeOwner._cleanups ||= new Set).add(fn);
 };
@@ -151,7 +151,7 @@ var $ = (val, key = null) => {
     computed._disposed = false;
     computed.stop = () => {};
     if (activeOwner)
-      _onUnmount(computed.stop);
+      onUnmount(computed.stop);
     return computed;
   }
   if (key)
@@ -175,44 +175,44 @@ var $ = (val, key = null) => {
 var $$ = (target) => {
   if (!isObj(target))
     return target;
-  let proxy = proxyCache.get(target);
-  if (proxy)
-    return proxy;
-  const subsMap = new Map;
-  const getSubs = (k) => {
-    let s = subsMap.get(k);
-    if (!s)
-      subsMap.set(k, s = new Set);
-    return s;
+  const cached = proxyCache.get(target);
+  if (cached)
+    return cached;
+  const subs = new Map;
+  const getSubs = (key) => {
+    let set = subs.get(key);
+    if (!set)
+      subs.set(key, set = new Set);
+    return set;
   };
-  proxy = new Proxy(target, {
-    get(t, k, receiver) {
-      if (typeof k !== "symbol")
-        trackUpdate(getSubs(k));
-      return $$(Reflect.get(t, k, receiver));
+  const proxy = new Proxy(target, {
+    get(target2, key, receiver) {
+      if (typeof key !== "symbol")
+        trackUpdate(getSubs(key));
+      return $$(Reflect.get(target2, key, receiver));
     },
-    set(t, k, v, receiver) {
-      const isNew = !Reflect.has(t, k);
-      const oldV = Reflect.get(t, k, receiver);
-      const result = Reflect.set(t, k, v, receiver);
-      if (result && !Object.is(oldV, v)) {
-        trackUpdate(getSubs(k), true);
-        if (isNew)
+    set(target2, key, value, receiver) {
+      const hadKey = Reflect.has(target2, key);
+      const oldValue = Reflect.get(target2, key, receiver);
+      const result = Reflect.set(target2, key, value, receiver);
+      if (result && !Object.is(oldValue, value)) {
+        trackUpdate(getSubs(key), true);
+        if (!hadKey)
           trackUpdate(getSubs(ITER), true);
       }
       return result;
     },
-    deleteProperty(t, k) {
-      const result = Reflect.deleteProperty(t, k);
+    deleteProperty(target2, key) {
+      const result = Reflect.deleteProperty(target2, key);
       if (result) {
-        trackUpdate(getSubs(k), true);
+        trackUpdate(getSubs(key), true);
         trackUpdate(getSubs(ITER), true);
       }
       return result;
     },
-    ownKeys(t) {
+    ownKeys(target2) {
       trackUpdate(getSubs(ITER));
-      return Reflect.ownKeys(t);
+      return Reflect.ownKeys(target2);
     }
   });
   proxyCache.set(target, proxy);
@@ -305,7 +305,7 @@ var h = (tag, props = {}, children = []) => {
       el.addEventListener(ev, v);
       const off = () => el.removeEventListener(ev, v);
       el._cleanups.add(off);
-      _onUnmount(off);
+      onUnmount(off);
     } else if (isFunc(v)) {
       const effect = createEffect(() => {
         const val = validateAttr(k, v());
@@ -320,7 +320,7 @@ var h = (tag, props = {}, children = []) => {
       });
       effect();
       el._cleanups.add(() => dispose(effect));
-      _onUnmount(() => dispose(effect));
+      onUnmount(() => dispose(effect));
       if (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && (k === "value" || k === "checked")) {
         const evType = k === "checked" ? "change" : "input";
         el.addEventListener(evType, (ev) => v(ev.target[k]));
@@ -366,7 +366,7 @@ var h = (tag, props = {}, children = []) => {
       });
       effect();
       el._cleanups.add(() => dispose(effect));
-      _onUnmount(() => dispose(effect));
+      onUnmount(() => dispose(effect));
     } else {
       const node = ensureNode(c);
       el.appendChild(node);
@@ -379,13 +379,12 @@ var h = (tag, props = {}, children = []) => {
 };
 var render = (renderFn) => {
   const cleanups = new Set;
-  const mounts = [];
   const previousOwner = activeOwner;
   const previousEffect = activeEffect;
   const container = doc.createElement("div");
   container.style.display = "contents";
   container.setAttribute("role", "presentation");
-  activeOwner = { _cleanups: cleanups, _mounts: mounts };
+  activeOwner = { _cleanups: cleanups };
   activeEffect = null;
   const processResult = (result) => {
     if (!result)
@@ -405,7 +404,6 @@ var render = (renderFn) => {
     activeOwner = previousOwner;
     activeEffect = previousEffect;
   }
-  mounts.forEach((fn) => fn());
   return {
     _isRuntime: true,
     container,
@@ -449,7 +447,7 @@ var when = (cond, render2, { enter, leave } = {}) => {
       }
     }
   });
-  return _onUnmount(() => view?.destroy()), wrap;
+  return onUnmount(() => view?.destroy()), wrap;
 };
 var each = (src, itemFn, keyFn) => {
   const anchor = doc.createTextNode("");
@@ -488,7 +486,7 @@ var router = (routes) => {
   const path = $(getHash());
   const handler = () => path(getHash());
   window.addEventListener("hashchange", handler);
-  _onUnmount(() => window.removeEventListener("hashchange", handler));
+  onUnmount(() => window.removeEventListener("hashchange", handler));
   const hook = h("div", { class: "router-hook" });
   let currentView = null;
   watch([path], () => {

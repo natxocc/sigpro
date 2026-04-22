@@ -1,4 +1,4 @@
-// sigpro 1.2.14
+// sigpro 1.2.15
 const isFunc = f => typeof f === "function"
 const isObj = o => o && typeof o === "object"
 const isArr = Array.isArray
@@ -35,7 +35,7 @@ const dispose = eff => {
   }
 }
 
-const _onUnmount = fn => {
+const onUnmount = fn => {
   if (activeOwner) (activeOwner._cleanups ||= new Set()).add(fn)
 }
 
@@ -144,7 +144,7 @@ const $ = (val, key = null) => {
     computed._deps = null
     computed._disposed = false
     computed.stop = () => { }
-    if (activeOwner) _onUnmount(computed.stop)
+    if (activeOwner) onUnmount(computed.stop)
     return computed
   }
   if (key) try { val = JSON.parse(localStorage.getItem(key)) ?? val } catch (e) { }
@@ -165,43 +165,42 @@ const $ = (val, key = null) => {
 const $$ = (target) => {
   if (!isObj(target)) return target
 
-  let proxy = proxyCache.get(target)
-  if (proxy) return proxy
+  const cached = proxyCache.get(target)
+  if (cached) return cached
 
-  const subsMap = new Map()
-  const getSubs = (k) => {
-    let s = subsMap.get(k)
-    if (!s) subsMap.set(k, (s = new Set()))
-    return s
+  const subs = new Map()
+  const getSubs = (key) => {
+    let set = subs.get(key)
+    if (!set) subs.set(key, set = new Set())
+    return set
   }
 
-  proxy = new Proxy(target, {
-    get(t, k, receiver) {
-      if (typeof k !== 'symbol') trackUpdate(getSubs(k))
-      return $$(Reflect.get(t, k, receiver))
+  const proxy = new Proxy(target, {
+    get(target, key, receiver) {
+      if (typeof key !== 'symbol') trackUpdate(getSubs(key))
+      return $$(Reflect.get(target, key, receiver))
     },
-    set(t, k, v, receiver) {
-      const isNew = !Reflect.has(t, k)
-      const oldV = Reflect.get(t, k, receiver)
-      const result = Reflect.set(t, k, v, receiver)
-
-      if (result && !Object.is(oldV, v)) {
-        trackUpdate(getSubs(k), true)
-        if (isNew) trackUpdate(getSubs(ITER), true)
+    set(target, key, value, receiver) {
+      const hadKey = Reflect.has(target, key)
+      const oldValue = Reflect.get(target, key, receiver)
+      const result = Reflect.set(target, key, value, receiver)
+      if (result && !Object.is(oldValue, value)) {
+        trackUpdate(getSubs(key), true)
+        if (!hadKey) trackUpdate(getSubs(ITER), true)
       }
       return result
     },
-    deleteProperty(t, k) {
-      const result = Reflect.deleteProperty(t, k)
+    deleteProperty(target, key) {
+      const result = Reflect.deleteProperty(target, key)
       if (result) {
-        trackUpdate(getSubs(k), true)
+        trackUpdate(getSubs(key), true)
         trackUpdate(getSubs(ITER), true)
       }
       return result
     },
-    ownKeys(t) {
+    ownKeys(target) {
       trackUpdate(getSubs(ITER))
-      return Reflect.ownKeys(t)
+      return Reflect.ownKeys(target)
     }
   })
 
@@ -252,6 +251,7 @@ const h = (tag, props = {}, children = []) => {
     children = props
     props = {}
   }
+  
   if (isFunc(tag)) {
     const effect = createEffect(() => {
       const result = tag(props, {
@@ -302,7 +302,7 @@ const h = (tag, props = {}, children = []) => {
       el.addEventListener(ev, v)
       const off = () => el.removeEventListener(ev, v)
       el._cleanups.add(off)
-      _onUnmount(off)
+      onUnmount(off)
     } else if (isFunc(v)) {
       const effect = createEffect(() => {
         const val = validateAttr(k, v())
@@ -313,7 +313,7 @@ const h = (tag, props = {}, children = []) => {
       })
       effect()
       el._cleanups.add(() => dispose(effect))
-      _onUnmount(() => dispose(effect))
+      onUnmount(() => dispose(effect))
       if (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && (k === "value" || k === "checked")) {
         const evType = k === "checked" ? "change" : "input"
         el.addEventListener(evType, ev => v(ev.target[k]))
@@ -352,7 +352,7 @@ const h = (tag, props = {}, children = []) => {
       })
       effect()
       el._cleanups.add(() => dispose(effect))
-      _onUnmount(() => dispose(effect))
+      onUnmount(() => dispose(effect))
     } else {
       const node = ensureNode(c)
       el.appendChild(node)
@@ -365,13 +365,12 @@ const h = (tag, props = {}, children = []) => {
 
 const render = renderFn => {
   const cleanups = new Set()
-  const mounts = []
   const previousOwner = activeOwner
   const previousEffect = activeEffect
   const container = doc.createElement("div")
   container.style.display = "contents"
   container.setAttribute("role", "presentation")
-  activeOwner = { _cleanups: cleanups, _mounts: mounts }
+  activeOwner = { _cleanups: cleanups }
   activeEffect = null
 
   const processResult = result => {
@@ -393,7 +392,6 @@ const render = renderFn => {
     activeEffect = previousEffect
   }
 
-  mounts.forEach(fn => fn())
   return {
     _isRuntime: true,
     container,
@@ -439,7 +437,7 @@ const when = (cond, render, { enter, leave } = {}) => {
     }
   })
 
-  return _onUnmount(() => view?.destroy()), wrap
+  return onUnmount(() => view?.destroy()), wrap
 }
 
 const each = (src, itemFn, keyFn) => {
@@ -477,7 +475,7 @@ const router = routes => {
   const path = $(getHash())
   const handler = () => path(getHash())
   window.addEventListener("hashchange", handler)
-  _onUnmount(() => window.removeEventListener("hashchange", handler))
+  onUnmount(() => window.removeEventListener("hashchange", handler))
   const hook = h("div", { class: "router-hook" })
   let currentView = null
   watch([path], () => {
