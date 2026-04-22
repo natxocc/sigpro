@@ -33,11 +33,7 @@ var dispose = (eff) => {
     }
   }
 };
-var onMount = (fn) => {
-  if (activeOwner)
-    (activeOwner._mounts ||= []).push(fn);
-};
-var onUnmount = (fn) => {
+var _onUnmount = (fn) => {
   if (activeOwner)
     (activeOwner._cleanups ||= new Set).add(fn);
 };
@@ -93,7 +89,7 @@ var flush = () => {
       e();
   isFlushing = false;
 };
-var Batch = (fn) => {
+var batch = (fn) => {
   batchDepth++;
   try {
     return fn();
@@ -126,16 +122,16 @@ var trackUpdate = (subs, trigger = false) => {
       queueMicrotask(flush);
   }
 };
-var $ = (val2, key = null) => {
+var $ = (val, key = null) => {
   const subs = new Set;
-  if (isFunc(val2)) {
+  if (isFunc(val)) {
     let cache;
     const computed = () => {
       if (computed._dirty) {
         const prev = activeEffect;
         activeEffect = computed;
         try {
-          const next = val2();
+          const next = val();
           if (!Object.is(cache, next)) {
             cache = next;
             trackUpdate(subs, true);
@@ -155,25 +151,25 @@ var $ = (val2, key = null) => {
     computed._disposed = false;
     computed.stop = () => {};
     if (activeOwner)
-      onUnmount(computed.stop);
+      _onUnmount(computed.stop);
     return computed;
   }
   if (key)
     try {
-      val2 = JSON.parse(localStorage.getItem(key)) ?? val2;
+      val = JSON.parse(localStorage.getItem(key)) ?? val;
     } catch (e) {}
   return (...args) => {
     if (args.length) {
-      const next = isFunc(args[0]) ? args[0](val2) : args[0];
-      if (!Object.is(val2, next)) {
-        val2 = next;
+      const next = isFunc(args[0]) ? args[0](val) : args[0];
+      if (!Object.is(val, next)) {
+        val = next;
         if (key)
-          localStorage.setItem(key, JSON.stringify(val2));
+          localStorage.setItem(key, JSON.stringify(val));
         trackUpdate(subs, true);
       }
     }
     trackUpdate(subs);
-    return val2;
+    return val;
   };
 };
 var $$ = (target) => {
@@ -222,7 +218,7 @@ var $$ = (target) => {
   proxyCache.set(target, proxy);
   return proxy;
 };
-var Watch = (sources, cb) => {
+var watch = (sources, cb) => {
   if (cb === undefined) {
     const effect2 = createEffect(sources);
     effect2();
@@ -247,25 +243,24 @@ var cleanupNode = (node) => {
 };
 var DANGEROUS_PROTOCOL = /^\s*(javascript|data|vbscript):/i;
 var isDangerousAttr = (key) => key === "src" || key === "href" || key.startsWith("on");
-var validateAttr = (key, val2) => {
-  if (val2 == null || val2 === false)
+var validateAttr = (key, val) => {
+  if (val == null || val === false)
     return null;
   if (isDangerousAttr(key)) {
-    const sVal = String(val2);
+    const sVal = String(val);
     if (DANGEROUS_PROTOCOL.test(sVal)) {
       console.warn(`[SigPro] Bloqueado protocolo peligroso en ${key}`);
       return "#";
     }
   }
-  return val2;
+  return val;
 };
-var Tag = (tag, props = {}, children = []) => {
+var h = (tag, props = {}, children = []) => {
   if (props instanceof Node || isArr(props) || !isObj(props)) {
     children = props;
     props = {};
   }
   if (isFunc(tag)) {
-    const ctx = { _mounts: [], _cleanups: new Set };
     const effect = createEffect(() => {
       const result2 = tag(props, {
         children,
@@ -302,7 +297,7 @@ var Tag = (tag, props = {}, children = []) => {
     }
     if (isSVG && k.startsWith("xlink:")) {
       const ns = "http://www.w3.org/1999/xlink";
-      val == null ? el.removeAttributeNS(ns, k.slice(6)) : el.setAttributeNS(ns, k.slice(6), val);
+      v == null ? el.removeAttributeNS(ns, k.slice(6)) : el.setAttributeNS(ns, k.slice(6), v);
       continue;
     }
     if (k.startsWith("on")) {
@@ -310,33 +305,33 @@ var Tag = (tag, props = {}, children = []) => {
       el.addEventListener(ev, v);
       const off = () => el.removeEventListener(ev, v);
       el._cleanups.add(off);
-      onUnmount(off);
+      _onUnmount(off);
     } else if (isFunc(v)) {
       const effect = createEffect(() => {
-        const val2 = validateAttr(k, v());
+        const val = validateAttr(k, v());
         if (k === "class")
-          el.className = val2 || "";
-        else if (val2 == null)
+          el.className = val || "";
+        else if (val == null)
           el.removeAttribute(k);
         else if (k in el && !isSVG)
-          el[k] = val2;
+          el[k] = val;
         else
-          el.setAttribute(k, val2 === true ? "" : val2);
+          el.setAttribute(k, val === true ? "" : val);
       });
       effect();
       el._cleanups.add(() => dispose(effect));
-      onUnmount(() => dispose(effect));
+      _onUnmount(() => dispose(effect));
       if (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && (k === "value" || k === "checked")) {
         const evType = k === "checked" ? "change" : "input";
         el.addEventListener(evType, (ev) => v(ev.target[k]));
       }
     } else {
-      const val2 = validateAttr(k, v);
-      if (val2 != null) {
+      const val = validateAttr(k, v);
+      if (val != null) {
         if (k in el && !isSVG)
-          el[k] = val2;
+          el[k] = val;
         else
-          el.setAttribute(k, val2 === true ? "" : val2);
+          el.setAttribute(k, val === true ? "" : val);
       }
     }
   }
@@ -371,7 +366,7 @@ var Tag = (tag, props = {}, children = []) => {
       });
       effect();
       el._cleanups.add(() => dispose(effect));
-      onUnmount(() => dispose(effect));
+      _onUnmount(() => dispose(effect));
     } else {
       const node = ensureNode(c);
       el.appendChild(node);
@@ -382,7 +377,7 @@ var Tag = (tag, props = {}, children = []) => {
   append(children);
   return el;
 };
-var Render = (renderFn) => {
+var render = (renderFn) => {
   const cleanups = new Set;
   const mounts = [];
   const previousOwner = activeOwner;
@@ -421,29 +416,46 @@ var Render = (renderFn) => {
     }
   };
 };
-var If = (cond, ifYes, ifNot = null) => {
-  const anchor = doc.createTextNode("");
-  const root = Tag("div", { style: "display:contents" }, [anchor]);
-  let currentView = null;
-  Watch(() => !!(isFunc(cond) ? cond() : cond), (show) => {
-    if (currentView) {
-      currentView.destroy();
-      currentView = null;
-    }
-    const content = show ? ifYes : ifNot;
-    if (content) {
-      currentView = Render(() => isFunc(content) ? content() : content);
-      root.insertBefore(currentView.container, anchor);
+var when = (cond, render2, { enter, leave } = {}) => {
+  const wrap = h("div", { style: "display:contents" });
+  let view = null;
+  const wait = (el, cb) => {
+    if (!el)
+      return cb();
+    let done = false;
+    const finish = () => !done && (done = true, cb());
+    el.addEventListener("transitionend", finish, { once: true });
+    el.addEventListener("animationend", finish, { once: true });
+    setTimeout(finish, 500);
+  };
+  watch(cond, (on) => {
+    if (on && !view) {
+      const el = (view = render2(render2)).container.firstChild;
+      wrap.appendChild(view.container);
+      if (enter && el) {
+        el.classList.add(enter);
+        el.clientTop;
+        el.classList.add(enter + "-active");
+        wait(el, () => el.classList.remove(enter, enter + "-active"));
+      }
+    } else if (!on && view) {
+      const el = view.container.firstChild;
+      const destroyView = () => (view.destroy(), view = null);
+      if (leave && el) {
+        el.classList.add(leave);
+        wait(el, destroyView);
+      } else {
+        destroyView();
+      }
     }
   });
-  onUnmount(() => currentView?.destroy());
-  return root;
+  return _onUnmount(() => view?.destroy()), wrap;
 };
-var For = (src, itemFn, keyFn) => {
+var each = (src, itemFn, keyFn) => {
   const anchor = doc.createTextNode("");
-  const root = Tag("div", { style: "display:contents" }, [anchor]);
+  const root = h("div", { style: "display:contents" }, [anchor]);
   let cache = new Map;
-  Watch(() => (isFunc(src) ? src() : src) || [], (items) => {
+  watch(() => (isFunc(src) ? src() : src) || [], (items) => {
     const nextCache = new Map;
     const nextOrder = [];
     const newItems = items || [];
@@ -452,7 +464,7 @@ var For = (src, itemFn, keyFn) => {
       const key = keyFn ? keyFn(item, i) : item?.id ?? i;
       let view = cache.get(key);
       if (!view)
-        view = Render(() => itemFn(item, i));
+        view = render(() => itemFn(item, i));
       else
         cache.delete(key);
       nextCache.set(key, view);
@@ -471,15 +483,15 @@ var For = (src, itemFn, keyFn) => {
   });
   return root;
 };
-var Router = (routes) => {
+var router = (routes) => {
   const getHash = () => window.location.hash.slice(1) || "/";
   const path = $(getHash());
   const handler = () => path(getHash());
   window.addEventListener("hashchange", handler);
-  onUnmount(() => window.removeEventListener("hashchange", handler));
-  const hook = Tag("div", { class: "router-hook" });
+  _onUnmount(() => window.removeEventListener("hashchange", handler));
+  const hook = h("div", { class: "router-hook" });
   let currentView = null;
-  Watch([path], () => {
+  watch([path], () => {
     const cur = path();
     const route = routes.find((r) => {
       const p1 = r.path.split("/").filter(Boolean);
@@ -493,91 +505,43 @@ var Router = (routes) => {
         if (p[0] === ":")
           params[p.slice(1)] = cur.split("/").filter(Boolean)[i];
       });
-      Router.params(params);
-      currentView = Render(() => isFunc(route.component) ? route.component(params) : route.component);
+      router.params(params);
+      currentView = render(() => isFunc(route.component) ? route.component(params) : route.component);
       hook.replaceChildren(currentView.container);
     }
   });
   return hook;
 };
-Router.params = $({});
-Router.to = (p) => window.location.hash = p.replace(/^#?\/?/, "#/");
-Router.back = () => window.history.back();
-Router.path = () => window.location.hash.replace(/^#/, "") || "/";
-var Anim = (show, render, { enter, leave } = {}) => {
-  const wrap = Tag("div", { style: "display:contents" });
-  let view = null;
-  const wait = (el, cb) => {
-    let done = false;
-    const finish = () => !done && (done = true, cb());
-    if (!el)
-      return finish();
-    "transitionend animationend".split(" ").map((e) => el.addEventListener(e, finish, { once: true }));
-    setTimeout(finish, 500);
-  };
-  Watch(show, (on) => {
-    if (on && !view) {
-      const el = (view = Render(render)).container.firstChild;
-      wrap.appendChild(view.container);
-      if (enter && el) {
-        el.classList.add(enter);
-        el.clientTop;
-        el.classList.add(enter + "-active");
-        wait(el, () => el.classList.remove(enter, enter + "-active"));
-      }
-    } else if (!on && view) {
-      const el = view.container.firstChild;
-      const del = () => (view?.destroy(), view = null);
-      leave && el ? (el.classList.add(leave), wait(el, del)) : del();
-    }
-  });
-  return onUnmount(() => view?.destroy()), wrap;
-};
-var Mount = (comp, target) => {
+router.params = $({});
+router.to = (p) => window.location.hash = p.replace(/^#?\/?/, "#/");
+router.back = () => window.history.back();
+router.path = () => window.location.hash.replace(/^#/, "") || "/";
+var mount = (comp, target) => {
   const t = typeof target === "string" ? doc.querySelector(target) : target;
   if (!t)
     return;
   if (MOUNTED_NODES.has(t))
     MOUNTED_NODES.get(t).destroy();
-  const inst = Render(isFunc(comp) ? comp : () => comp);
+  const inst = render(isFunc(comp) ? comp : () => comp);
   t.replaceChildren(inst.container);
   MOUNTED_NODES.set(t, inst);
   return inst;
 };
-var SigPro = Object.freeze({
-  $,
-  $$,
-  Watch,
-  Tag,
-  Render,
-  If,
-  For,
-  Router,
-  Mount,
-  onMount,
-  onUnmount,
-  Anim,
-  Batch
-});
+var SigPro = Object.freeze({ $, $$, watch, h, when, each, router, mount, batch });
 if (typeof window !== "undefined") {
   Object.assign(window, SigPro);
-  "div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer ul ol li a em strong pre code form label input textarea select button img svg".split(" ").forEach((t) => {
-    const name = t[0].toUpperCase() + t.slice(1);
-    window[name] = (p, c) => Tag(t, p, c);
+  "a abbr article aside audio b blockquote br button canvas caption cite code col colgroup datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 header hr i iframe img input ins kbd label legend li main mark meter nav object ol optgroup option output p picture pre progress section select slot small source span strong sub summary sup svg table tbody td template textarea tfoot th thead time tr u ul video".split(" ").forEach((tag) => {
+    window[tag] = (props, children) => h(tag, props, children);
   });
 }
 export {
-  onUnmount,
-  onMount,
-  Watch,
-  Tag,
-  Router,
-  Render,
-  Mount,
-  If,
-  For,
-  Batch,
-  Anim,
+  when,
+  watch,
+  router,
+  mount,
+  h,
+  each,
+  batch,
   $$,
   $
 };

@@ -1,4 +1,4 @@
-// sigpro 1.2.13
+// sigpro 1.2.14
 const isFunc = f => typeof f === "function"
 const isObj = o => o && typeof o === "object"
 const isArr = Array.isArray
@@ -35,11 +35,7 @@ const dispose = eff => {
   }
 }
 
-const onMount = fn => {
-  if (activeOwner) (activeOwner._mounts ||= []).push(fn)
-}
-
-const onUnmount = fn => {
+const _onUnmount = fn => {
   if (activeOwner) (activeOwner._cleanups ||= new Set()).add(fn)
 }
 
@@ -88,7 +84,7 @@ const flush = () => {
   isFlushing = false
 }
 
-const Batch = fn => {
+const batch = fn => {
   batchDepth++
   try {
     return fn()
@@ -148,7 +144,7 @@ const $ = (val, key = null) => {
     computed._deps = null
     computed._disposed = false
     computed.stop = () => { }
-    if (activeOwner) onUnmount(computed.stop)
+    if (activeOwner) _onUnmount(computed.stop)
     return computed
   }
   if (key) try { val = JSON.parse(localStorage.getItem(key)) ?? val } catch (e) { }
@@ -213,7 +209,7 @@ const $$ = (target) => {
   return proxy
 }
 
-const Watch = (sources, cb) => {
+const watch = (sources, cb) => {
   if (cb === undefined) {
     const effect = createEffect(sources)
     effect()
@@ -251,13 +247,12 @@ const validateAttr = (key, val) => {
   return val
 }
 
-const Tag = (tag, props = {}, children = []) => {
+const h = (tag, props = {}, children = []) => {
   if (props instanceof Node || isArr(props) || !isObj(props)) {
     children = props
     props = {}
   }
   if (isFunc(tag)) {
-    const ctx = { _mounts: [], _cleanups: new Set() }
     const effect = createEffect(() => {
       const result = tag(props, {
         children,
@@ -299,7 +294,7 @@ const Tag = (tag, props = {}, children = []) => {
     }
     if (isSVG && k.startsWith("xlink:")) {
       const ns = "http://www.w3.org/1999/xlink"
-      val == null ? el.removeAttributeNS(ns, k.slice(6)) : el.setAttributeNS(ns, k.slice(6), val)
+      v == null ? el.removeAttributeNS(ns, k.slice(6)) : el.setAttributeNS(ns, k.slice(6), v)
       continue
     }
     if (k.startsWith("on")) {
@@ -307,7 +302,7 @@ const Tag = (tag, props = {}, children = []) => {
       el.addEventListener(ev, v)
       const off = () => el.removeEventListener(ev, v)
       el._cleanups.add(off)
-      onUnmount(off)
+      _onUnmount(off)
     } else if (isFunc(v)) {
       const effect = createEffect(() => {
         const val = validateAttr(k, v())
@@ -318,7 +313,7 @@ const Tag = (tag, props = {}, children = []) => {
       })
       effect()
       el._cleanups.add(() => dispose(effect))
-      onUnmount(() => dispose(effect))
+      _onUnmount(() => dispose(effect))
       if (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && (k === "value" || k === "checked")) {
         const evType = k === "checked" ? "change" : "input"
         el.addEventListener(evType, ev => v(ev.target[k]))
@@ -357,7 +352,7 @@ const Tag = (tag, props = {}, children = []) => {
       })
       effect()
       el._cleanups.add(() => dispose(effect))
-      onUnmount(() => dispose(effect))
+      _onUnmount(() => dispose(effect))
     } else {
       const node = ensureNode(c)
       el.appendChild(node)
@@ -368,7 +363,7 @@ const Tag = (tag, props = {}, children = []) => {
   return el
 }
 
-const Render = renderFn => {
+const render = renderFn => {
   const cleanups = new Set()
   const mounts = []
   const previousOwner = activeOwner
@@ -410,36 +405,48 @@ const Render = renderFn => {
   }
 }
 
-const If = (cond, ifYes, ifNot = null) => {
-  const anchor = doc.createTextNode("")
-  const root = Tag("div", { style: "display:contents" }, [anchor])
-  let currentView = null
+const when = (cond, render, { enter, leave } = {}) => {
+  const wrap = h('div', { style: 'display:contents' })
+  let view = null
 
-  Watch(
-    () => !!(isFunc(cond) ? cond() : cond),
-    show => {
-      if (currentView) {
-        currentView.destroy()
-        currentView = null
+  const wait = (el, cb) => {
+    if (!el) return cb()
+    let done = false
+    const finish = () => !done && (done = true, cb())
+    el.addEventListener('transitionend', finish, { once: true })
+    el.addEventListener('animationend', finish, { once: true })
+    setTimeout(finish, 500)
+  }
+
+  watch(cond, on => {
+    if (on && !view) {
+      const el = (view = render(render)).container.firstChild
+      wrap.appendChild(view.container)
+      if (enter && el) {
+        el.classList.add(enter); el.clientTop
+        el.classList.add(enter + '-active')
+        wait(el, () => el.classList.remove(enter, enter + '-active'))
       }
-
-      const content = show ? ifYes : ifNot
-      if (content) {
-        currentView = Render(() => isFunc(content) ? content() : content)
-        root.insertBefore(currentView.container, anchor)
+    } else if (!on && view) {
+      const el = view.container.firstChild
+      const destroyView = () => (view.destroy(), view = null)
+      if (leave && el) {
+        el.classList.add(leave)
+        wait(el, destroyView)
+      } else {
+        destroyView()
       }
     }
-  )
+  })
 
-  onUnmount(() => currentView?.destroy())
-  return root
+  return _onUnmount(() => view?.destroy()), wrap
 }
 
-const For = (src, itemFn, keyFn) => {
+const each = (src, itemFn, keyFn) => {
   const anchor = doc.createTextNode("")
-  const root = Tag("div", { style: "display:contents" }, [anchor])
+  const root = h("div", { style: "display:contents" }, [anchor])
   let cache = new Map()
-  Watch(() => (isFunc(src) ? src() : src) || [], items => {
+  watch(() => (isFunc(src) ? src() : src) || [], items => {
     const nextCache = new Map()
     const nextOrder = []
     const newItems = items || []
@@ -447,7 +454,7 @@ const For = (src, itemFn, keyFn) => {
       const item = newItems[i]
       const key = keyFn ? keyFn(item, i) : (item?.id ?? i)
       let view = cache.get(key)
-      if (!view) view = Render(() => itemFn(item, i))
+      if (!view) view = render(() => itemFn(item, i))
       else cache.delete(key)
       nextCache.set(key, view)
       nextOrder.push(view)
@@ -465,15 +472,15 @@ const For = (src, itemFn, keyFn) => {
   return root
 }
 
-const Router = routes => {
+const router = routes => {
   const getHash = () => window.location.hash.slice(1) || "/"
   const path = $(getHash())
   const handler = () => path(getHash())
   window.addEventListener("hashchange", handler)
-  onUnmount(() => window.removeEventListener("hashchange", handler))
-  const hook = Tag("div", { class: "router-hook" })
+  _onUnmount(() => window.removeEventListener("hashchange", handler))
+  const hook = h("div", { class: "router-hook" })
   let currentView = null
-  Watch([path], () => {
+  watch([path], () => {
     const cur = path()
     const route = routes.find(r => {
       const p1 = r.path.split("/").filter(Boolean)
@@ -486,68 +493,36 @@ const Router = routes => {
       route.path.split("/").filter(Boolean).forEach((p, i) => {
         if (p[0] === ":") params[p.slice(1)] = cur.split("/").filter(Boolean)[i]
       })
-      Router.params(params)
-      currentView = Render(() => isFunc(route.component) ? route.component(params) : route.component)
+      router.params(params)
+      currentView = render(() => isFunc(route.component) ? route.component(params) : route.component)
       hook.replaceChildren(currentView.container)
     }
   })
   return hook
 }
-Router.params = $({})
-Router.to = p => window.location.hash = p.replace(/^#?\/?/, "#/")
-Router.back = () => window.history.back()
-Router.path = () => window.location.hash.replace(/^#/, "") || "/"
+router.params = $({})
+router.to = p => window.location.hash = p.replace(/^#?\/?/, "#/")
+router.back = () => window.history.back()
+router.path = () => window.location.hash.replace(/^#/, "") || "/"
 
-const Anim = (show, render, { enter, leave } = {}) => {
-  const wrap = Tag('div', { style: 'display:contents' })
-  let view = null
-
-  const wait = (el, cb) => {
-    let done = false
-    const finish = () => !done && (done = true, cb())
-    if (!el) return finish()
-    'transitionend animationend'.split(' ').map(e => el.addEventListener(e, finish, { once: true }))
-    setTimeout(finish, 500)
-  }
-
-  Watch(show, on => {
-    if (on && !view) {
-      const el = (view = Render(render)).container.firstChild
-      wrap.appendChild(view.container)
-      if (enter && el) {
-        el.classList.add(enter); el.clientTop
-        el.classList.add(enter + '-active')
-        wait(el, () => el.classList.remove(enter, enter + '-active'))
-      }
-    } else if (!on && view) {
-      const el = view.container.firstChild
-      const del = () => (view?.destroy(), view = null)
-      leave && el ? (el.classList.add(leave), wait(el, del)) : del()
-    }
-  })
-
-  return onUnmount(() => view?.destroy()), wrap
-}
-
-const Mount = (comp, target) => {
+const mount = (comp, target) => {
   const t = typeof target === "string" ? doc.querySelector(target) : target
   if (!t) return
   if (MOUNTED_NODES.has(t)) MOUNTED_NODES.get(t).destroy()
-  const inst = Render(isFunc(comp) ? comp : () => comp)
+  const inst = render(isFunc(comp) ? comp : () => comp)
   t.replaceChildren(inst.container)
   MOUNTED_NODES.set(t, inst)
   return inst
 }
 
-const SigPro = Object.freeze({ $, $$, Watch, Tag, If, For, Router, Mount, onMount, onUnmount, Anim, Batch })
+const SigPro = Object.freeze({ $, $$, watch, h, when, each, router, mount, batch })
 
 if (typeof window !== "undefined") {
   Object.assign(window, SigPro)
-  "div span p h1 h2 h3 h4 h5 h6 br hr section article aside nav main header footer ul ol li dl dt dd a em strong pre code small sub sup b i u mark blockquote cite abbr time del ins kbd var form label input textarea select button option optgroup fieldset legend datalist output progress meter details summary dialog img svg video audio canvas figure figcaption picture source table thead tbody tfoot tr th td caption colgroup col iframe object embed template slot"
-  .split(" ").forEach(t => {
-      const name = t[0].toUpperCase() + t.slice(1)
-      window[name] = (p, c) => Tag(t, p, c)
+  "a abbr article aside audio b blockquote br button canvas caption cite code col colgroup datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 header hr i iframe img input ins kbd label legend li main mark meter nav object ol optgroup option output p picture pre progress section select slot small source span strong sub summary sup svg table tbody td template textarea tfoot th thead time tr u ul video"
+    .split(" ").forEach(tag => {
+      window[tag] = (props, children) => h(tag, props, children)
     })
 }
 
-export { $, $$, Watch, Tag, If, For, Router, Mount, onMount, onUnmount, Anim, Batch }
+export { $, $$, watch, h, when, each, router, mount, batch }
