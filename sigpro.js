@@ -1,4 +1,4 @@
-// sigpro 1.2.15
+// sigpro 1.2.16
 const isFunc = f => typeof f === "function"
 const isObj = o => o && typeof o === "object"
 const isArr = Array.isArray
@@ -222,14 +222,21 @@ const watch = (sources, cb) => {
   return () => dispose(effect)
 }
 
-const cleanupNode = node => {
+const cleanupNode = (node, skipLeave = false) => {
+  if (!node) return;
   if (node._cleanups) {
-    node._cleanups.forEach(fn => fn())
-    node._cleanups.clear()
+    node._cleanups.forEach(fn => fn());
+    node._cleanups.clear();
   }
-  if (node._ownerEffect) dispose(node._ownerEffect)
-  if (node.childNodes) node.childNodes.forEach(cleanupNode)
-}
+  if (node._ownerEffect) dispose(node._ownerEffect);
+  if (!skipLeave && node._sig_leave) {
+    return node._sig_leave(() => {
+      if (node.childNodes) node.childNodes.forEach(n => cleanupNode(n, true));
+      node.remove();
+    });
+  }
+  if (node.childNodes) node.childNodes.forEach(n => cleanupNode(n, false));
+};
 
 const DANGEROUS_PROTOCOL = /^\s*(javascript|data|vbscript):/i
 const isDangerousAttr = key => key === 'src' || key === 'href' || key.startsWith('on')
@@ -251,7 +258,7 @@ const h = (tag, props = {}, children = []) => {
     children = props
     props = {}
   }
-  
+
   if (isFunc(tag)) {
     const effect = createEffect(() => {
       const result = tag(props, {
@@ -398,47 +405,69 @@ const render = renderFn => {
     destroy: () => {
       cleanups.forEach(fn => fn())
       cleanupNode(container)
-      container.remove()
+      if (!container._sig_leave) container.remove()
     }
   }
 }
 
-const when = (cond, render, { enter, leave } = {}) => {
-  const wrap = h('div', { style: 'display:contents' })
-  let view = null
+const when = (cond, SIP, NOP = null) => {
+  const anchor = doc.createTextNode("")
+  const root = h("div", { style: "display:contents" }, [anchor])
+  let currentView = null
 
-  const wait = (el, cb) => {
-    if (!el) return cb()
-    let done = false
-    const finish = () => !done && (done = true, cb())
-    el.addEventListener('transitionend', finish, { once: true })
-    el.addEventListener('animationend', finish, { once: true })
-    setTimeout(finish, 500)
-  }
-
-  watch(cond, on => {
-    if (on && !view) {
-      const el = (view = render(render)).container.firstChild
-      wrap.appendChild(view.container)
-      if (enter && el) {
-        el.classList.add(enter); el.clientTop
-        el.classList.add(enter + '-active')
-        wait(el, () => el.classList.remove(enter, enter + '-active'))
+  watch(
+    () => !!(isFunc(cond) ? cond() : cond),
+    show => {
+      if (currentView) {
+        currentView.destroy()
+        currentView = null
       }
-    } else if (!on && view) {
-      const el = view.container.firstChild
-      const destroyView = () => (view.destroy(), view = null)
-      if (leave && el) {
-        el.classList.add(leave)
-        wait(el, destroyView)
-      } else {
-        destroyView()
+
+      const content = show ? SIP : NOP
+      if (content) {
+        currentView = render(() => isFunc(content) ? content() : content)
+        root.insertBefore(currentView.container, anchor)
       }
     }
-  })
+  )
 
-  return onUnmount(() => view?.destroy()), wrap
+  onUnmount(() => currentView?.destroy())
+  return root
 }
+
+const fx = ({ name, duration = 200, scale, slide, rotate, blur }, child) => {
+  const el = typeof child === 'function' ? child() : child;
+  if (!(el instanceof Node)) return el;
+
+  if (name) {
+    el.style.animation = `${name}-in ${duration}ms`;
+    el._sig_leave = (done) => {
+      el.style.animation = `${name}-out ${duration}ms`;
+      el.addEventListener('animationend', done, { once: true });
+    };
+    return el;
+  }
+
+  const hasTransform = scale || slide || rotate || blur;
+  el.style.transition = hasTransform ? `all ${duration}ms` : '';
+  el.style.opacity = '0';
+  if (scale) el.style.transform = 'scale(0.95)';
+  if (slide) el.style.transform = 'translateY(-10px)';
+  if (rotate) el.style.transform = 'rotate(-2deg)';
+  if (blur) el.style.filter = 'blur(4px)';
+
+  requestAnimationFrame(() => {
+    el.style.opacity = '1';
+    el.style.transform = scale || slide || rotate || blur ? '' : 'none';
+  });
+
+  el._sig_leave = (done) => {
+    el.style.opacity = '0';
+    el.addEventListener('transitionend', done, { once: true });
+  };
+
+  return el;
+};
 
 const each = (src, itemFn, keyFn) => {
   const anchor = doc.createTextNode("")
@@ -503,6 +532,52 @@ router.to = p => window.location.hash = p.replace(/^#?\/?/, "#/")
 router.back = () => window.history.back()
 router.path = () => window.location.hash.replace(/^#/, "") || "/"
 
+const req = ({ url, method = 'GET', headers = {} }) => {
+  const loading = $(false);
+  const error = $(null);
+  const data = $(null);
+  let controller = null;
+  let timeoutId = null;
+
+  const run = async (body = null) => {
+    controller?.abort();
+    clearTimeout(timeoutId);
+    controller = new AbortController();
+    timeoutId = setTimeout(() => controller.abort(), 10000);
+    loading(true);
+    error(null);
+
+    try {
+      const isFormData = body instanceof FormData;
+      const res = await fetch(url, {
+        method,
+        headers: isFormData ? headers : { 'Content-Type': 'application/json', ...headers },
+        body: isFormData ? body : (body ? JSON.stringify(body) : undefined),
+        signal: controller.signal
+      });
+
+      const text = await res.text();
+      const json = text ? JSON.parse(text) : null;
+
+      if (!res.ok) throw new Error(json?.message || res.statusText);
+      data(json);
+      return json;
+    } catch (e) {
+      if (e.name !== 'AbortError') error(e.message);
+      throw e;
+    } finally {
+      loading(false);
+      clearTimeout(timeoutId);
+      controller = null;
+      timeoutId = null;
+    }
+  };
+
+  const abort = () => controller?.abort();
+
+  return { run, abort, loading, error, data };
+};
+
 const mount = (comp, target) => {
   const t = typeof target === "string" ? doc.querySelector(target) : target
   if (!t) return
@@ -513,7 +588,7 @@ const mount = (comp, target) => {
   return inst
 }
 
-const SigPro = Object.freeze({ $, $$, watch, h, when, each, router, mount, batch })
+const SigPro = Object.freeze({ $, $$, watch, h, when, each, fx, router, req, mount, batch })
 
 if (typeof window !== "undefined") {
   Object.assign(window, SigPro)
@@ -523,4 +598,4 @@ if (typeof window !== "undefined") {
     })
 }
 
-export { $, $$, watch, h, when, each, router, mount, batch }
+export { $, $$, watch, h, when, each, fx, router, req, mount, batch }
