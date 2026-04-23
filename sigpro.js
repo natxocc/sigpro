@@ -1,4 +1,4 @@
-// sigpro 1.2.16
+// sigpro 1.2.17
 const isFunc = f => typeof f === "function"
 const isObj = o => o && typeof o === "object"
 const isArr = Array.isArray
@@ -435,35 +435,47 @@ const when = (cond, SIP, NOP = null) => {
   return root
 }
 
-const fx = ({ name, duration = 200, scale, slide, rotate, blur }, child) => {
-  const el = typeof child === 'function' ? child() : child;
+var fx = ({ name, duration = 200, scale, slide, rotate, blur }, child) => {
+  const el = typeof child === "function" ? child() : child;
   if (!(el instanceof Node)) return el;
 
   if (name) {
     el.style.animation = `${name}-in ${duration}ms`;
     el._sig_leave = (done) => {
       el.style.animation = `${name}-out ${duration}ms`;
-      el.addEventListener('animationend', done, { once: true });
+      el.addEventListener("animationend", done, { once: true });
     };
     return el;
   }
 
   const hasTransform = scale || slide || rotate || blur;
-  el.style.transition = hasTransform ? `all ${duration}ms` : '';
-  el.style.opacity = '0';
-  if (scale) el.style.transform = 'scale(0.95)';
-  if (slide) el.style.transform = 'translateY(-10px)';
-  if (rotate) el.style.transform = 'rotate(-2deg)';
-  if (blur) el.style.filter = 'blur(4px)';
+  const initialTransform = [
+    scale ? "scale(0.95)" : "",
+    slide ? "translateY(-10px)" : "",
+    rotate ? "rotate(-2deg)" : ""
+  ].filter(Boolean).join(" ");
+
+  el.style.transition = `all ${duration}ms ease`;
+  el.style.opacity = "0";
+  if (hasTransform) el.style.transform = initialTransform;
+  if (blur) el.style.filter = "blur(4px)";
 
   requestAnimationFrame(() => {
-    el.style.opacity = '1';
-    el.style.transform = scale || slide || rotate || blur ? '' : 'none';
+    el.style.opacity = "1";
+    if (hasTransform) el.style.transform = "none";
+    if (blur) el.style.filter = "none";
   });
 
   el._sig_leave = (done) => {
-    el.style.opacity = '0';
-    el.addEventListener('transitionend', done, { once: true });
+    el.style.opacity = "0";
+    if (hasTransform) el.style.transform = initialTransform;
+    if (blur) el.style.filter = "blur(4px)";
+
+    const timer = setTimeout(done, duration + 20);
+    el.addEventListener("transitionend", () => {
+      clearTimeout(timer);
+      done();
+    }, { once: true });
   };
 
   return el;
