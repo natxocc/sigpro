@@ -1,4 +1,4 @@
-// sigpro 1.2.17
+// sigpro 1.2.18
 const isFunc = f => typeof f === "function"
 const isObj = o => o && typeof o === "object"
 const isArr = Array.isArray
@@ -164,7 +164,6 @@ const $ = (val, key = null) => {
 
 const $$ = (target) => {
   if (!isObj(target)) return target
-
   const cached = proxyCache.get(target)
   if (cached) return cached
 
@@ -222,20 +221,14 @@ const watch = (sources, cb) => {
   return () => dispose(effect)
 }
 
-const cleanupNode = (node, skipLeave = false) => {
+const cleanupNode = (node) => {
   if (!node) return;
   if (node._cleanups) {
     node._cleanups.forEach(fn => fn());
     node._cleanups.clear();
   }
   if (node._ownerEffect) dispose(node._ownerEffect);
-  if (!skipLeave && node._sig_leave) {
-    return node._sig_leave(() => {
-      if (node.childNodes) node.childNodes.forEach(n => cleanupNode(n, true));
-      node.remove();
-    });
-  }
-  if (node.childNodes) node.childNodes.forEach(n => cleanupNode(n, false));
+  if (node.childNodes) node.childNodes.forEach(n => cleanupNode(n));
 };
 
 const DANGEROUS_PROTOCOL = /^\s*(javascript|data|vbscript):/i
@@ -405,7 +398,7 @@ const render = renderFn => {
     destroy: () => {
       cleanups.forEach(fn => fn())
       cleanupNode(container)
-      if (!container._sig_leave) container.remove()
+      container.remove()
     }
   }
 }
@@ -435,16 +428,12 @@ const when = (cond, SIP, NOP = null) => {
   return root
 }
 
-var fx = ({ name, duration = 200, scale, slide, rotate, blur }, child) => {
+const fx = ({ name, duration = 200, scale, slide, rotate, blur }, child) => {
   const el = typeof child === "function" ? child() : child;
   if (!(el instanceof Node)) return el;
 
   if (name) {
     el.style.animation = `${name}-in ${duration}ms`;
-    el._sig_leave = (done) => {
-      el.style.animation = `${name}-out ${duration}ms`;
-      el.addEventListener("animationend", done, { once: true });
-    };
     return el;
   }
 
@@ -465,18 +454,6 @@ var fx = ({ name, duration = 200, scale, slide, rotate, blur }, child) => {
     if (hasTransform) el.style.transform = "none";
     if (blur) el.style.filter = "none";
   });
-
-  el._sig_leave = (done) => {
-    el.style.opacity = "0";
-    if (hasTransform) el.style.transform = initialTransform;
-    if (blur) el.style.filter = "blur(4px)";
-
-    const timer = setTimeout(done, duration + 20);
-    el.addEventListener("transitionend", () => {
-      clearTimeout(timer);
-      done();
-    }, { once: true });
-  };
 
   return el;
 };

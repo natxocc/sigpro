@@ -231,7 +231,7 @@ var watch = (sources, cb) => {
   effect();
   return () => dispose(effect);
 };
-var cleanupNode = (node, skipLeave = false) => {
+var cleanupNode = (node) => {
   if (!node)
     return;
   if (node._cleanups) {
@@ -240,15 +240,8 @@ var cleanupNode = (node, skipLeave = false) => {
   }
   if (node._ownerEffect)
     dispose(node._ownerEffect);
-  if (!skipLeave && node._sig_leave) {
-    return node._sig_leave(() => {
-      if (node.childNodes)
-        node.childNodes.forEach((n) => cleanupNode(n, true));
-      node.remove();
-    });
-  }
   if (node.childNodes)
-    node.childNodes.forEach((n) => cleanupNode(n, false));
+    node.childNodes.forEach((n) => cleanupNode(n));
 };
 var DANGEROUS_PROTOCOL = /^\s*(javascript|data|vbscript):/i;
 var isDangerousAttr = (key) => key === "src" || key === "href" || key.startsWith("on");
@@ -419,8 +412,7 @@ var render = (renderFn) => {
     destroy: () => {
       cleanups.forEach((fn) => fn());
       cleanupNode(container);
-      if (!container._sig_leave)
-        container.remove();
+      container.remove();
     }
   };
 };
@@ -448,10 +440,6 @@ var fx = ({ name, duration = 200, scale, slide, rotate, blur }, child) => {
     return el;
   if (name) {
     el.style.animation = `${name}-in ${duration}ms`;
-    el._sig_leave = (done) => {
-      el.style.animation = `${name}-out ${duration}ms`;
-      el.addEventListener("animationend", done, { once: true });
-    };
     return el;
   }
   const hasTransform = scale || slide || rotate || blur;
@@ -473,18 +461,6 @@ var fx = ({ name, duration = 200, scale, slide, rotate, blur }, child) => {
     if (blur)
       el.style.filter = "none";
   });
-  el._sig_leave = (done) => {
-    el.style.opacity = "0";
-    if (hasTransform)
-      el.style.transform = initialTransform;
-    if (blur)
-      el.style.filter = "blur(4px)";
-    const timer = setTimeout(done, duration + 20);
-    el.addEventListener("transitionend", () => {
-      clearTimeout(timer);
-      done();
-    }, { once: true });
-  };
   return el;
 };
 var each = (src, itemFn, keyFn) => {
