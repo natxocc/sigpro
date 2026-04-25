@@ -37,19 +37,25 @@
           successText:
             '<svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg"><polyline points="20 6 9 17 4 12"></polyline></svg>',
         },
+        search: {
+          placeholder: "Type to search",
+          noData: "No Results!",
+          depth: 3,
+          hideOtherSidebarContent: true,
+        },
         plugins: [
           function (hook, vm) {
             hook.doneEach(function () {
               const codeBlocks = document.querySelectorAll(
-                'pre[data-lang="javascript"] code',
+                'pre[data-lang="js"] code',
               );
-
               codeBlocks.forEach((code) => {
                 try {
-                  const runDemo = new Function(code.innerText);
+                  const scriptContent = `(function() { ${code.innerText} })();`;
+                  const runDemo = new Function(scriptContent);
                   runDemo();
                 } catch (err) {
-                  console.error("Error en la demo de SigPro:", err);
+                  console.error("Error ejecutando demo de SigPro:", err);
                 }
               });
             });
@@ -57,9 +63,44 @@
         ],
       };
     </script>
-
+    <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/search.min.js"></script>
     <script src="./sigpro.js"></script>
     <script src="//cdn.jsdelivr.net/npm/docsify/lib/docsify.min.js"></script>
     <script src="//cdn.jsdelivr.net/npm/docsify-copy-code/dist/docsify-copy-code.min.js"></script>
+<style>
+  button, input {
+    font-family: inherit;
+    font-size: 1rem;
+  }
+  button {
+    background-color: #3b82f6;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    border: none;
+    cursor: pointer;
+    margin: 0.25rem;
+    transition: background-color 0.2s;
+  }
+  button:hover {
+    background-color: #2563eb;
+  }
+  input {
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 0.375rem;
+    margin: 0.25rem;
+    background-color: white;
+  }
+  input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
+  }
+  /* Opcional: para listas y párrafos dentro de demos */
+  .example, div:has(> button) {
+    padding: 0.5rem;
+  }
+</style>
   </body>
 </html>

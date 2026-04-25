@@ -1,238 +1,353 @@
-# ⚡ Quick API Reference
+# ⚡ SigPro 1.2.18 – Complete API Reference
 
-SigPro is a high-performance micro-framework that updates the **Real DOM** surgically. No Virtual DOM, no unnecessary re-renders, and built-in **Cleanup** (memory cleanup).
+SigPro is a **Real‑DOM first** reactive micro‑framework. No virtual DOM, no diffing overhead – it updates the DOM directly with surgical precision. Built‑in automatic cleanup prevents memory leaks, and the API is designed to be both tiny and powerful.
 
-<div class="text-center my-8">
-  <div class="flex justify-center gap-2 flex-wrap mb-4">
-    <span class="badge badge-primary badge-lg font-mono text-lg">$-$$</span>
-    <span class="badge badge-secondary badge-lg font-mono text-lg">Watch</span>
-    <span class="badge badge-accent badge-lg font-mono text-lg">Tag</span>
-    <span class="badge badge-info badge-lg font-mono text-lg">If</span>
-    <span class="badge badge-success badge-lg font-mono text-lg">For</span>
-    <span class="badge badge-warning badge-lg font-mono text-lg">Router</span>
-    <span class="badge badge-error badge-lg font-mono text-lg">Mount</span>
-  </div>
-  <h1 class="text-5xl font-black bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
-    ⚡ All the power! ⚡
-  </h1>
-</div>
-
-## Core Functions
-
-Explore the reactive building blocks of SigPro.
-
-<div class="overflow-x-auto my-8 border border-base-300 rounded-xl shadow-sm">
-  <table class="table table-zebra w-full">
-    <thead class="bg-base-200 text-base-content">
-      <tr>
-        <th>Function</th>
-        <th>Signature</th>
-        <th>Description</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><code class="text-primary font-bold">$(val, key?)</code></td>
-        <td class="font-mono text-xs opacity-70">(any, string?) => Signal</td>
-        <td>Creates a <b>Signal</b>. If <code>key</code> is provided, it persists in <code>localStorage</code>.</td>
-      </tr>
-      <tr>
-        <td><code class="text-primary font-bold">$(fn)</code></td>
-        <td class="font-mono text-xs opacity-70">(function) => Computed</td>
-        <td>Creates a <b>Computed Signal</b> that auto-updates when dependencies change.</td>
-      </tr>
-      <tr>
-        <td><code class="text-primary font-bold">$$(obj)</code></td>
-        <td class="font-mono text-xs opacity-70">(object) => Proxy</td>
-        <td>Creates a <b>Deep Reactive Proxy</b>. Track nested property access automatically. No need for manual signals.</td>
-      </tr>
-      <tr>
-        <td><code class="text-secondary font-bold">Watch(fn)</code></td>
-        <td class="font-mono text-xs opacity-70">(function) => stopFn</td>
-        <td><b>Auto Mode:</b> Tracks any signal touched inside. Returns a stop function.</td>
-      </tr>
-      <tr>
-        <td><code class="text-secondary font-bold">Watch(deps, fn)</code></td>
-        <td class="font-mono text-xs opacity-70">(Array, function) => stopFn</td>
-        <td><b>Explicit Mode:</b> Only runs when signals in <code>deps</code> change.</td>
-      </tr>
-      <tr>
-        <td><code class="text-accent font-bold">If(cond, then, else?)</code></td>
-        <td class="font-mono text-xs opacity-70">(Signal|bool, fn, fn?) => Node</td>
-        <td>Reactive conditional. Automatically destroys "else" branch memory.</td>
-      </tr>
-      <tr>
-        <td><code class="text-accent font-bold">For(src, render, key)</code></td>
-        <td class="font-mono text-xs opacity-70">(Signal, fn, fn) => Node</td>
-        <td><b>Keyed Loop:</b> Optimized list renderer. Uses the key function for surgical DOM moves.</td>
-      </tr>
-      <tr>
-        <td><code class="text-info font-bold">Router(routes)</code></td>
-        <td class="font-mono text-xs opacity-70">(Array) => Node</td>
-        <td><b>SPA Router:</b> Hash-based routing with dynamic params (<code>:id</code>) and auto-cleanup.</td>
-      </tr>
-      <tr>
-        <td><code class="font-bold">Mount(node, target)</code></td>
-        <td class="font-mono text-xs opacity-70">(any, string|Node) => Runtime</td>
-        <td>Entry point. Cleans the target and mounts the app with full lifecycle management.</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+```javascript
+import { $, $$, watch, h, when, each, fx, router, req, mount, batch } from 'sigpro'
+// or use globally as window.$ etc.
+```
 
 ---
 
-## Element Constructors (Tags)
+## 🔁 Core Reactivity
 
-SigPro provides **PascalCase** wrappers for all standard HTML5 tags (e.g., `Div`, `Span`, `Button`).
+### `$(value, localStorageKey?)` – Signal & Computed
 
-### Syntax Pattern
+Creates a reactive signal. If a function is passed, it becomes a **computed** signal that caches its result until dependencies change.
 
-<div class="mockup-code bg-base-300 text-base-content">
-  <pre data-prefix=""><code>Tag({ attributes }, [children])</code></pre>
-</div>
+| Usage | Description |
+|-------|-------------|
+| `const count = $(0)` | Basic signal, returns a getter/setter: `count()` reads, `count(5)` writes. |
+| `const double = $( () => count() * 2 )` | Computed signal – updates automatically when `count` changes. |
+| `const stored = $('hello', 'myKey')` | Persisted signal – reads/writes to `localStorage`. |
 
-### Special Attributes & Routing
+**Example**  
+```javascript
+const count = $(0)
+const double = $( () => count() * 2 )
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-10">
-  <div class="card bg-base-200 border border-base-300 shadow-sm">
-    <div class="card-body p-5">
-      <h3 class="text-xs font-black uppercase tracking-widest opacity-60">Two-way Binding</h3>
-      <code class="text-primary font-bold text-sm bg-base-300/50 p-2 rounded-lg">value: mySignal</code>
-      <p class="text-xs mt-3 leading-relaxed">Automatic sync for <code>Input</code>, <code>Textarea</code>, and <code>Select</code>. Updates the signal on 'input' or 'change'.</p>
-    </div>
-  </div>
+watch(() => {
+  console.log(`count = ${count()}, double = ${double()}`)
+}) // logs on every change
 
-  <div class="card bg-base-200 border border-base-300 shadow-sm">
-    <div class="card-body p-5">
-      <h3 class="text-xs font-black uppercase tracking-widest opacity-60">Dynamic Routing</h3>
-      <code class="text-info font-bold text-sm bg-base-300/50 p-2 rounded-lg">Router.to('/user/1')</code>
-      <p class="text-xs mt-3 leading-relaxed">Navigate programmatically. Access params via <code>Router.params().id</code>.</p>
-    </div>
-  </div>
-
-  <div class="card bg-base-200 border border-base-300 shadow-sm">
-    <div class="card-body p-5">
-      <h3 class="text-xs font-black uppercase tracking-widest opacity-60">Refs & DOM</h3>
-      <code class="text-accent font-bold text-sm bg-base-300/50 p-2 rounded-lg">ref: (el) => ...</code>
-      <p class="text-xs mt-3 leading-relaxed">Get direct access to the DOM node once it is created.</p>
-    </div>
-  </div>
-
-  <div class="card bg-base-200 border border-base-300 shadow-sm">
-    <div class="card-body p-5">
-      <h3 class="text-xs font-black uppercase tracking-widest opacity-60">Event Handling</h3>
-      <code class="text-secondary font-bold text-sm bg-base-300/50 p-2 rounded-lg">onClick: (e) => ...</code>
-      <p class="text-xs mt-3 leading-relaxed">Standard events with automatic <code>removeEventListener</code> on destruction.</p>
-    </div>
-  </div>
-</div>
+count(5) // triggers log: count=5, double=10
+```
 
 ---
 
-## Custom API (Bring Your Own Syntax)
+### `$$(object)` – Deep Reactive Proxy
 
-SigPro's core functions are intentionally simple and can be easily renamed in **one line** to match your preferred coding style.
-
-### One-Line Renaming
+Makes a plain object (and all nested objects) deeply reactive. Any property access is tracked, any mutation triggers updates.
 
 ```javascript
-import { $ as signal, Mount as render, Tag as tag, If as when, For as each, Watch as effect } from 'sigpro';
+const state = $$({ user: { name: 'Alice', age: 30 }, items: [1,2,3] })
 
-// Now use your custom names
-const count = signal(0);
-effect(() => console.log(count()));
+watch(() => {
+  console.log(state.user.name) // tracks `user.name`
+})
 
-render(() => 
-  tag('div', {}, [
-    when(count, 
-      () => tag('span', {}, 'Positive'),
-      () => tag('span', {}, 'Zero or negative')
-    )
-  ]), 
-  '#app'
-);
+state.user.name = 'Bob' // triggers the effect
 ```
 
-### Create React-like Hooks
+> **Note**: `$$` caches proxies per original object, so calling `$$` multiple times on the same object returns the same proxy.
+
+---
+
+### `watch(source, callback?)` – Reactive Effect
+
+Two modes:
+
+1. **Auto‑track mode** – pass a function: `watch(() => { /* reads signals */ })`  
+   Automatically re‑runs whenever any signal read inside changes.
+
+2. **Explicit mode** – pass an array of signals and a callback:  
+   `watch([count, double], () => { ... })`  
+   Runs the callback when any of the listed signals change. The callback receives the new values.
+
+Both modes return a `stop` function that disposes the effect.
 
 ```javascript
-import * as SigPro from 'sigpro';
+// auto mode
+const stop = watch(() => console.log(count()))
 
-const useState = (initial) => {
-  const signal = SigPro.$(initial);
-  return [signal, (value) => signal(value)];
-};
-
-const useEffect = (fn, deps) => {
-  deps ? SigPro.Watch(deps, fn) : SigPro.Watch(fn);
-};
-
-// Usage
-const Counter = () => {
-  const [count, setCount] = useState(0);
-  useEffect(() => console.log(count()), [count]);
-  return SigPro.Tag('button', { onClick: () => setCount(count() + 1) }, count);
-};
+// explicit mode
+watch([count, double], ([newCount, newDouble]) => {
+  console.log(newCount, newDouble)
+})
 ```
 
-### Create Vue-like API
+> **Important**: Effects are depth‑aware – they run in topological order, parents before children.
+
+---
+
+## 🧱 Components & DOM (Hyperscript)
+
+### `h(tag, props, children)` – Create DOM Nodes
+
+The universal builder. `props` can be omitted. Children can be strings, numbers, nodes, arrays, or **dynamic functions**.
+
+| Feature | Example |
+|---------|---------|
+| Standard attributes | `h('div', { class: 'box', id: 'main' })` |
+| Events | `onClick: (e) => ...` (automatically cleaned up) |
+| Reactive attributes | `class: () => count() > 0 ? 'positive' : 'negative'` |
+| Two‑way binding | `value: mySignal` (works on `input`, `textarea`, `select`) |
+| Refs | `ref: (el) => ...` or `ref: { current: null }` |
+| SVG support | tag names like `svg`, `circle`, `path` – sets correct namespace |
+| Dangerous URL sanitising | `href` / `src` with `javascript:` or `data:` are blocked → `'#'` |
+
+**Dynamic children** – pass a function as a child, it will be re‑executed and the DOM patched automatically:
 
 ```javascript
-import { $ as ref, Watch as watch, Mount as mount } from 'sigpro';
-
-const computed = (fn) => ref(fn);
-const createApp = (component) => ({ mount: (selector) => mount(component, selector) });
-
-// Usage
-const count = ref(0);
-const double = computed(() => count() * 2);
-watch([count], () => console.log(count()));
+h('div', {}, [
+  () => count() > 0 ? h('span', {}, 'positive') : h('span', {}, 'zero or negative')
+])
 ```
 
-### Global Custom API with sigpro.config.js
+### Tag shortcuts
 
-Create a central configuration file to reuse your custom naming across the entire project:
+SigPro defines **all standard HTML5 tags** as PascalCase globals (when run in browser) and also exports them as named exports. Example:
 
 ```javascript
-// config/sigpro.config.js
-import { $ as signal, Mount as render, Tag as tag, If as when, For as each, Watch as effect } from 'sigpro';
-
-// Re-export everything with your custom names
-export { signal, render, tag, when, each, effect };
-
-// Also re-export the original functions if needed
-export * from 'sigpro';
+Div({ class: 'container' }, [
+  H1({}, 'Title'),
+  Button({ onClick: () => alert('hi') }, 'Click me')
+])
 ```
 
+Available tags: `a`, `abbr`, `article`, `aside`, `audio`, `b`, `blockquote`, `br`, `button`, `canvas`, `caption`, `cite`, `code`, `col`, `colgroup`, `datalist`, `dd`, `del`, `details`, `dfn`, `dialog`, `div`, `dl`, `dt`, `em`, `embed`, `fieldset`, `figcaption`, `figure`, `footer`, `form`, `h1`…`h6`, `header`, `hr`, `i`, `iframe`, `img`, `input`, `ins`, `kbd`, `label`, `legend`, `li`, `main`, `mark`, `meter`, `nav`, `object`, `ol`, `optgroup`, `option`, `output`, `p`, `picture`, `pre`, `progress`, `section`, `select`, `slot`, `small`, `source`, `span`, `strong`, `sub`, `summary`, `sup`, `svg`, `table`, `tbody`, `td`, `template`, `textarea`, `tfoot`, `th`, `thead`, `time`, `tr`, `u`, `ul`, `video`.
+
+---
+
+## 🧩 Flow Control Components
+
+### `when(condition, thenComponent, elseComponent?)`
+
+Reactive conditional rendering. `condition` can be a boolean, a signal, or any function that returns a boolean. Both branches can be `Node`, `() => Node`, or `null`. Automatically disposes the unmounted branch.
+
 ```javascript
-// app.js - Import your custom API globally
-import { signal, render, tag, when, each, effect } from './config/sigpro.config.js';
+when(
+  () => user.loggedIn(),
+  () => Div({}, 'Welcome back!'),
+  () => Button({ onClick: () => login() }, 'Login')
+)
+```
 
-// Use your preferred syntax everywhere
-const count = signal(0);
-const double = signal(() => count() * 2);
+---
 
-effect(() => console.log(`Count: ${count()}, Double: ${double()}`));
+### `each(source, itemRenderer, keyFn)`
+
+Optimised keyed list rendering. `source` can be an array or a signal/function returning an array. `itemRenderer(item, index)` returns a Node (or a function that returns Nodes). `keyFn(item, index)` returns a unique identifier – **required** for efficient DOM reuse.
+
+```javascript
+const items = $([{ id: 1, text: 'a' }, { id: 2, text: 'b' }])
+
+each(items,
+  (item) => Li({}, item.text),
+  (item) => item.id
+)
+```
+
+When the array changes, elements are added, removed, or reordered with minimal DOM operations.
+
+---
+
+## 💥 Effects & Lifecycle
+
+### `onUnmount(fn)`
+
+Inside a component (function called from `h`), registers a cleanup function that runs when that component is removed from the DOM.
+
+```javascript
+const Timer = () => {
+  const interval = setInterval(() => console.log('tick'), 1000)
+  onUnmount(() => clearInterval(interval))
+  return Div({}, 'Timer running')
+}
+```
+
+### `batch(fn)`
+
+Batch multiple reactive updates into a single flush, improving performance.
+
+```javascript
+batch(() => {
+  count(1)
+  name('John')
+  // effects run only once after the batch ends
+})
+```
+
+### `untrack(fn)`
+
+Run a function without tracking any signal reads.
+
+```javascript
+const logCount = () => {
+  untrack(() => console.log('count is', count()))
+}
+```
+
+---
+
+## ✨ Animations – `fx(options, child)`
+
+Applies smooth enter animations (CSS transitions / keyframes). Returns the modified element.
+
+```javascript
+fx({ name: 'fade', duration: 300 }, 
+  Div({}, 'Hello')
+)
+```
+
+**Options**  
+- `name` – uses predefined keyframes `${name}-in` (you must define them in your CSS)  
+- `duration` – in ms (default 200)  
+- `scale` – adds `scale(0.95)` → `none`  
+- `slide` – adds `translateY(-10px)` → `none`  
+- `rotate` – adds `rotate(-2deg)` → `none`  
+- `blur` – adds `blur(4px)` → `none`
+
+If `name` is given, it sets `animation: ${name}-in ${duration}ms`. Otherwise it applies a smooth transition from the initial transform/filter to the final state.
+
+---
+
+## 🧭 Router – `router(routes)`
+
+Hash‑based SPA router. Returns a DOM node that renders the current route.
+
+```javascript
+const routes = [
+  { path: '/', component: () => Div({}, 'Home') },
+  { path: '/user/:id', component: (params) => Div({}, `User ${params.id}`) },
+  { path: '*', component: () => Div({}, '404') }
+]
+
+const App = () => Div({}, [
+  A({ href: '#/' }, 'Home'),
+  A({ href: '#/user/42' }, 'User 42'),
+  router(routes)
+])
+```
+
+**API**
+
+| Method | Description |
+|--------|-------------|
+| `router.params()` | Returns a reactive signal of current route params (e.g., `{ id: '42' }`). |
+| `router.to(path)` | Navigate to a new hash (e.g., `router.to('/user/5')`). Prepend `#` automatically. |
+| `router.back()` | Go back in history. |
+| `router.path()` | Returns current hash path without `#` (e.g., `/user/42`). |
+
+---
+
+## 🌐 HTTP Requests – `req(config)`
+
+Creates a reactive request controller with built‑in loading/error/data signals and abort support.
+
+```javascript
+const fetchUser = req({ url: '/api/user/1', method: 'GET' })
+
+// start the request
+fetchUser.run().catch(console.error)
+
+// reactively display state
+watch(() => {
+  if (fetchUser.loading()) console.log('loading...')
+  if (fetchUser.error()) console.error(fetchUser.error())
+  if (fetchUser.data()) console.log(fetchUser.data())
+})
+
+// abort if needed
+fetchUser.abort()
+```
+
+**Options**  
+- `url` (required)  
+- `method` (default `'GET'`)  
+- `headers` (object, default `{}`)
+
+**Return value**  
+- `run(body?)` – initiates the request, returns a promise.  
+- `abort()` – aborts the current request (AbortController).  
+- `loading` – signal (boolean)  
+- `error` – signal (`null` or error message)  
+- `data` – signal (`null` or parsed JSON)
+
+> **Note**: Automatically sets `Content-Type: application/json` unless `body` is a `FormData`. Timeout after 10 seconds aborts the request.
+
+---
+
+## 🚀 Mounting – `mount(component, target)`
+
+Clears the target element and mounts the application. Returns the runtime instance (which has a `.destroy()` method).
+
+```javascript
+mount(() => App(), '#app')
+// or
+mount(App, document.body)
+```
+
+If you mount again on the same target, the previous instance is automatically destroyed.
+
+---
+
+## 🧹 Global Cleanup & Memory
+
+SigPro tracks every effect, DOM event listener, and nested component. When a component is unmounted:
+- All its effects are disposed.
+- All DOM event listeners are removed.
+- All `onUnmount` callbacks run.
+- Child components are recursively destroyed.
+
+You never need to manually clean up – just write reactive code.
+
+---
+
+## 📦 Full Example – Counter with Persistence
+
+```javascript
+import { $, watch, h, mount } from 'sigpro'
+
+const count = $(0, 'counter') // persists in localStorage
 
 const App = () =>
-  tag('div', { class: 'p-4' }, [
-    tag('h1', {}, () => `Count: ${count()}`),
-    tag('button', { onclick: () => count(count() + 1) }, 'Increment')
-  ]);
+  Div({ class: 'counter' }, [
+    H1({}, () => `Count: ${count()}`),
+    Button({ onClick: () => count(count() + 1) }, '+'),
+    Button({ onClick: () => count(count() - 1) }, '-'),
+    Button({ onClick: () => count(0) }, 'Reset')
+  ])
 
-render(App, '#app');
+mount(App, '#app')
 ```
 
-> [!TIP]
-> **Why rename?** Team preferences, framework migration, or just personal taste. SigPro adapts to you, not the other way around.
+---
 
-> [!IMPORTANT]
-> **Performance Hint:** For lists (`For`), always provide a unique key function `(item) => item.id` to prevent unnecessary node creation and enable reordering.
+## 🔧 Customising the API (Renaming)
 
-> [!TIP]
-> **Pro Tip:** Use `$$()` for complex nested state objects instead of multiple `$()` signals. It's cleaner and automatically tracks deep properties.
+You can rename everything in one line:
 
-> [!TIP]
-> **Performance Hint:** Always use functions `() => signal()` for dynamic children to ensure SigPro only updates the specific node and not the whole container.
+```javascript
+import { $ as signal, watch as effect, h as element, mount as render } from 'sigpro'
 ```
+
+Or assign globally:
+
+```javascript
+window.myReactive = $
+```
+
+All functions are also exposed on the global `window` object when included via `<script>`.
+
+---
+
+## 📜 License & Version
+
+Current version: **1.2.18**  
+Released under MIT.  
+Zero dependencies, ~3KB gzipped.
+
+---
+
+> **Need legacy IE support?** Not supported – requires modern JavaScript (Proxy, WeakMap, etc.).
