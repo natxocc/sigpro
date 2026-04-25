@@ -518,7 +518,7 @@
     });
     return el;
   };
-  var each = (src, itemFn, keyFn) => {
+  var each = (src, itemFn, keyField) => {
     const anchor = doc.createTextNode("");
     const root = h("div", { style: "display:contents" }, [anchor]);
     let cache = new Map;
@@ -528,7 +528,7 @@
       const newItems = items || [];
       for (let i = 0;i < newItems.length; i++) {
         const item = newItems[i];
-        const key = keyFn ? keyFn(item, i) : item?.id ?? i;
+        const key = keyField ? item?.[keyField] ?? i : item?.id ?? i;
         let view = cache.get(key);
         if (!view)
           view = render(() => itemFn(item, i));

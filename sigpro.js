@@ -1,4 +1,4 @@
-// sigpro 1.2.18
+// sigpro 1.2.19
 const isFunc = f => typeof f === "function"
 const isObj = o => o && typeof o === "object"
 const isArr = Array.isArray
@@ -458,7 +458,7 @@ const fx = ({ name, duration = 200, scale, slide, rotate, blur }, child) => {
   return el;
 };
 
-const each = (src, itemFn, keyFn) => {
+const each = (src, itemFn, keyField) => {
   const anchor = doc.createTextNode("")
   const root = h("div", { style: "display:contents" }, [anchor])
   let cache = new Map()
@@ -468,7 +468,7 @@ const each = (src, itemFn, keyFn) => {
     const newItems = items || []
     for (let i = 0; i < newItems.length; i++) {
       const item = newItems[i]
-      const key = keyFn ? keyFn(item, i) : (item?.id ?? i)
+      const key = keyField ? (item?.[keyField] ?? i) : (item?.id ?? i)
       let view = cache.get(key)
       if (!view) view = render(() => itemFn(item, i))
       else cache.delete(key)
