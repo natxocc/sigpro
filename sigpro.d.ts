@@ -1,7 +1,7 @@
 /**
- * SigPro 1.2.12
- * A minimalistic reactive UI library with fine-grained reactivity,
- * deep reactive proxies, and intuitive component composition.
+ * SigPro 1.2.19
+ * A minimalistic reactive library with fine-grained reactivity,
+ * direct DOM updates, and built-in component helpers.
  */
 
 // ============================================================================
@@ -9,689 +9,425 @@
 // ============================================================================
 
 /**
- * A reactive signal that holds a value and automatically tracks dependencies.
- * Signals are the foundation of SigPro's reactivity system.
+ * Creates a reactive signal. When a function is passed, it becomes a computed signal.
+ * If a `localStorageKey` is provided, the value persists.
  *
- * @typeParam T - The type of the value stored in the signal
- *
- * @example
- * // Basic usage
- * const count = $(0)
- * console.log(count()) // 0
- * count(5)
- * console.log(count()) // 5
- * count(c => c + 1)
- *
- * @example
- * // Computed signal
- * const double = $(() => count() * 2)
- *
- * @example
- * // Persistent signal (synced with localStorage)
- * const name = $("Guest", "user-name")
+ * @param value - Initial value or computation function
+ * @param localStorageKey - Optional key for persistence
+ * @returns A getter/setter function
  */
-export function $<T>(value: T, persistentKey?: string): Signal<T>
+export function $<T>(value: T, localStorageKey?: string): Signal<T>;
+export function $<T>(computation: () => T): Signal<T>;
 
-/**
- * A deeply reactive proxy that wraps an object or array, tracking property access
- * and mutations with fine-grained precision. Only effects that depend on changed
- * properties will re-run.
- *
- * @typeParam T - The type of the object/array being wrapped
- *
- * @example
- * const state = $$({ user: { name: 'Ana', age: 30 }, items: [1, 2, 3] })
- *
- * // Reading a property (reactive)
- * Watch(() => console.log(state.user.name)) // logs 'Ana'
- *
- * // Mutating a property (triggers dependent effects)
- * state.user.name = 'María'
- *
- * // Adding/deleting properties also notifies iteration dependencies
- * state.newProp = true
- * delete state.items
- *
- * // Arrays work with iteration tracking
- * Object.keys(state) // tracked via internal symbol
- */
-export function $$<T extends object>(target: T): DeepReactive<T>
-
-/**
- * A reactive signal type. Calling the signal returns its current value.
- * Passing an argument updates the value.
- *
- * @typeParam T - The type of the value
- */
-export type Signal<T> = {
-  (): T
-  (value: T | ((prev: T) => T)): void
-
-  // Internal properties (not meant for direct use)
-  _isComputed?: boolean
-  _subs?: Set<Effect>
-  _dirty?: boolean
-  _deps?: Set<Set<Effect>>
-  _disposed?: boolean
-  markDirty?: () => void
-  stop?: () => void
+export interface Signal<T> {
+  (): T;
+  (value: T | ((prev: T) => T)): void;
 }
 
 /**
- * A deeply reactive object where all property access and mutations are tracked.
- * Works recursively on nested objects and arrays.
+ * Creates a deep reactive proxy for objects and arrays.
+ * Tracks property access and mutations automatically.
+ *
+ * @param target - Object or array to make reactive
+ * @returns A reactive proxy
  */
+export function $$<T extends object>(target: T): DeepReactive<T>;
+
 export type DeepReactive<T> = T extends object
   ? {
-      [K in keyof T]: T[K] extends object ? DeepReactive<T[K]> : T[K]
-    } & {
-      [Symbol.iterator]?: T extends Iterable<infer U>
-        ? () => Iterator<DeepReactive<U>>
-        : never
+      [K in keyof T]: T[K] extends object ? DeepReactive<T[K]> : T[K];
     }
-  : T
+  : T;
 
 /**
- * Internal effect representation.
+ * Watches reactive sources and runs a callback.
+ *
+ * @example
+ * // Auto-track mode
+ * watch(() => {
+ *   console.log(count());
+ * });
+ *
+ * @example
+ * // Explicit sources
+ * watch([count, name], ([c, n]) => {
+ *   console.log(c, n);
+ * });
+ *
+ * @returns A function to stop the watcher.
  */
-interface Effect {
-  (): any
-  _deps: Set<Set<Effect>> | null
-  _cleanups: Set<() => void> | null
-  _children: Set<Effect> | null
-  _disposed: boolean
-  _isComputed: boolean
-  _depth: number
-  _mounts: Array<() => void>
-  _parent: Effect | null
-  _result?: any
-  _dirty?: boolean
-  _subs?: Set<Effect>
-}
-
-// ============================================================================
-// Effects and Watching
-// ============================================================================
-
-/**
- * Creates a reactive effect that tracks signal dependencies and re-runs when they change.
- * Returns a cleanup function to stop the effect.
- *
- * @param sources - A signal, array of signals, or a function that reads from signals
- * @param callback - Optional callback that receives the current values
- * @returns A cleanup function that stops the effect
- *
- * @example
- * // Auto-tracking with a function
- * const stop = Watch(() => {
- *   console.log(`Count is: ${count()}`)
- * })
- *
- * @example
- * // Explicit sources with callback
- * Watch([count, name], ([c, n]) => {
- *   console.log(`Count: ${c}, Name: ${n}`)
- * })
- *
- * @example
- * // Cleanup
- * stop() // or call the returned function
- */
-export function Watch(
-  sources: (() => void) | Signal<any> | Array<Signal<any>>
-): () => void
-export function Watch<T>(
-  sources: Signal<T> | Array<Signal<any>>,
+export function watch(fn: () => void): () => void;
+export function watch<T>(
+  sources: Array<Signal<any>> | (() => T),
   callback: (values: T | any[]) => void
-): () => void
+): () => void;
 
 /**
- * Batches multiple signal updates into a single reactive update cycle.
- * Use this when performing many updates in sequence to avoid unnecessary re-renders.
- *
- * @param fn - Function containing batched updates
- * @returns The return value of the batched function
- *
- * @example
- * Batch(() => {
- *   for (let i = 0; i < 1000; i++) {
- *     items(prev => [...prev, i])
- *   }
- * })
- * // Effects will run only once after the batch completes
+ * Batches multiple reactive updates into a single flush.
  */
-export function Batch<T>(fn: () => T): T
-
-/**
- * Registers a callback to run when the current component mounts.
- * Must be called within a component function or Render context.
- *
- * @param fn - Function to execute on mount
- *
- * @example
- * const MyComponent = () => {
- *   onMount(() => console.log('Component mounted'))
- *   return Div("Hello")
- * }
- */
-export function onMount(fn: () => void): void
-
-/**
- * Registers a callback to run when the current component unmounts.
- * Useful for cleanup (event listeners, intervals, etc.).
- * Must be called within a component function or Render context.
- *
- * @param fn - Function to execute on unmount
- *
- * @example
- * const MyComponent = () => {
- *   onUnmount(() => console.log('Component unmounted'))
- *   return Div("Hello")
- * }
- */
-export function onUnmount(fn: () => void): void
+export function batch<T>(fn: () => T): T;
 
 // ============================================================================
-// Component & Rendering
+// DOM Creation
 // ============================================================================
 
 /**
- * Creates a DOM element or component. The Swiss Army knife of SigPro templating.
+ * Hyperscript function to create DOM elements or components.
  *
- * @param tag - HTML tag name, SVG tag name, or a component function
- * @param props - Element properties/attributes (optional)
- * @param children - Child elements (optional)
- * @returns A DOM Node or DocumentFragment
- *
- * @example
- * // HTML element
- * Tag("div", { class: "container" }, [
- *   Tag("h1", "Hello World"),
- *   Tag("button", { onclick: () => alert('clicked') }, "Click me")
- * ])
- *
- * @example
- * // Component
- * const Greeting = ({ name }) => Tag("p", `Hello, ${name}`)
- * Tag(Greeting, { name: "Ana" })
- *
- * @example
- * // Reactive attributes
- * Tag("div", { class: () => isActive() ? "active" : "" })
- *
- * @example
- * // SVG
- * Tag("svg", { width: 100, height: 100 }, [
- *   Tag("circle", { cx: 50, cy: 50, r: 40, fill: "red" })
- * ])
+ * @param tag - HTML/SVG tag name or component function
+ * @param props - Optional properties/attributes
+ * @param children - Child nodes or reactive functions
+ * @returns DOM node or array of nodes
  */
-export function Tag(
+export function h(
   tag: string | ((props: any, ctx: ComponentContext) => any),
-  props?: Record<string, any> | Node | Array<any>,
+  props?: any,
   children?: any
-): Node
+): Node;
 
-/**
- * Context object passed to component functions.
- */
 export interface ComponentContext {
-  /** Child elements passed to the component */
-  children: any
-  /** Emit an event to the parent component */
-  emit: (event: string, ...args: any[]) => void
+  children: any;
+  emit: (event: string, ...args: any[]) => void;
 }
 
 /**
- * Renders a component or template function and returns a runtime instance
- * that can be mounted and destroyed.
+ * Conditionally renders content.
  *
- * @param renderFn - Function that returns DOM nodes or components
- * @returns A runtime instance with container and destroy method
- *
- * @example
- * const app = Render(() => Div({ class: "app" }, "Hello"))
- * document.body.appendChild(app.container)
- *
- * // Later: app.destroy()
+ * @param condition - Boolean, signal, or function returning boolean
+ * @param thenBranch - Content when truthy (Node or function)
+ * @param elseBranch - Optional content when falsy
+ * @returns A placeholder element that updates reactively
  */
-export function Render(
-  renderFn: (ctx: { onCleanup: (fn: () => void) => void }) => any
-): RuntimeInstance
+export function when(
+  condition: boolean | (() => boolean) | Signal<boolean>,
+  thenBranch: any | (() => any),
+  elseBranch?: any | (() => any)
+): HTMLElement;
 
 /**
- * A runtime instance returned by Render.
+ * Keyed list renderer. Uses `item?.id` by default or a custom key field.
+ *
+ * @param src - Array, signal, or function returning array
+ * @param itemFn - Render function (item, index) => Node
+ * @param keyField - Optional property name for unique key (e.g., "id")
+ * @returns A container element with reactive list
  */
-export interface RuntimeInstance {
-  _isRuntime: true
-  /** The container element that holds the rendered content */
-  container: HTMLDivElement
-  /** Destroys the instance and cleans up all reactive effects */
-  destroy: () => void
-}
-
-/**
- * Mounts a component to a DOM element.
- *
- * @param component - Component function or element to mount
- * @param target - CSS selector string or DOM element
- * @returns The runtime instance, or undefined if target not found
- *
- * @example
- * // Mount to element with ID 'app'
- * Mount(() => Div("Hello SigPro"), "#app")
- *
- * @example
- * // Mount to existing element
- * Mount(MyComponent, document.body)
- */
-export function Mount(
-  component: (() => any) | any,
-  target: string | Element
-): RuntimeInstance | undefined
-
-// ============================================================================
-// Control Flow Components
-// ============================================================================
-
-/**
- * Conditionally renders content based on a reactive condition.
- *
- * @param cond - Boolean value or signal returning boolean
- * @param ifYes - Content to render when condition is true
- * @param ifNot - Content to render when condition is false (optional)
- * @returns A container element that manages the conditional content
- *
- * @example
- * If($show,
- *   () => Div("Visible content"),
- *   () => Div("Hidden state placeholder")
- * )
- */
-export function If(
-  cond: boolean | (() => boolean) | Signal<boolean>,
-  ifYes: any | (() => any),
-  ifNot?: any | (() => any)
-): HTMLDivElement
-
-/**
- * Renders a list of items efficiently, updating only changed items.
- *
- * @param src - Array or signal returning array of items
- * @param itemFn - Function that renders each item
- * @param keyFn - Optional function to generate stable keys for items
- * @returns A container element that manages the list
- *
- * @example
- * const items = $([1, 2, 3])
- * For(items, (item, index) => Li(`Item ${item}`), item => item)
- */
-export function For<T>(
+export function each<T>(
   src: T[] | (() => T[]) | Signal<T[]>,
   itemFn: (item: T, index: number) => any,
-  keyFn?: (item: T, index: number) => string | number
-): HTMLDivElement
+  keyField?: keyof T
+): HTMLElement;
 
 /**
- * Conditionally renders content with CSS transition animations.
+ * Simple animation helper for enter transitions.
  *
- * @param show - Reactive signal or boolean that controls visibility
- * @param render - Function that returns the content to render when visible
- * @param options - Animation configuration (optional)
- * @param options.enter - CSS class for enter transition start
- * @param options.leave - CSS class for leave transition start
- * @returns A container element that manages the animated content
- *
- * @example
- * Anim(isOpen,
- *   () => Div({ class: "modal" }, "Modal content"),
- *   {
- *     enter: "fade-enter",
- *     leave: "fade-leave"
- *   }
- * )
+ * @param options - Animation settings
+ * @param child - Node or function returning node
+ * @returns The animated node
  */
-export function Anim(
-  show: boolean | Signal<boolean> | (() => boolean),
-  render: () => any,
-  options?: { enter?: string; leave?: string }
-): HTMLDivElement
+export function fx(
+  options: {
+    name?: string;
+    duration?: number;
+    scale?: boolean;
+    slide?: boolean;
+    rotate?: boolean;
+    blur?: boolean;
+  },
+  child: Node | (() => Node)
+): Node;
 
 // ============================================================================
 // Router
 // ============================================================================
 
 /**
- * Hash-based router component for single-page applications.
+ * Hash-based router.
  *
  * @param routes - Array of route definitions
- * @returns A router container element
- *
- * @example
- * Router([
- *   { path: "/", component: HomePage },
- *   { path: "/about", component: AboutPage },
- *   { path: "/user/:id", component: UserPage },
- *   { path: "*", component: NotFoundPage }
- * ])
+ * @returns A container that renders the current route
  */
-export function Router(routes: RouteDefinition[]): HTMLDivElement
+export function router(routes: RouteDefinition[]): HTMLElement;
 
-export namespace Router {
-  /**
-   * Reactive signal containing current route parameters.
-   * @example
-   * const params = Router.params()
-   * console.log(params.id) // from "/user/:id"
-   */
-  export const params: Signal<Record<string, string>>
-
-  /**
-   * Navigate to a path.
-   * @example
-   * Router.to("/about")
-   */
-  export function to(path: string): void
-
-  /**
-   * Go back in browser history.
-   */
-  export function back(): void
-
-  /**
-   * Get the current path.
-   */
-  export function path(): string
-}
-
-/**
- * Route definition for the Router.
- */
 export interface RouteDefinition {
-  /** Path pattern with optional :param placeholders. "*" for catch-all. */
-  path: string
-  /** Component to render when route matches */
-  component: any | ((params: Record<string, string>) => any)
+  path: string; // e.g., "/", "/user/:id", "*"
+  component: any | ((params: Record<string, string>) => any);
+}
+
+export namespace router {
+  /** Reactive params signal */
+  export const params: Signal<Record<string, string>>;
+
+  /** Navigate to path */
+  export function to(path: string): void;
+
+  /** Go back in history */
+  export function back(): void;
+
+  /** Current path without hash */
+  export function path(): string;
 }
 
 // ============================================================================
-// HTML Tag Helpers
+// HTTP Requests
 // ============================================================================
 
+export function req(config: {
+  url: string;
+  method?: string;
+  headers?: Record<string, string>;
+}): {
+  run: (body?: any) => Promise<any>;
+  abort: () => void;
+  loading: Signal<boolean>;
+  error: Signal<string | null>;
+  data: Signal<any | null>;
+};
+
+// ============================================================================
+// Mount API
+// ============================================================================
+
+export interface RuntimeInstance {
+  _isRuntime: true;
+  container: HTMLElement;
+  destroy: () => void;
+}
+
 /**
- * Convenience functions for creating HTML elements.
- * Available globally when the library is loaded in a browser.
+ * Mounts a component to a DOM target.
  *
- * @example
- * Div({ class: "container" }, [
- *   H1("Title"),
- *   P("Paragraph text"),
- *   Button({ onclick: handleClick }, "Click me")
- * ])
+ * @param component - Component function or node
+ * @param target - CSS selector or DOM element
+ * @returns Runtime instance
  */
+export function mount(
+  component: (() => any) | Node,
+  target: string | HTMLElement
+): RuntimeInstance | undefined;
 
-/** Creates a `<div>` element */
-export function Div(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLDivElement
+// ============================================================================
+// Tag Helpers (globally available, lowercase)
+// ============================================================================
 
-/** Creates a `<span>` element */
-export function Span(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLSpanElement
+// All standard HTML tags are available as global functions.
+// They follow the same signature as `h` but with predefined tag names.
+// Examples:
+export const a: TagHelper;
+export const abbr: TagHelper;
+export const article: TagHelper;
+export const aside: TagHelper;
+export const audio: TagHelper;
+export const b: TagHelper;
+export const blockquote: TagHelper;
+export const br: TagHelper;
+export const button: TagHelper;
+export const canvas: TagHelper;
+export const caption: TagHelper;
+export const cite: TagHelper;
+export const code: TagHelper;
+export const col: TagHelper;
+export const colgroup: TagHelper;
+export const datalist: TagHelper;
+export const dd: TagHelper;
+export const del: TagHelper;
+export const details: TagHelper;
+export const dfn: TagHelper;
+export const dialog: TagHelper;
+export const div: TagHelper;
+export const dl: TagHelper;
+export const dt: TagHelper;
+export const em: TagHelper;
+export const embed: TagHelper;
+export const fieldset: TagHelper;
+export const figcaption: TagHelper;
+export const figure: TagHelper;
+export const footer: TagHelper;
+export const form: TagHelper;
+export const h1: TagHelper;
+export const h2: TagHelper;
+export const h3: TagHelper;
+export const h4: TagHelper;
+export const h5: TagHelper;
+export const h6: TagHelper;
+export const header: TagHelper;
+export const hr: TagHelper;
+export const i: TagHelper;
+export const iframe: TagHelper;
+export const img: TagHelper;
+export const input: TagHelper;
+export const ins: TagHelper;
+export const kbd: TagHelper;
+export const label: TagHelper;
+export const legend: TagHelper;
+export const li: TagHelper;
+export const main: TagHelper;
+export const mark: TagHelper;
+export const meter: TagHelper;
+export const nav: TagHelper;
+export const object: TagHelper;
+export const ol: TagHelper;
+export const optgroup: TagHelper;
+export const option: TagHelper;
+export const output: TagHelper;
+export const p: TagHelper;
+export const picture: TagHelper;
+export const pre: TagHelper;
+export const progress: TagHelper;
+export const section: TagHelper;
+export const select: TagHelper;
+export const slot: TagHelper;
+export const small: TagHelper;
+export const source: TagHelper;
+export const span: TagHelper;
+export const strong: TagHelper;
+export const sub: TagHelper;
+export const summary: TagHelper;
+export const sup: TagHelper;
+export const svg: TagHelper;
+export const table: TagHelper;
+export const tbody: TagHelper;
+export const td: TagHelper;
+export const template: TagHelper;
+export const textarea: TagHelper;
+export const tfoot: TagHelper;
+export const th: TagHelper;
+export const thead: TagHelper;
+export const time: TagHelper;
+export const tr: TagHelper;
+export const u: TagHelper;
+export const ul: TagHelper;
+export const video: TagHelper;
 
-/** Creates a `<p>` element */
-export function P(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLParagraphElement
-
-/** Creates an `<h1>` element */
-export function H1(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLHeadingElement
-
-/** Creates an `<h2>` element */
-export function H2(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLHeadingElement
-
-/** Creates an `<h3>` element */
-export function H3(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLHeadingElement
-
-/** Creates an `<h4>` element */
-export function H4(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLHeadingElement
-
-/** Creates an `<h5>` element */
-export function H5(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLHeadingElement
-
-/** Creates an `<h6>` element */
-export function H6(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLHeadingElement
-
-/** Creates a `<br>` element */
-export function Br(props?: Record<string, any>): HTMLBRElement
-
-/** Creates an `<hr>` element */
-export function Hr(props?: Record<string, any>): HTMLHRElement
-
-/** Creates a `<section>` element */
-export function Section(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLElement
-
-/** Creates an `<article>` element */
-export function Article(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLElement
-
-/** Creates an `<aside>` element */
-export function Aside(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLElement
-
-/** Creates a `<nav>` element */
-export function Nav(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLElement
-
-/** Creates a `<main>` element */
-export function Main(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLElement
-
-/** Creates a `<header>` element */
-export function Header(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLElement
-
-/** Creates a `<footer>` element */
-export function Footer(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLElement
-
-/** Creates a `<ul>` element */
-export function Ul(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLUListElement
-
-/** Creates an `<ol>` element */
-export function Ol(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLOListElement
-
-/** Creates a `<li>` element */
-export function Li(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLLIElement
-
-/** Creates an `<a>` element */
-export function A(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLAnchorElement
-
-/** Creates an `<em>` element */
-export function Em(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLElement
-
-/** Creates a `<strong>` element */
-export function Strong(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLElement
-
-/** Creates a `<pre>` element */
-export function Pre(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLPreElement
-
-/** Creates a `<code>` element */
-export function Code(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLElement
-
-/** Creates a `<form>` element */
-export function Form(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLFormElement
-
-/** Creates a `<label>` element */
-export function Label(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLLabelElement
-
-/** Creates an `<input>` element */
-export function Input(props?: Record<string, any>): HTMLInputElement
-
-/** Creates a `<textarea>` element */
-export function Textarea(props?: Record<string, any>): HTMLTextAreaElement
-
-/** Creates a `<select>` element */
-export function Select(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLSelectElement
-
-/** Creates a `<button>` element */
-export function Button(
-  props?: Record<string, any>,
-  ...children: any[]
-): HTMLButtonElement
-
-/** Creates an `<img>` element */
-export function Img(props?: Record<string, any>): HTMLImageElement
-
-/** Creates an `<svg>` element */
-export function Svg(
-  props?: Record<string, any>,
-  ...children: any[]
-): SVGSVGElement
+export type TagHelper = (
+  props?: any,
+  children?: any
+) => HTMLElement | SVGElement | Text;
 
 // ============================================================================
 // Default Export
 // ============================================================================
 
 declare const SigPro: {
-  $: typeof $
-  $$: typeof $$
-  Watch: typeof Watch
-  Tag: typeof Tag
-  Render: typeof Render
-  If: typeof If
-  For: typeof For
-  Router: typeof Router
-  Mount: typeof Mount
-  onMount: typeof onMount
-  onUnmount: typeof onUnmount
-  Anim: typeof Anim
-  Batch: typeof Batch
-}
+  $: typeof $;
+  $$: typeof $$;
+  watch: typeof watch;
+  h: typeof h;
+  when: typeof when;
+  each: typeof each;
+  fx: typeof fx;
+  router: typeof router;
+  req: typeof req;
+  mount: typeof mount;
+  batch: typeof batch;
+};
 
-export default SigPro
+export default SigPro;
 
+// ============================================================================
 // Global augmentation for browser environments
+// ============================================================================
+
 declare global {
   interface Window {
-    $: typeof $
-    $$: typeof $$
-    Watch: typeof Watch
-    Tag: typeof Tag
-    Render: typeof Render
-    If: typeof If
-    For: typeof For
-    Router: typeof Router
-    Mount: typeof Mount
-    onMount: typeof onMount
-    onUnmount: typeof onUnmount
-    Anim: typeof Anim
-    Batch: typeof Batch
-    SigPro: typeof SigPro
+    $: typeof $;
+    $$: typeof $$;
+    watch: typeof watch;
+    h: typeof h;
+    when: typeof when;
+    each: typeof each;
+    fx: typeof fx;
+    router: typeof router;
+    req: typeof req;
+    mount: typeof mount;
+    batch: typeof batch;
+    SigPro: typeof SigPro;
 
-    // Tag helpers
-    Div: typeof Div
-    Span: typeof Span
-    P: typeof P
-    H1: typeof H1
-    H2: typeof H2
-    H3: typeof H3
-    H4: typeof H4
-    H5: typeof H5
-    H6: typeof H6
-    Br: typeof Br
-    Hr: typeof Hr
-    Section: typeof Section
-    Article: typeof Article
-    Aside: typeof Aside
-    Nav: typeof Nav
-    Main: typeof Main
-    Header: typeof Header
-    Footer: typeof Footer
-    Ul: typeof Ul
-    Ol: typeof Ol
-    Li: typeof Li
-    A: typeof A
-    Em: typeof Em
-    Strong: typeof Strong
-    Pre: typeof Pre
-    Code: typeof Code
-    Form: typeof Form
-    Label: typeof Label
-    Input: typeof Input
-    Textarea: typeof Textarea
-    Select: typeof Select
-    Button: typeof Button
-    Img: typeof Img
-    Svg: typeof Svg
+    // Tag helpers (lowercase)
+    a: TagHelper;
+    abbr: TagHelper;
+    article: TagHelper;
+    aside: TagHelper;
+    audio: TagHelper;
+    b: TagHelper;
+    blockquote: TagHelper;
+    br: TagHelper;
+    button: TagHelper;
+    canvas: TagHelper;
+    caption: TagHelper;
+    cite: TagHelper;
+    code: TagHelper;
+    col: TagHelper;
+    colgroup: TagHelper;
+    datalist: TagHelper;
+    dd: TagHelper;
+    del: TagHelper;
+    details: TagHelper;
+    dfn: TagHelper;
+    dialog: TagHelper;
+    div: TagHelper;
+    dl: TagHelper;
+    dt: TagHelper;
+    em: TagHelper;
+    embed: TagHelper;
+    fieldset: TagHelper;
+    figcaption: TagHelper;
+    figure: TagHelper;
+    footer: TagHelper;
+    form: TagHelper;
+    h1: TagHelper;
+    h2: TagHelper;
+    h3: TagHelper;
+    h4: TagHelper;
+    h5: TagHelper;
+    h6: TagHelper;
+    header: TagHelper;
+    hr: TagHelper;
+    i: TagHelper;
+    iframe: TagHelper;
+    img: TagHelper;
+    input: TagHelper;
+    ins: TagHelper;
+    kbd: TagHelper;
+    label: TagHelper;
+    legend: TagHelper;
+    li: TagHelper;
+    main: TagHelper;
+    mark: TagHelper;
+    meter: TagHelper;
+    nav: TagHelper;
+    object: TagHelper;
+    ol: TagHelper;
+    optgroup: TagHelper;
+    option: TagHelper;
+    output: TagHelper;
+    p: TagHelper;
+    picture: TagHelper;
+    pre: TagHelper;
+    progress: TagHelper;
+    section: TagHelper;
+    select: TagHelper;
+    slot: TagHelper;
+    small: TagHelper;
+    source: TagHelper;
+    span: TagHelper;
+    strong: TagHelper;
+    sub: TagHelper;
+    summary: TagHelper;
+    sup: TagHelper;
+    svg: TagHelper;
+    table: TagHelper;
+    tbody: TagHelper;
+    td: TagHelper;
+    template: TagHelper;
+    textarea: TagHelper;
+    tfoot: TagHelper;
+    th: TagHelper;
+    thead: TagHelper;
+    time: TagHelper;
+    tr: TagHelper;
+    u: TagHelper;
+    ul: TagHelper;
+    video: TagHelper;
   }
 }
