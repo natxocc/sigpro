@@ -19,8 +19,7 @@ jobs:
         with:
           fetch-depth: 1
           path: source
-        env:
-          GIT_CONFIG_PARAMETERS: url.https://git.natxocc.com/.insteadOf=http://gitea:3000/
+          repository: https://git.natxocc.com/natxocc/sigpro.git
 
       - name: Checkout destination from GitHub
         run: |
