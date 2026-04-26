@@ -1,0 +1,55 @@
+name: Sync selected files to GitHub
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:  # permite ejecución manual
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source (Gitea)
+        uses: actions/checkout@v4
+        with:
+          path: source
+
+      - name: Clone destination (GitHub)
+        run: |
+          git clone https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/natxocc/sigpro.git dest
+          cd dest
+          git config user.name "Gitea Sync Bot"
+          git config user.email "bot@natxocc.com"
+
+      - name: Copy selected files
+        run: |
+          # Lista de archivos (rutas relativas desde la raíz del repositorio)
+          FILES="
+            sigpro.js
+            sigpro.d.ts
+            vite/index.js
+            dist/sigpro.esm.js
+            dist/sigpro.esm.min.js
+            dist/sigpro.js
+            dist/sigpro.min.js
+          "
+          for file in $FILES; do
+            if [ -f "source/$file" ]; then
+              mkdir -p "dest/$(dirname $file)"
+              cp "source/$file" "dest/$file"
+              echo "Copied $file"
+            else
+              echo "Warning: source/$file not found, skipping"
+            fi
+          done
+
+      - name: Commit and push changes
+        run: |
+          cd dest
+          git add .
+          if git diff --staged --quiet; then
+            echo "No changes to sync"
+          else
+            git commit -m "Sync selected files from Gitea [skip ci]"
+            git push origin main
+          fi
