@@ -34,7 +34,7 @@ jobs:
 
       - name: Copy selected files
         run: |
-          FILES="sigpro.js sigpro.d.ts vite/index.js dist/sigpro.esm.js dist/sigpro.esm.min.js dist/sigpro.js dist/sigpro.min.js"
+          FILES="sigpro.js"
           for file in $FILES; do
             if [ -f "source/$file" ]; then
               mkdir -p "dest/$(dirname $file)"
