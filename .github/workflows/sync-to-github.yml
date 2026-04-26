@@ -9,14 +9,6 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      # Clonar origen (Gitea) usando dominio externo
-      - name: Clone source from Gitea
-        run: |
-          git clone http://gitea:3000/natxocc/sigpro.git source
-          cd source
-          git checkout main   # o la rama que necesites
-
-      # Clonar destino (GitHub) igual que antes
       - name: Clone destination (GitHub)
         run: |
           git clone https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/natxocc/sigpro.git dest
@@ -24,23 +16,26 @@ jobs:
           git config user.name "Sync Bot"
           git config user.email "bot@natxocc.com"
 
-      # Copiar archivos seleccionados
-      - name: Copy selected files
+      - name: Copy files from local volume
         run: |
+          SOURCE_DIR="/volume1/webdocs/sigpro"
+          if [ ! -d "$SOURCE_DIR" ]; then
+            echo "Source directory not found at $SOURCE_DIR"
+            exit 1
+          fi
           FILES="sigpro.js sigpro.d.ts vite/index.js dist/sigpro.esm.js dist/sigpro.esm.min.js dist/sigpro.js dist/sigpro.min.js"
           for file in $FILES; do
-            if [ -f "source/$file" ]; then
+            if [ -f "$SOURCE_DIR/$file" ]; then
               mkdir -p "dest/$(dirname $file)"
-              cp "source/$file" "dest/$file"
+              cp "$SOURCE_DIR/$file" "dest/$file"
               echo "Copied $file"
             else
-              echo "Warning: source/$file not found"
+              echo "Warning: $SOURCE_DIR/$file not found"
             fi
           done
 
-      # Commit y push a GitHub
       - name: Commit and push
         run: |
           cd dest
           git add .
-          git diff --staged --quiet || (git commit -m "Sync selected files from Gitea [skip ci]" && git push origin main)
+          git diff --staged --quiet || (git commit -m "Sync selected files from local volume [skip ci]" && git push origin main)
