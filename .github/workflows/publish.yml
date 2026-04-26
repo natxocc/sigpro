@@ -1,11 +1,14 @@
-name: Publish to NPM
+name: Publish to NPM (Manual)
 
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versión a publicar (ej: 1.2.20)'
+        required: true
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
     container:
       image: node:20-bullseye
@@ -13,29 +16,21 @@ jobs:
         --dns 192.168.1.1
         --add-host git.natxocc.com:host-gateway
         --add-host gitea:host-gateway
-    steps:
-      - name: Forzar Dominio Limpio
-        run: |
-          # Redirigimos cualquier intento (IP o nombre interno) al dominio limpio
-          git config --global url."http://git.natxocc.com/".insteadOf "http://gitea:3000/"
-          git config --global url."http://git.natxocc.com/".insteadOf "http://192.168.1.100:3333/"
-          
-          git config --global --add safe.directory /workspace/natxocc/sigpro
-          git config --global http.sslVerify false
 
-      - name: Checkout código
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-        env:
-          GIT_CONFIG_PARAMETERS: "'url.https://git.natxocc.com/.insteadOf=http://gitea:3000/'"
+    steps:
+      - name: Clone source from Gitea
+        run: |
+          git clone https://git.natxocc.com/natxocc/sigpro.git source
+          cd source
+          git checkout main
 
       - uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
 
-      - name: Install & Publish
+      - name: Install and publish
         run: |
+          cd source
           bun install
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
           npm publish --access public
