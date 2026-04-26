@@ -12,7 +12,7 @@ jobs:
       # Clonar origen (Gitea) usando dominio externo
       - name: Clone source from Gitea
         run: |
-          git clone https://git.natxocc.com/natxocc/sigpro.git source
+          git clone http://gitea:3000/natxocc/sigpro.git source
           cd source
           git checkout main   # o la rama que necesites
 
