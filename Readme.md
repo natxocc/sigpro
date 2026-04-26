@@ -4,7 +4,6 @@ Ultra-lightweight rendering engine designed for extreme performance.
 
 [![npm version](https://img.shields.io/npm/v/sigpro.svg)](https://www.npmjs.com/package/sigpro)
 [![bundle size](https://img.shields.io/bundlephobia/minzip/sigpro)](https://bundlephobia.com/package/sigpro)
-[![size](https://img.badgesize.io/natxocc/sigpro/main/sigpro/index.js?compression=gzip)](https://git.natxocc.com/natxocc/sigpro)
 [![license](https://img.shields.io/npm/l/sigpro)](https://github.com/natxocc/sigpro/blob/main/LICENSE)
 
 [**Explore the Docs →**](https://natxocc.github.io/sigpro/) | [**View on GitHub**](https://github.com/natxocc/sigpro)
