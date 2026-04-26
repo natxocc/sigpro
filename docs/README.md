@@ -22,7 +22,7 @@
  <li><strong>SigPro:</strong> You ship <strong>Pure Vanilla JS</strong>. The runtime is so small that it often costs less than a single high‑res icon.</li>
 </ul>
 
-<h3 class="text-2xl font-bold mt-8 mb-4">Two Ways to Use SigPro (v1.2.19+)</h3>
+<h3 class="text-2xl font-bold mt-8 mb-4">Two Ways to Use SigPro</h3>
 <p class="mb-2"><strong>🎯 Modern ESM (recommended):</strong> Import only the functions you need – zero global pollution.</p>
 <pre class="bg-base-300/30 p-4 rounded-lg mb-4"><code>import { $, div, button, mount } from 'sigpro';
 const count = $(0);
