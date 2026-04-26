@@ -1,4 +1,4 @@
-Ultra-lightweight rendering engine designed for extreme performance.
+Blazing fast, zero-overhead, vanilla JS renderer with atomic reactivity.
 
 # `SigPro` ⚛️
 
@@ -6,7 +6,7 @@ Ultra-lightweight rendering engine designed for extreme performance.
 [![bundle size](https://img.shields.io/bundlephobia/minzip/sigpro)](https://bundlephobia.com/package/sigpro)
 [![license](https://img.shields.io/npm/l/sigpro)](https://github.com/natxocc/sigpro/blob/main/LICENSE)
 
-[**Explore the Docs →**](https://natxocc.github.io/sigpro/) | [**View on GitHub**](https://github.com/natxocc/sigpro)
+[**Explore the Docs →**](https://sigpro.natxocc.com/#/)
 
 ---
 
