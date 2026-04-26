@@ -1,0 +1,22 @@
+name: Delete npm version
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versión a eliminar'
+        required: true
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Unpublish version
+        run: npm unpublish sigpro@${{ github.event.inputs.version }} --force
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
