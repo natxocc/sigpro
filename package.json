@@ -33,9 +33,6 @@
   "bugs": {
     "url": "https://git.natxocc.com/natxocc/sigpro/issues"
   },
-  "publishConfig": {
-    "registry": "https://git.natxocc.com/api/packages/natxocc/npm/"
-  },
   "scripts": {
     "clean": "rm -rf dist",
     "prebuild": "npm run clean",
