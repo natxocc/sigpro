@@ -1,14 +1,3 @@
-Aquí tienes el archivo `h.md` actualizado, que ahora incluye:
-
-- La función `h` (hyperscript)
-- Los helpers globales de etiquetas (lowercase)
-- Una nueva sección sobre **JSX con SigPro** (configuración, ejemplos y alternativas como `htm`).
-
-El documento está en inglés, como los originales, y listo para integrarse en tu documentación.
-
----
-
-```markdown
 # Hyperscript & Tag Helpers
 
 SigPro provides two complementary ways to create DOM elements:
@@ -318,6 +307,3 @@ mount(App, '#app');
 | **`htm`** | Optional | `` html`<div>...</div>` `` | Buildless but HTML‑like syntax |
 
 > **Tip:** All approaches are fully reactive, support two‑way binding, events, SVG, and automatic cleanup. Choose the one that fits your workflow.
-```
-
-```

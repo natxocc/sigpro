@@ -2,6 +2,8 @@
 
 SigPro leverages the native power and efficiency of **signals** to create robust global stores with **zero complexity**. While other frameworks force you into heavy libraries and rigid boilerplate (Redux, Pinia, or Svelte stores), SigPro treats “the store” as a simple architectural choice: **defining a signal outside of a component.**
 
+> **Availability:** `$` (and other core functions) are exported from the SigPro module. In **ESM** you must import them (`import { $ } from 'sigpro'`) or inject all globals via `sigpro()`. In the **IIFE** classic script, `$` is automatically available on `window`. The examples below assume `$` is already in scope (via import or global).
+
 ## Modular Organization (Zero Constraints)
 
 You are not restricted to a single `store.js`. You can organize your state by **feature**, **domain**, or **page**. Since a SigPro store is just a standard JavaScript module exporting signals, you can name your files whatever you like (`auth.js`, `cart.js`, `settings.js`) to keep your logic clean.
@@ -12,7 +14,7 @@ Creating a dedicated file allows you to export only what you need. This modulari
 
 ```javascript
 // auth.js
-import { $ } from 'sigpro';  // or just rely on global `$` after import
+import { $ } from 'sigpro';
 
 // A simple global signal
 export const user = $({ name: "Guest", loggedIn: false });

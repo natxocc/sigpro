@@ -20,6 +20,8 @@ watch(deps: Signal[], callback: (values: any[]) => void): StopFunction
 
 **Returns:** A `StopFunction` that, when called, destroys the watcher and releases memory.
 
+> **Availability:** `watch` is exported from the SigPro module. In **ESM** you must import it (`import { watch } from 'sigpro'`) or inject all globals via `sigpro()`. In the **IIFE** classic script, it is automatically available on `window`. The examples below assume the function is already in scope.
+
 ---
 
 ## Usage Patterns
@@ -95,7 +97,7 @@ This is achieved via `queueMicrotask`, ensuring optimal performance.
 
 ## Key Points
 
-- **Function name:** `watch` (lowercase) – exported from SigPro and also available globally.
+- **Function name:** `watch` (lowercase) – exported from SigPro and also available globally (depending on environment).
 - **Auto mode:** `watch(fn)` – automatically tracks any signals read inside `fn`.
 - **Explicit mode:** `watch([sig1, sig2], (values) => {...})` – only re‑runs when listed signals change; callback receives an array of their new values.
 - **Stop function:** returned by both modes; call it to dispose the effect and its children.
@@ -120,4 +122,3 @@ watch([count, step], ([newCount, newStep]) => {
 count(5);      // logs: auto + explicit
 step(2);       // logs: explicit only (auto does not track step)
 ```
-

@@ -2,6 +2,8 @@
 
 The `h` function is the **core DOM builder** of SigPro. It creates DOM elements from a tag name, props, and children. While the global tag helpers (`div()`, `button()`, etc.) are built on top of `h`, you may need `h` directly for dynamic tag names or when you prefer an explicit function style.
 
+> **Availability:** `h` and all tag helpers (`div`, `button`, etc.) are exported from the SigPro module. In **ESM** you must import them (`import { h, div, button } from 'sigpro'`) or inject all globals via `sigpro()`. In the **IIFE** classic script, `h` and all tag helpers are automatically available on `window`. The examples below assume the functions are already in scope.
+
 ## Function Signature
 
 ```typescript
@@ -120,16 +122,16 @@ h('svg', { width: 100, height: 100 }, [
 
 ---
 
-## `h` vs Global Tag Helpers
+## `h` vs Tag Helpers
 
-| Feature | `h('div', ...)` | `div(...)` |
+| Feature | `h('div', ...)` | `div(...)` (tag helper) |
 | :--- | :--- | :--- |
 | **Dynamic tag names** | ✅ `h(tagName, ...)` | ❌ Must know tag name at write time |
 | **Explicit style** | More verbose | Cleaner, DSL‑like |
-| **Tree shaking** | Same | Same (helpers are generated once) |
+| **Availability** | Import or global | Import or global (same) |
 | **Performance** | Identical | Identical (helpers call `h` internally) |
 
-> **Recommendation:** Use global tag helpers (`div()`, `button()`, etc.) for most cases – they are shorter and more readable. Use `h` directly only when the tag name is dynamic (e.g., `h(props.tag, ...)`).
+> **Recommendation:** Use tag helpers (`div()`, `button()`, etc.) for most cases – they are shorter and more readable. Use `h` directly only when the tag name is dynamic (e.g., `h(props.tag, ...)`). Remember that in ESM you need to import the helpers or call `sigpro()` to make them global.
 
 ---
 
@@ -155,5 +157,5 @@ mount(App, '#app');
 
 - `h` is the low‑level DOM builder used internally by all tag helpers.
 - It supports reactive attributes, reactive children, two‑way binding, event listeners, and SVG.
-- Use `h` directly when you need a **dynamic tag name**; otherwise, prefer the convenient global helpers.
+- Use `h` directly when you need a **dynamic tag name**; otherwise, prefer the convenient tag helpers (import them or inject globally).
 - Components written with `h` are fully reactive and automatically cleaned up.

@@ -1,23 +1,48 @@
 # Global Tag Helpers
 
-In **SigPro**, you don't need to manually type `h('div', ...)` for every element. To keep your code declarative and readable, the engine automatically generates **helper functions** for all standard HTML5 tags upon initialization.
+In **SigPro**, you don't need to manually type `h('div', ...)` for every element. To keep your code declarative and readable, the engine provides **helper functions** for all standard HTML5 tags.
 
 ## 1. How it Works
 
-SigPro iterates through a list of standard HTML tags and attaches a wrapper function for each one directly to the `window` object. This creates a specialized **DSL** (Domain Specific Language) that looks like a template engine but is **100% standard JavaScript**.
+SigPro iterates through a list of standard HTML tags and creates a wrapper function for each one.  
+- **Under the hood:** `h('button', { onclick: ... }, 'Click')`  
+- **SigPro Style:** `button({ onclick: ... }, 'Click')`
 
-* **Under the hood:** `h('button', { onclick: ... }, 'Click')`
-* **SigPro Style:** `button({ onclick: ... }, 'Click')`
+> **Note:** All tag helpers are **lowercase** (e.g., `div`, `span`, `button`). This keeps the syntax close to raw HTML.
 
-> **Note:** All tag helpers are **lowercase** (e.g. `div`, `span`, `button`). PascalCase versions (`Div`, `Span`, `Button`) are **not** created. This keeps the syntax close to raw HTML.
+These helpers can be used in two ways, depending on your environment:
+
+### Mode A: Classic (IIFE) – Auto‑global  
+When you load the **IIFE bundle** (`sigpro.js`) with a traditional `<script>` tag (no `type="module"`), all tag helpers are automatically injected into the `window` object.  
+```html
+<script src="https://cdn.jsdelivr.net/npm/sigpro@1.2.19/dist/sigpro.js"></script>
+<script>
+  // div, span, button, ... are already global
+  const App = () => div({ class: "card" }, "Hello");
+</script>
+```
+
+### Mode B: ESM (Modern) – Explicit or Imported  
+When you import the **ES module** (via `import` or CDN with `type="module"`), nothing is added to `window` by default. You have two options:
+
+1. **Manual global injection** – import `sigpro` and call it:  
+   ```javascript
+   import { sigpro } from 'sigpro';
+   sigpro();   // now div, span, button, etc. become global
+   ```
+2. **Named imports** (recommended) – import the helpers you need directly:  
+   ```javascript
+   import { div, span, button } from 'sigpro';
+   // use them directly
+   ```
 
 ---
 
-## 2. The Complete Global Registry
+## 2. The Complete List of Tag Helpers
 
-The following functions are injected into the global scope using **lowercase** names to match HTML tags:
+All helpers are **lowercase** and follow HTML5 tag names. You can use them globally (after injection) or import them individually.
 
-| Category | Available Global Functions |
+| Category | Available functions |
 | :--- | :--- |
 | **Structure** | `div`, `span`, `p`, `section`, `nav`, `main`, `header`, `footer`, `article`, `aside` |
 | **Typography** | `h1`, `h2`, `h3`, `h4`, `h5`, `h6`, `ul`, `ol`, `li`, `dl`, `dt`, `dd`, `strong`, `em`, `code`, `pre`, `small`, `b`, `u`, `mark` |
@@ -26,26 +51,24 @@ The following functions are injected into the global scope using **lowercase** n
 | **Tables** | `table`, `thead`, `tbody`, `tr`, `th`, `td`, `tfoot`, `caption` |
 | **Media** | `img`, `canvas`, `video`, `audio`, `svg`, `iframe`, `picture`, `source` |
 
-Full list includes: `a`, `abbr`, `article`, `aside`, `audio`, `b`, `blockquote`, `br`, `button`, `canvas`, `caption`, `cite`, `code`, `col`, `colgroup`, `datalist`, `dd`, `del`, `details`, `dfn`, `dialog`, `div`, `dl`, `dt`, `em`, `embed`, `fieldset`, `figcaption`, `figure`, `footer`, `form`, `h1`…`h6`, `header`, `hr`, `i`, `iframe`, `img`, `input`, `ins`, `kbd`, `label`, `legend`, `li`, `main`, `mark`, `meter`, `nav`, `object`, `ol`, `optgroup`, `option`, `output`, `p`, `picture`, `pre`, `progress`, `section`, `select`, `slot`, `small`, `source`, `span`, `strong`, `sub`, `summary`, `sup`, `svg`, `table`, `tbody`, `td`, `template`, `textarea`, `tfoot`, `th`, `thead`, `time`, `tr`, `u`, `ul`, `video`.
+Full list includes all standard tags: `a`, `abbr`, `article`, `aside`, `audio`, `b`, `blockquote`, `br`, `button`, `canvas`, `caption`, `cite`, `code`, `col`, `colgroup`, `datalist`, `dd`, `del`, `details`, `dfn`, `dialog`, `div`, `dl`, `dt`, `em`, `embed`, `fieldset`, `figcaption`, `figure`, `footer`, `form`, `h1`…`h6`, `header`, `hr`, `i`, `iframe`, `img`, `input`, `ins`, `kbd`, `label`, `legend`, `li`, `main`, `mark`, `meter`, `nav`, `object`, `ol`, `optgroup`, `option`, `output`, `p`, `picture`, `pre`, `progress`, `section`, `select`, `slot`, `small`, `source`, `span`, `strong`, `sub`, `summary`, `sup`, `svg`, `table`, `tbody`, `td`, `template`, `textarea`, `tfoot`, `th`, `thead`, `time`, `tr`, `u`, `ul`, `video`.
 
 ---
 
 ## 3. Usage Patterns
-
-SigPro tag helpers are flexible. They automatically detect if you are passing attributes, children, or both.
 
 ### A. Attributes + Children
 
 ```javascript
 div({ class: 'container', id: 'main' }, [
   h1("Welcome to SigPro"),
-  p("The zero-VDOM framework.")
+  p("The zero‑VDOM framework.")
 ]);
 ```
 
 ### B. Children Only
 
-If you don't need attributes, you can pass the content directly as the first argument.
+If you don't need attributes, pass the content directly as the first argument.
 
 ```javascript
 section([
@@ -74,7 +97,7 @@ div({
 
 ### Two‑Way Binding (Automatic)
 
-SigPro automatically bridges the **signal** and the **input element** bidirectionally when you assign a signal to `value` or `checked`.
+Assign a **signal** directly to `value` or `checked` on form inputs – SigPro automatically bridges the signal and the input element bidirectionally.
 
 ```javascript
 const search = $("");
@@ -86,11 +109,11 @@ input({
 });
 ```
 
-> **Pro Tip:** If you want an input to be **read‑only** but still reactive, wrap the signal in an anonymous function: `value: () => search()`. This prevents backward synchronization.
+> **Pro Tip:** To make an input **read‑only** but still reactive, wrap the signal in a function: `value: () => search()` – this prevents backward synchronization.
 
 ### Dynamic Children
 
-You can pass a function as a child – it will be re‑executed whenever any signal inside changes, and the DOM will be patched surgically.
+You can pass a **function as a child** – it will be re‑executed whenever any signal inside changes, and the DOM will be patched surgically.
 
 ```javascript
 const count = $(0);
@@ -103,9 +126,9 @@ div([
 
 ---
 
-## 5. Custom Components with `h()`
+## 5. Custom Components with `h()` or Tag Helpers
 
-While the global tag helpers cover all standard HTML tags, you can create reusable components using the `h` function directly (or by returning the result of tag helpers).
+While the tag helpers cover all standard HTML tags, you can create reusable components using them directly.
 
 ### Basic Component
 
@@ -151,7 +174,7 @@ const Timer = () => {
 
 | Use case | Recommendation |
 | :--- | :--- |
-| Standard tags (`div`, `span`, `button`) | Use global helpers: `div()`, `span()`, `button()` |
+| Standard tags (`div`, `span`, `button`) | Use tag helpers: `div()`, `span()`, `button()` |
 | Dynamic tag names (unknown at write time) | Use `h(tagName, props, children)` |
 | Components returning a single node | Any function that returns a node (using helpers or `h`) |
 
@@ -162,13 +185,17 @@ const Timer = () => {
 ## 7. Complete Example
 
 ```javascript
+// In a modern ESM environment (recommended)
+import { div, h1, input, p, button, mount, $ } from 'sigpro';
+
+const nameSignal = $('');
+
 const App = () =>
   div({ class: "app" }, [
     h1("Welcome"),
     input({ 
       placeholder: "Your name", 
-      value: nameSignal,
-      onInput: (e) => nameSignal(e.target.value)
+      value: nameSignal
     }),
     p(() => `Hello, ${nameSignal() || "stranger"}!`),
     button({ onClick: () => alert("Clicked") }, "Click me")
@@ -177,26 +204,40 @@ const App = () =>
 mount(App, '#app');
 ```
 
+Or using the classic script (auto‑global):
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/sigpro@1.2.19/dist/sigpro.js"></script>
+<script>
+  const nameSignal = $('');
+  const App = () => div({ class: "app" }, [
+    h1("Welcome"),
+    input({ placeholder: "Your name", value: nameSignal }),
+    p(() => `Hello, ${nameSignal() || "stranger"}!`),
+    button({ onClick: () => alert("Clicked") }, "Click me")
+  ]);
+  mount(App, '#app');
+</script>
+```
+
 ---
 
-<div class="alert alert-info">
-  <div>
-    <h3>Important Notes</h3>
-    <ul>
-      <li><b>Naming:</b> All tag helpers are <b>lowercase</b>. There are no PascalCase helpers (<code>Div</code>, <code>Button</code>).</li>
-      <li><b>Global availability:</b> After importing SigPro (via <code>import 'sigpro'</code> or CDN), all helpers are on <code>window</code>. You can use them anywhere without importing.</li>
-      <li><b>Custom components:</b> Use PascalCase for your own component functions to visually distinguish them from built‑in tags (e.g., <code>UserCard</code>).</li>
-    </ul>
-  </div>
-</div>
+## 8. Important Notes
+
+- **Naming:** All tag helpers are **lowercase** – no PascalCase helpers (`Div`, `Button`).  
+- **Global availability:**  
+  - **IIFE script** → automatically on `window`.  
+  - **ESM module** → not global by default; use `import { div } from 'sigpro'` or call `sigpro()` to inject all globals.  
+- **Custom components:** Use **PascalCase** for your own component functions (e.g., `UserCard`) to visually distinguish them from built‑in tags.
 
 ---
 
-## 8. Summary
+## 9. Summary
 
 | Feature | Description |
 | :--- | :--- |
 | **Tag helpers** | Lowercase functions for every HTML element (e.g., `div()`, `button()`). |
+| **Availability** | Auto‑global in IIFE; in ESM use named imports or `sigpro()`. |
 | **Reactive attributes** | Pass a function to any attribute to keep it synced. |
 | **Two‑way binding** | Assign a signal directly to `value` or `checked` on form elements. |
 | **Dynamic children** | Pass a function as a child for live updating content. |

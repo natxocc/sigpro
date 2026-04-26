@@ -8,7 +8,7 @@ The `each` function is a high‑performance keyed list renderer. It maps a react
 each(
   source: Signal<any[]> | (() => any[]) | any[],
   itemFn: (item: any, index: number) => Node | (() => Node),
-  keyFn?: (item: any, index: number) => string | number
+  keyField?: string
 ): HTMLElement
 ```
 
@@ -16,7 +16,7 @@ each(
 | :--- | :--- | :--- | :--- |
 | **`source`** | `Signal`, `() => any[]`, or `any[]` | Yes | The reactive array to iterate over. |
 | **`itemFn`** | `(item, index) => Node` | Yes | Returns a DOM node (or a function that returns a node) for each item. |
-| **`keyFn`** | `(item, index) => string/number` | No | Extracts a unique key. Default: `item?.id ?? index`. |
+| **`keyField`** | `string` | No | Name of the property to use as unique key (e.g., `"id"`). Default: `item?.id ?? index`. |
 
 **Returns:** A `div` with `style="display: contents"` that contains the live list.
 
@@ -26,7 +26,7 @@ each(
 
 ### 1. Basic Keyed List (Recommended)
 
-Always provide a unique `id` as the key. This allows SigPro to reuse DOM nodes when the list is reordered or filtered.
+Pass the name of the property that contains the unique identifier (e.g., `"id"`). This allows SigPro to reuse DOM nodes when the list is reordered or filtered.
 
 ```javascript
 const users = $([
@@ -37,14 +37,14 @@ const users = $([
 ul({ class: "list" }, [
   each(users,
     (user) => li({ class: "p-2" }, user.name),
-    (user) => user.id   // stable unique key
+    "id"   // ← use property "id" as stable key
   )
 ]);
 ```
 
 ### 2. Automatic Key (Simple Lists)
 
-If you omit the `keyFn`, `each` defaults to `item?.id ?? index`. For primitive arrays or objects without an `id`, the index is used.
+If you omit the `keyField`, `each` defaults to `item?.id ?? index`. For primitive arrays or objects without an `id`, the index is used.
 
 ```javascript
 const tags = $(["Tech", "JS", "Web"]);
@@ -55,7 +55,20 @@ div({ class: "flex gap-1" }, [
 ]);
 ```
 
-### 3. Dynamic Content Using Functions
+### 3. Using a Different Property Name
+
+If your unique identifier is not called `id` (e.g., `_id`, `userId`, `slug`), just pass the property name as the third parameter:
+
+```javascript
+const products = $([
+  { _id: 101, name: "Laptop" },
+  { _id: 102, name: "Mouse" }
+]);
+
+each(products, (item) => li(item.name), "_id");
+```
+
+### 4. Dynamic Content Using Functions
 
 If your `itemFn` returns a **function**, that function is re‑executed every time the item’s data changes (but the node is reused).
 
@@ -69,11 +82,11 @@ each(todos,
     input({ type: "checkbox", checked: () => todo.done, onInput: e => todo.done = e.target.checked }),
     span(() => todo.done ? s(todo.text) : todo.text)
   ]),
-  (todo) => todo.id
+  "id"
 );
 ```
 
-### 4. Source as a Plain Array or Function
+### 5. Source as a Plain Array or Function
 
 `source` can be a plain array (non‑reactive) or a function that returns an array – it will still react to changes if signals are read inside the function.
 
@@ -86,7 +99,7 @@ const filteredTodos = () => {
   return all;
 };
 
-each(filteredTodos, (todo) => li(todo.text), (todo) => todo.id);
+each(filteredTodos, (todo) => li(todo.text), "id");
 ```
 
 ---
@@ -95,7 +108,7 @@ each(filteredTodos, (todo) => li(todo.text), (todo) => todo.id);
 
 When the `source` changes, `each`:
 
-1. **Compares keys** between the old and new items using the `keyFn`.
+1. **Compares keys** between the old and new items using the specified `keyField` (or `item.id` / index).
 2. **Reuses existing DOM nodes** for keys that stay the same.
 3. **Moves nodes** if order changed (no recreation).
 4. **Creates new nodes** for new keys.
@@ -107,8 +120,8 @@ When the `source` changes, `each`:
 
 ## Performance Tips
 
-- **Stable keys** – Use a real `id` (like a database primary key). Avoid `Math.random()` or array `index` for lists that can be reordered.
-- **State preservation** – If a list item contains an input or a local state, using a stable key ensures that state is preserved even when the list is filtered or sorted.
+- **Stable keys** – Use a property that never changes (like a database primary key). Avoid `Math.random()` or array `index` for lists that can be reordered.
+- **State preservation** – If a list item contains an input or local state, using a stable key ensures that state is preserved even when the list is filtered or sorted.
 - **Lazy item functions** – If an item is expensive to render, wrap it in a function: `() => ExpensiveComponent(item)`. The component is only created when the item actually appears in the DOM.
 
 ---
@@ -151,7 +164,7 @@ const App = () =>
           span(`${item.name} – $${item.price}`),
           button({ onClick: () => removeItem(item.id) }, "X")
         ]),
-        (item) => item.id
+        "id"
       )
     )
   ]);

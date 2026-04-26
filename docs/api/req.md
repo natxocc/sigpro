@@ -26,6 +26,8 @@ req(config: {
 
 **Returns:** A controller object with reactive signals and methods.
 
+> **Availability:** `req` is exported from the SigPro module. In **ESM** you must import it (`import { req } from 'sigpro'`) or inject all globals via `sigpro()`. In the **IIFE** classic script, it is automatically available on `window`. The examples below assume the function is already in scope.
+
 ---
 
 ## Usage Patterns

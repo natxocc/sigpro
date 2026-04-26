@@ -1,10 +1,12 @@
-# ⚡ SigPro 1.2.18 – Complete API Reference
+# ⚡ SigPro – Complete API Reference
 
 SigPro is a **Real‑DOM first** reactive micro‑framework. No virtual DOM, no diffing overhead – it updates the DOM directly with surgical precision. Built‑in automatic cleanup prevents memory leaks, and the API is designed to be both tiny and powerful.
 
 ```javascript
 import { $, $$, watch, h, when, each, fx, router, req, mount, batch } from 'sigpro'
-// or use globally as window.$ etc.
+// Or, if you prefer the global style in an ESM environment:
+// import { sigpro } from 'sigpro'; sigpro();   // then $, h, div... become window globals
+// In a classic IIFE script (<script src="sigpro.js">), everything is available globally automatically.
 ```
 
 ---
@@ -106,14 +108,22 @@ h('div', {}, [
 
 ### Tag shortcuts
 
-SigPro defines **all standard HTML5 tags** as PascalCase globals (when run in browser) and also exports them as named exports. Example:
+When using the **ESM module with named imports**, you can import the tag helpers individually:
 
 ```javascript
-Div({ class: 'container' }, [
-  H1({}, 'Title'),
-  Button({ onClick: () => alert('hi') }, 'Click me')
+import { div, h1, button } from 'sigpro'
+
+div({ class: 'container' }, [
+  h1({}, 'Title'),
+  button({ onClick: () => alert('hi') }, 'Click me')
 ])
 ```
+
+If you prefer the **global style** (all tags and core functions on `window`), either:
+- Use the classic IIFE script: `<script src="sigpro.js"></script>`
+- Or in ESM, call `sigpro()` after importing: `import { sigpro } from 'sigpro'; sigpro();`
+
+After that, you can write `div()`, `span()`, etc. directly, without any import.
 
 Available tags: `a`, `abbr`, `article`, `aside`, `audio`, `b`, `blockquote`, `br`, `button`, `canvas`, `caption`, `cite`, `code`, `col`, `colgroup`, `datalist`, `dd`, `del`, `details`, `dfn`, `dialog`, `div`, `dl`, `dt`, `em`, `embed`, `fieldset`, `figcaption`, `figure`, `footer`, `form`, `h1`…`h6`, `header`, `hr`, `i`, `iframe`, `img`, `input`, `ins`, `kbd`, `label`, `legend`, `li`, `main`, `mark`, `meter`, `nav`, `object`, `ol`, `optgroup`, `option`, `output`, `p`, `picture`, `pre`, `progress`, `section`, `select`, `slot`, `small`, `source`, `span`, `strong`, `sub`, `summary`, `sup`, `svg`, `table`, `tbody`, `td`, `template`, `textarea`, `tfoot`, `th`, `thead`, `time`, `tr`, `u`, `ul`, `video`.
 
@@ -128,8 +138,8 @@ Reactive conditional rendering. `condition` can be a boolean, a signal, or any f
 ```javascript
 when(
   () => user.loggedIn(),
-  () => Div({}, 'Welcome back!'),
-  () => Button({ onClick: () => login() }, 'Login')
+  () => div({}, 'Welcome back!'),
+  () => button({ onClick: () => login() }, 'Login')
 )
 ```
 
@@ -152,19 +162,7 @@ When the array changes, elements are added, removed, or reordered with minimal D
 
 ---
 
-## 💥 Effects & Lifecycle
-
-### `onUnmount(fn)`
-
-Inside a component (function called from `h`), registers a cleanup function that runs when that component is removed from the DOM.
-
-```javascript
-const Timer = () => {
-  const interval = setInterval(() => console.log('tick'), 1000)
-  onUnmount(() => clearInterval(interval))
-  return Div({}, 'Timer running')
-}
-```
+## 💥 Batch
 
 ### `batch(fn)`
 
@@ -176,16 +174,6 @@ batch(() => {
   name('John')
   // effects run only once after the batch ends
 })
-```
-
-### `untrack(fn)`
-
-Run a function without tracking any signal reads.
-
-```javascript
-const logCount = () => {
-  untrack(() => console.log('count is', count()))
-}
 ```
 
 ---
@@ -218,14 +206,14 @@ Hash‑based SPA router. Returns a DOM node that renders the current route.
 
 ```javascript
 const routes = [
-  { path: '/', component: () => Div({}, 'Home') },
-  { path: '/user/:id', component: (params) => Div({}, `User ${params.id}`) },
-  { path: '*', component: () => Div({}, '404') }
+  { path: '/', component: () => div({}, 'Home') },
+  { path: '/user/:id', component: (params) => div({}, `User ${params.id}`) },
+  { path: '*', component: () => div({}, '404') }
 ]
 
-const App = () => Div({}, [
-  A({ href: '#/' }, 'Home'),
-  A({ href: '#/user/42' }, 'User 42'),
+const App = () => div({}, [
+  a({ href: '#/' }, 'Home'),
+  a({ href: '#/user/42' }, 'User 42'),
   router(routes)
 ])
 ```
@@ -312,11 +300,11 @@ import { $, watch, h, mount } from 'sigpro'
 const count = $(0, 'counter') // persists in localStorage
 
 const App = () =>
-  Div({ class: 'counter' }, [
-    H1({}, () => `Count: ${count()}`),
-    Button({ onClick: () => count(count() + 1) }, '+'),
-    Button({ onClick: () => count(count() - 1) }, '-'),
-    Button({ onClick: () => count(0) }, 'Reset')
+  div({ class: 'counter' }, [
+    h1({}, () => `Count: ${count()}`),
+    button({ onClick: () => count(count() + 1) }, '+'),
+    button({ onClick: () => count(count() - 1) }, '-'),
+    button({ onClick: () => count(0) }, 'Reset')
   ])
 
 mount(App, '#app')
@@ -332,22 +320,8 @@ You can rename everything in one line:
 import { $ as signal, watch as effect, h as element, mount as render } from 'sigpro'
 ```
 
-Or assign globally:
+Or assign globally (after calling `sigpro()` or using the classic script):
 
 ```javascript
 window.myReactive = $
 ```
-
-All functions are also exposed on the global `window` object when included via `<script>`.
-
----
-
-## 📜 License & Version
-
-Current version: **1.2.18**  
-Released under MIT.  
-Zero dependencies, ~3KB gzipped.
-
----
-
-> **Need legacy IE support?** Not supported – requires modern JavaScript (Proxy, WeakMap, etc.).

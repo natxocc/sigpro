@@ -1,4 +1,4 @@
-# Installation & Setup (SigPro 1.2.18)
+# Installation & Setup
 
 SigPro is designed to be drop-in ready. Whether you are building a complex application with a bundler or a simple reactive widget in a single HTML file, SigPro scales with your needs.
 
@@ -42,14 +42,40 @@ bun add sigpro
 ```
 
   </div>
+
   <input type="radio" name="install_method" class="tab border-base-300 whitespace-nowrap" aria-label="CDN (ESM)" />
   <div class="tab-content bg-base-100 border-base-300 rounded-box p-6">
 
 ```html
 <script type="module">
-  // Import the core – it auto-installs itself globally
-  import 'https://cdn.jsdelivr.net/npm/sigpro@1.2.18/+esm';
-  // Now $, $$, watch, h, when, each, fx, router, req, mount, batch and all lowercase tag helpers (div, button, etc.) are available
+  // Import the module – no automatic global injection
+  import { sigpro, $, h, mount } from 'https://cdn.jsdelivr.net/npm/sigpro@1.2.19/+esm';
+
+  // Option A: manually inject all globals (like the classic script)
+  sigpro();  // now $, h, div, watch, etc. are on window
+
+  // Option B: use named imports (no global pollution)
+  const count = $(0);
+  mount(() => h1(() => `Count: ${count()}`), '#app');
+</script>
+```
+
+  </div>
+
+  <input type="radio" name="install_method" class="tab border-base-300 whitespace-nowrap" aria-label="CDN (IIFE)" />
+  <div class="tab-content bg-base-100 border-base-300 rounded-box p-6">
+
+```html
+<!-- Classic script: auto‑installs everything on window -->
+<script src="https://cdn.jsdelivr.net/npm/sigpro@1.2.19/dist/sigpro.js"></script>
+<script>
+  // $, h, div, button, watch, ... are already global
+  const count = $(0);
+  const App = () => div({ class: "card" }, [
+    h1(() => `Count: ${count()}`),
+    button({ onclick: () => count(count() + 1) }, "Increment")
+  ]);
+  mount(App, '#app');
 </script>
 ```
 
@@ -63,31 +89,26 @@ bun add sigpro
 SigPro uses **lowercase** Tag Helpers (e.g., `div`, `button`) to keep the syntax close to raw HTML, while still being pure JavaScript functions.
 
 <div class="tabs tabs-box w-full mt-8 mb-12 bg-base-200/50 p-2 rounded-xl border border-base-300">
-  <input type="radio" name="quick_start_tabs" class="tab !rounded-lg" aria-label="Mainstream (Bundlers)" checked />
+  <input type="radio" name="quick_start_tabs" class="tab !rounded-lg" aria-label="Bundlers (ESM)" checked />
   <div class="tab-content bg-base-100 border-base-300 rounded-lg p-6 mt-2">
 
 ```javascript
-// File: App.js
-import 'sigpro';  // auto-installs globals
+// App.js – Using named imports (recommended)
+import { $, h1, button, div, mount } from 'sigpro';
 
 export const App = () => {
   const count = $(0);
-
-  // Tag helpers like div, h1, button are available globally (lowercase)
   return div({ class: "card p-4" }, [
     h1(() => `Count is: ${count()}`),
     button(
-      {
-        class: "btn btn-primary",
-        onclick: () => count(count() + 1),
-      },
+      { class: "btn btn-primary", onclick: () => count(count() + 1) },
       "Increment"
     ),
   ]);
 };
 
-// File: main.js
-import 'sigpro';
+// main.js
+import { mount } from 'sigpro';
 import { App } from './App.js';
 
 mount(App, '#app');
@@ -104,23 +125,19 @@ mount(App, '#app');
   <body>
     <div id="app"></div>
 
-    <script type="module">
-      import 'https://cdn.jsdelivr.net/npm/sigpro@1.2.18/+esm';
-
+    <script src="https://cdn.jsdelivr.net/npm/sigpro@1.2.19/dist/sigpro.js"></script>
+    <script>
+      // Everything is already global – no import needed
       const name = $('Developer');
-
-      // Lowercase tag helpers: section, h2, input
-      const App = () =>
-        section({ class: "container" }, [
-          h2(() => `Welcome, ${name()}`),
-          input({
-            type: "text",
-            class: "input input-bordered",
-            value: name,   // ✅ Two-way binding: signal as value + automatic input event
-            placeholder: "Type your name...",
-          }),
-        ]);
-
+      const App = () => section({ class: "container" }, [
+        h2(() => `Welcome, ${name()}`),
+        input({
+          type: "text",
+          class: "input input-bordered",
+          value: name,
+          placeholder: "Type your name...",
+        }),
+      ]);
       mount(App, '#app');
     </script>
   </body>
@@ -132,26 +149,42 @@ mount(App, '#app');
 
 ---
 
-## 3. Global by Design
+## 3. Global by Design (Two Modes)
 
-One of SigPro's core strengths is its **Global API**, which eliminates "Import Hell" while remaining ESM-compatible.
+SigPro gives you full control over global pollution.
 
-- **The "Zero-Config" Import:** By simply adding `import 'sigpro'` (or importing from the CDN), the framework automatically "hydrates" the global `window` object.
-  - **Core Functions:** You get immediate access to `$`, `$$`, `watch`, `h`, `when`, `each`, `fx`, `router`, `req`, `mount`, `batch` anywhere in your scripts.
-  - **Auto-Installation:** This happens instantly upon import thanks to its built-in self‑installation, making it "Plug & Play" for both local projects and CDN usage.
+### Mode A: Classic (IIFE) – Auto‑injection
+When you load the **IIFE bundle** (`sigpro.js`) with a traditional `<script>` tag (no `type="module"`), the library automatically injects:
+- All core functions (`$`, `$$`, `watch`, `h`, `when`, `each`, `fx`, `router`, `req`, `mount`, `batch`) into `window`.
+- Lowercase tag helpers (`div`, `span`, `button`, etc.) also become global functions.
 
-- **Lowercase Tag Helpers:** All standard HTML tags are pre-registered as global functions (`div`, `span`, `button`, `section`, `input`, `h1`, `h2`, etc.).
-  - **Clean UI Syntax:** Write UI structures that look almost like HTML but are pure, reactive JavaScript: `div({ class: "card" }, [ h1("Title") ])`.
+✅ Zero configuration – just drop the script and start coding.
 
-- **Tree Shaking Friendly:** For maximum optimization, you can still use named imports: `import { $, watch, mount } from 'sigpro'`. Modern bundlers (Vite, esbuild) will prune unused code.
+### Mode B: ESM (Modern) – Explicit Injection
+When you import the **ESM module** (from CDN or via `import`), **nothing** is added to `window` by default. You have two clean options:
 
-- **Custom Components:** We recommend using **PascalCase** for your own components (e.g., `UserCard()`) to distinguish them from built-in lowercase tag helpers.
+1. **Named imports** (recommended for most apps):
+   ```javascript
+   import { $, h, mount } from 'sigpro';
+   ```
+   No global pollution, perfect for bundlers and large projects.
+
+2. **Manual global injection** (similar to classic mode but controlled):
+   ```javascript
+   import { sigpro } from 'sigpro';
+   sigpro();  // now $, h, div, button, ... are on window
+   ```
+   Useful for quick prototyping or when you prefer the global style.
+
+### Why two modes?
+- **Legacy / no‑build**: Use the IIFE script and get everything automatically.
+- **Modern ESM**: Keep your global namespace clean, leverage tree‑shaking, or inject only when you need it.
 
 ---
 
 ## 4. Why no build step?
 
-Because SigPro uses **native ES Modules** and standard JavaScript functions to generate the DOM, you don't actually _need_ a compiler like Babel or a transformer for JSX.
+Because SigPro uses **native ES Modules** and standard JavaScript functions to generate the DOM, you don't actually *need* a compiler like Babel or a transformer for JSX.
 
 - **Development:** Just save and refresh. Pure JS, no "transpilation" required.
 - **Performance:** Extremely lightweight. Use any modern bundler (Vite, esbuild) only when you are ready to minify and tree-shake for production.
@@ -177,7 +210,7 @@ SigPro stands out by removing the "Build Step" tax and the "Virtual DOM" overhea
 - **Fine-Grained Reactivity**: State changes only trigger updates where the data is actually used, not on the entire component.
 - **Native Web Standards**: Everything is a standard JS function. No custom template syntax to learn.
 - **Zero Magic**: No hidden compilers. What you write is what runs in the browser.
-- **Global by Design**: Tag helpers and core functions are available globally to eliminate "Import Hell" and keep your code clean.
+- **Global by Design** (with control): Tag helpers and core functions can be globally available (IIFE) or imported on demand (ESM) – you choose.
 
 ---
 

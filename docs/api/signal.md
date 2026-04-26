@@ -27,7 +27,7 @@ Creates a writable signal. It returns a function that acts as both **getter** an
 
 <div id="demo-signal-simple"></div>
 
-```js
+```javascript
 {
   const count = $(0);
   const App = () => div({ class: "example" }, [
@@ -44,7 +44,7 @@ Creates a writable signal that syncs with the browser's storage.
 
 <div id="demo-signal-persist"></div>
 
-```js
+```javascript
 {
   const theme = $("light", "theme-persist-demo");
   const App = () => div([
@@ -62,7 +62,7 @@ Creates a read-only signal that updates automatically when any signal used insid
 
 <div id="demo-signal-computed"></div>
 
-```js
+```javascript
 {
   const price = $(100);
   const tax = $(0.21);
@@ -86,7 +86,7 @@ When calling the setter, you can pass an **updater function** to access the curr
 
 <div id="demo-signal-updater"></div>
 
-```js
+```javascript
 {
   const list = $(["A", "B"]);
   const App = () => div([
@@ -123,7 +123,7 @@ $$<T extends object>(obj: T): T
 
 <div id="demo-dollar-simple"></div>
 
-```js
+```javascript
 {
   const state = $$({ count: 0, name: "Juan" });
   watch(() => console.log(`Count is now ${state.count}`));
@@ -141,7 +141,7 @@ $$<T extends object>(obj: T): T
 
 <div id="demo-dollar-deep"></div>
 
-```js
+```javascript
 {
   const user = $$({
     profile: {
@@ -164,7 +164,7 @@ $$<T extends object>(obj: T): T
 
 <div id="demo-dollar-array"></div>
 
-```js
+```javascript
 {
   const todos = $$([
     { id: 1, text: "Learn SigPro", done: false },
@@ -186,7 +186,7 @@ $$<T extends object>(obj: T): T
 
 <div id="demo-dollar-mixed"></div>
 
-```js
+```javascript
 {
   const form = $$({
     fields: { email: "", password: "" },
@@ -232,7 +232,7 @@ $$<T extends object>(obj: T): T
 
 <div id="demo-use-dollar"></div>
 
-```js
+```javascript
 {
   const count = $(0);
   const firstName = $("John");
@@ -254,7 +254,7 @@ $$<T extends object>(obj: T): T
 
 <div id="demo-use-dollar-dollar"></div>
 
-```js
+```javascript
 {
   const form = $$({ email: "", password: "" });
   const settings = $$({ theme: "dark", notifications: true });
@@ -275,7 +275,7 @@ $$<T extends object>(obj: T): T
 ## Important Notes
 
 ### ✅ DO:
-```js
+```javascript
 // Access properties directly
 state.count = 10;
 state.user.name = "Ana";
@@ -287,7 +287,7 @@ watch(() => state.user.name, () => {});
 ```
 
 ### ❌ DON'T:
-```js
+```javascript
 // Destructuring breaks reactivity
 const { count, user } = state; // ❌ count and user are not reactive
 
@@ -326,7 +326,7 @@ Like all SigPro reactive primitives, `$$()` integrates with the cleanup system:
 
 <div id="demo-complete"></div>
 
-```js
+```javascript
 {
   const app = {
     theme: $("dark", "theme_complete"),
@@ -372,7 +372,7 @@ Like all SigPro reactive primitives, `$$()` integrates with the cleanup system:
 
 If you have code using nested signals:
 
-```js
+```javascript
 // Before - Manual nesting
 const user = $({
   name: $(""),
