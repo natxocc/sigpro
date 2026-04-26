@@ -1,7 +1,0 @@
-- name: Debug mounted volumes
-  run: |
-    ls -la /
-    echo "---"
-    ls -la /repo.git 2>&1 || echo "Not found"
-    echo "---"
-    find / -name "sigpro.git" 2>/dev/null || echo "No sigpro.git found"
