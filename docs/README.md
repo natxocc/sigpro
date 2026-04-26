@@ -35,7 +35,7 @@ mount(() => div([ button({ onclick: () => count(count()+1) }, count) ]), '#app')
 &lt;/script&gt;</code></pre>
 <p class="mb-2"><strong>🔧 ESM + Global injection:</strong> If you want the global helpers but still use <code>type="module"</code>, call <code>sigpro()</code>.</p>
 <pre class="bg-base-300/30 p-4 rounded-lg"><code>&lt;script type="module"&gt;
-import { sigpro } from 'https://cdn.jsdelivr.net/npm/sigpro@1.2.19/+esm';
+import { sigpro } from 'https://cdn.jsdelivr.net/npm/sigpro@latest/+esm';
 sigpro();   // now $, div, button, etc. are global
 &lt;/script&gt;</code></pre>
 
