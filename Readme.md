@@ -1,13 +1,11 @@
+Ultra-lightweight rendering engine designed for extreme performance.
+
 # `SigPro` ⚛️
 
 [![npm version](https://img.shields.io/npm/v/sigpro.svg)](https://www.npmjs.com/package/sigpro)
 [![bundle size](https://img.shields.io/bundlephobia/minzip/sigpro)](https://bundlephobia.com/package/sigpro)
 [![size](https://img.badgesize.io/natxocc/sigpro/main/sigpro/index.js?compression=gzip)](https://github.com/natxocc/sigpro)
 [![license](https://img.shields.io/npm/l/sigpro)](https://github.com/natxocc/sigpro/blob/main/LICENSE)
-
-### **The Atomic Reactivity Engine for the Modern Web.**
-
-**SigPro** is an ultra-lightweight rendering engine designed for extreme performance. By eliminating the Virtual DOM and heavy compilers, it achieves **surgical reactivity** in less than 2KB.
 
 [**Explore the Docs →**](https://natxocc.github.io/sigpro/) | [**View on GitHub**](https://github.com/natxocc/sigpro)
 
@@ -65,6 +63,9 @@ Create reactive, persistent components with a syntax that feels like Vanilla JS,
 ```
 
 ```javascript
+import { sigpro } from "sigpro";
+sigpro(); // All functions and tags are available in window
+
 const Counter = () => {
   // Simple signal
   const value = $(100);
@@ -74,14 +75,14 @@ const Counter = () => {
   const doubleValue = $(()=> value() * count());
 
   // Create fast HTML with pure JS
-  return Div({ class: "card" }, [
-    H1(`Count: ${count()}, Reference: ${value()}, Double x Ref: ${doubleValue()}`),
-    P("Atomic updates. Zero re-renders of the parent tree."),
-    Button({ onclick: () => count(c => c + 1)}, "Increment +1")
+  return div({ class: "card" }, [
+    h1(() => `Count: ${count()}, Reference: ${value()}, Double x Ref: ${doubleValue()}`),
+    p("Atomic updates. Zero re-renders of the parent tree."),
+    button({ onclick: () => count(c => c + 1)}, "Increment +1")
   ]);
 };
 
-Mount(Counter, "#app");
+mount(Counter, "#app");
 ```
 
 -----
@@ -90,7 +91,7 @@ Mount(Counter, "#app");
 
 | Feature | **SigPro** | React / Vue | Svelte |
 | :--- | :--- | :--- | :--- |
-| **Payload (Gzipped)** | **< 1.8KB** | ~30KB - 50KB | ~5KB (Compiled Runtime) |
+| **Payload (Gzipped)** | **~3KB** | ~30KB - 50KB | ~5KB (Compiled Runtime) |
 | **State Logic** | **Atomic Signals** | Virtual DOM Diffing | Compiler Dirty Bits |
 | **Update Speed** | **Direct Node Access** | Component Re-render | Block Reconciliation |
 | **Native Persistence** | **Included ($)** | Requires Plugins | Manual |
@@ -99,6 +100,7 @@ Mount(Counter, "#app");
 | **Routing** | **Reactive Hash (Router) + File-based (Vite)** | Virtual Router (External) | File-based / External |
 | **Learning Curve** | **Zero (Vanilla JS)** | Steep (JSX/Templates) | Medium (Directives) |
 
+**~3KB** with full functions, less than **1KB** with minimal tree shaking
 -----
 
 ## Scalable Architecture with Vite
