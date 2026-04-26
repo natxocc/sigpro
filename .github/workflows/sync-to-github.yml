@@ -9,14 +9,14 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      # 1️⃣ Clonar origen (Gitea) usando dominio externo
+      # Clonar origen (Gitea) usando dominio externo
       - name: Clone source from Gitea
         run: |
           git clone https://git.natxocc.com/natxocc/sigpro.git source
           cd source
           git checkout main   # o la rama que necesites
 
-      # 2️⃣ Clonar destino (GitHub) igual que antes
+      # Clonar destino (GitHub) igual que antes
       - name: Clone destination (GitHub)
         run: |
           git clone https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/natxocc/sigpro.git dest
@@ -24,7 +24,7 @@ jobs:
           git config user.name "Sync Bot"
           git config user.email "bot@natxocc.com"
 
-      # 3️⃣ Copiar archivos seleccionados
+      # Copiar archivos seleccionados
       - name: Copy selected files
         run: |
           FILES="sigpro.js sigpro.d.ts vite/index.js dist/sigpro.esm.js dist/sigpro.esm.min.js dist/sigpro.js dist/sigpro.min.js"
@@ -38,7 +38,7 @@ jobs:
             fi
           done
 
-      # 4️⃣ Commit y push a GitHub
+      # Commit y push a GitHub
       - name: Commit and push
         run: |
           cd dest
