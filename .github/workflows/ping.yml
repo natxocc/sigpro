@@ -1,13 +1,7 @@
-name: Test DNS
-
-on:
-  workflow_dispatch:
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          ping -c 1 gitea || echo "No ping"
-          getent hosts gitea
-          curl -v http://gitea:3000 2>&1 | head -10
+- name: Debug mounted volumes
+  run: |
+    ls -la /
+    echo "---"
+    ls -la /repo.git 2>&1 || echo "Not found"
+    echo "---"
+    find / -name "sigpro.git" 2>/dev/null || echo "No sigpro.git found"
