@@ -1,5 +1,5 @@
 /**
- * SigPro 1.2.19
+ * SigPro 1.2.20
  * A minimalistic reactive library with fine-grained reactivity,
  * direct DOM updates, and built-in component helpers.
  */
