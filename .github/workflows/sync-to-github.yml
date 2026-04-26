@@ -1,29 +1,28 @@
 name: Sync selected files to GitHub
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   sync:
     runs-on: ubuntu-latest
-    steps:
-      - name: Debug mounted volumes
-        run: |
-          ls -la /
-          echo "---"
-          ls -la /repo.git 2>&1 || echo "Not found"
-          echo "---"
-          find / -name "sigpro.git" 2>/dev/null || echo "No sigpro.git found"
-      - name: Clone source from local bare repo
-        run: |
-          git clone --local /repo.git source
-          cd source
-          git checkout main
-          ls -la
+    container:
+      image: node:20-bullseye
+      options: >-
+        --dns 192.168.1.1
+        --add-host git.natxocc.com:host-gateway
+        --add-host gitea:host-gateway
 
-      - name: Clone destination (GitHub)
+    steps:
+      - name: Checkout source from Gitea
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          path: source
+        env:
+          GIT_CONFIG_PARAMETERS: url.https://git.natxocc.com/.insteadOf=http://gitea:3000/
+
+      - name: Checkout destination from GitHub
         run: |
           git clone https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/natxocc/sigpro.git dest
           cd dest
@@ -37,9 +36,6 @@ jobs:
             if [ -f "source/$file" ]; then
               mkdir -p "dest/$(dirname $file)"
               cp "source/$file" "dest/$file"
-              echo "Copied $file"
-            else
-              echo "Warning: source/$file not found"
             fi
           done
 
@@ -47,4 +43,4 @@ jobs:
         run: |
           cd dest
           git add .
-          git diff --staged --quiet || (git commit -m "Sync selected files from Gitea [skip ci]" && git push origin main)
+          git diff --staged --quiet || (git commit -m "Sync selected files from Gitea" && git push origin main)
