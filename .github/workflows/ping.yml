@@ -1,0 +1,30 @@
+name: Network Diagnostic
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check connectivity
+        run: |
+          echo "Testing network from runner"
+
+          echo "--- HTTP/S connectivity ---"
+          curl -v --connect-timeout 3 http://gitea:3000 2>&1 | head -5
+          curl -v --connect-timeout 3 http://192.168.1.100:3333 2>&1 | head -5
+          curl -v --connect-timeout 3 https://git.natxocc.com 2>&1 | head -5
+
+          echo "--- Ping via nc (port open) ---"
+          nc -zv -w 2 gitea 3000 2>&1 || echo "gitea:3000 failed"
+          nc -zv -w 2 192.168.1.100 3333 2>&1 || echo "192.168.1.100:3333 failed"
+          nc -zv -w 2 git.natxocc.com 443 2>&1 || echo "git.natxocc.com:443 failed"
+
+          echo "--- DNS resolution ---"
+          getent hosts gitea || echo "gitea not resolved"
+          getent hosts git.natxocc.com || echo "git.natxocc.com not resolved"
+          getent hosts host-gateway || echo "host-gateway not resolved"
+
+          echo "--- Runner IPs ---"
+          ip addr show | grep "inet " | awk '{print $2}'
