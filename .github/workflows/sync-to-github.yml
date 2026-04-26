@@ -9,6 +9,19 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
+      - name: Get Gitea container IP
+        run: |
+          CONTAINER_NAME=gitea
+          IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $CONTAINER_NAME)
+          echo "GITEA_IP=$IP" >> $GITHUB_ENV
+          echo "Gitea IP: $IP"
+
+      - name: Clone source from Gitea (via internal network)
+        run: |
+          git clone http://${{ env.GITEA_IP }}:3000/natxocc/sigpro.git source
+          cd source
+          git checkout main
+
       - name: Clone destination (GitHub)
         run: |
           git clone https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/natxocc/sigpro.git dest
@@ -16,26 +29,21 @@ jobs:
           git config user.name "Sync Bot"
           git config user.email "bot@natxocc.com"
 
-      - name: Copy files from local volume
+      - name: Copy selected files
         run: |
-          SOURCE_DIR="/volume1/webdocs/sigpro"
-          if [ ! -d "$SOURCE_DIR" ]; then
-            echo "Source directory not found at $SOURCE_DIR"
-            exit 1
-          fi
           FILES="sigpro.js sigpro.d.ts vite/index.js dist/sigpro.esm.js dist/sigpro.esm.min.js dist/sigpro.js dist/sigpro.min.js"
           for file in $FILES; do
-            if [ -f "$SOURCE_DIR/$file" ]; then
+            if [ -f "source/$file" ]; then
               mkdir -p "dest/$(dirname $file)"
-              cp "$SOURCE_DIR/$file" "dest/$file"
+              cp "source/$file" "dest/$file"
               echo "Copied $file"
             else
-              echo "Warning: $SOURCE_DIR/$file not found"
+              echo "Warning: source/$file not found"
             fi
           done
 
-      - name: Commit and push
+      - name: Commit and push to GitHub
         run: |
           cd dest
           git add .
-          git diff --staged --quiet || (git commit -m "Sync selected files from local volume [skip ci]" && git push origin main)
+          git diff --staged --quiet || (git commit -m "Sync selected files from Gitea [skip ci]" && git push origin main)
