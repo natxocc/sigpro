@@ -9,6 +9,13 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
+      - name: Debug mounted volumes
+        run: |
+          ls -la /
+          echo "---"
+          ls -la /repo.git 2>&1 || echo "Not found"
+          echo "---"
+          find / -name "sigpro.git" 2>/dev/null || echo "No sigpro.git found"
       - name: Clone source from local bare repo
         run: |
           git clone --local /repo.git source
