@@ -21,7 +21,6 @@
     "index.js",
     "sigpro.js",
     "dist",
-    "sigpro",
     "vite",
     "README.md",
     "LICENSE"
