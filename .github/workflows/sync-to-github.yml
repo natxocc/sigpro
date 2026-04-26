@@ -14,14 +14,13 @@ jobs:
         --add-host gitea:host-gateway
 
     steps:
-      - name: Checkout source from Gitea
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-          path: source
-          repository: https://git.natxocc.com/natxocc/sigpro.git
+      - name: Clone source from Gitea
+        run: |
+          git clone https://git.natxocc.com/natxocc/sigpro.git source
+          cd source
+          git checkout main
 
-      - name: Checkout destination from GitHub
+      - name: Clone destination from GitHub
         run: |
           git clone https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/natxocc/sigpro.git dest
           cd dest
