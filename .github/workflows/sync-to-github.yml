@@ -9,18 +9,12 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Get Gitea container IP
+      - name: Clone source from local bare repo
         run: |
-          CONTAINER_NAME=gitea
-          IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $CONTAINER_NAME)
-          echo "GITEA_IP=$IP" >> $GITHUB_ENV
-          echo "Gitea IP: $IP"
-
-      - name: Clone source from Gitea (via internal network)
-        run: |
-          git clone http://${{ env.GITEA_IP }}:3000/natxocc/sigpro.git source
+          git clone --local /repo.git source
           cd source
           git checkout main
+          ls -la
 
       - name: Clone destination (GitHub)
         run: |
