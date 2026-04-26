@@ -42,6 +42,7 @@
   __export(exports_sigpro, {
     when: () => when,
     watch: () => watch,
+    sigpro: () => sigpro,
     router: () => router,
     req: () => req,
     mount: () => mount,
@@ -635,11 +636,16 @@
     MOUNTED_NODES.set(t, inst);
     return inst;
   };
-  var SigPro = Object.freeze({ $, $$, watch, h, when, each, fx, router, req, mount, batch });
-  if (typeof window !== "undefined") {
-    Object.assign(window, SigPro);
-    "a abbr article aside audio b blockquote br button canvas caption cite code col colgroup datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 header hr i iframe img input ins kbd label legend li main mark meter nav object ol optgroup option output p picture pre progress section select slot small source span strong sub summary sup svg table tbody td template textarea tfoot th thead time tr u ul video".split(" ").forEach((tag) => {
-      window[tag] = (props, children) => h(tag, props, children);
-    });
-  }
+  var sigproFn = Object.freeze({ $, $$, watch, h, when, each, fx, router, req, mount, batch });
+  var sigpro = () => {
+    if (typeof window !== "undefined") {
+      Object.assign(window, sigproFn);
+      "a abbr article aside audio b blockquote br button canvas caption cite code col colgroup datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 header hr i iframe img input ins kbd label legend li main mark meter nav object ol optgroup option output p picture pre progress section select slot small source span strong sub summary sup svg table tbody td template textarea tfoot th thead time tr u ul video".split(" ").forEach((tag) => {
+        window[tag] = (props, children) => h(tag, props, children);
+      });
+      console.log("SigPro DX installed.");
+    }
+  };
+  if (typeof import.meta === "undefined" && typeof window !== "undefined")
+    sigpro();
 })();
