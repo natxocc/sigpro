@@ -184,7 +184,7 @@ Applies smooth enter animations (CSS transitions / keyframes). Returns the modif
 
 ```javascript
 fx({ name: 'fade', duration: 300 }, 
-  Div({}, 'Hello')
+  div({}, 'Hello')
 )
 ```
 

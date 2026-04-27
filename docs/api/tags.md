@@ -224,7 +224,7 @@ Or using the classic script (auto‑global):
 
 ## 8. Important Notes
 
-- **Naming:** All tag helpers are **lowercase** – no PascalCase helpers (`Div`, `Button`).  
+- **Naming:** All tag helpers are **lowercase**.  
 - **Global availability:**  
   - **IIFE script** → automatically on `window`.  
   - **ESM module** → not global by default; use `import { div } from 'sigpro'` or call `sigpro()` to inject all globals.  

@@ -22,7 +22,7 @@ That extra development time and the cognitive load of "learning the framework" i
 * 🛠️ **Build-Tool Agnostic:** Total freedom. Use it with **Vite, Webpack, or Rollup** for enterprise projects, or simply import it via a **`<script>` tag** for rapid prototyping. No tooling required.
 * 🚀 **Vite-Powered DX:** First-class Vite support with **file-based routing** out of the box. The official `sigpro/vite` plugin automatically scans your `src/pages` directory and generates reactive routes—no manual route configuration needed.
 * 📈 **Zero-Scale Bloat:** Unlike other frameworks where the bundle grows exponentially, SigPro's footprint remains **flat and predictable**. You only pay for the code you write.
-* 💎 **Premium DX (Developer Experience):** Forget boilerplate imports. SigPro injects an elegant, functional syntax (`Div()`, `Button()`, `Span()`) directly into your scope for a **"Zero-Import"** workflow.
+* 💎 **Premium DX (Developer Experience):** Forget boilerplate imports. SigPro injects an elegant, functional syntax (`div()`, `button()`, `span()`) directly into your scope for a **"Zero-Import"** workflow.
 * 📦 **Fully Loaded:** Built-in Hash Routing, native **`localStorage` persistence**, and automatic lifecycle management (cleanups) included in less than 2KB.
 * 🌳 **Tree-Shakable:** Optimized for modern bundlers. Import only what you use, or load the full engine for rapid prototyping.
 
