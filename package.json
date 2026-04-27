@@ -47,11 +47,15 @@
   },
   "keywords": [
     "signals",
+    "reactivity",
     "reactive",
-    "web-components",
-    "vanilla-js",
-    "reactive-programming",
-    "signals-library",
-    "fine-grained-reactivity"
+    "pure",
+    "vanilla",
+    "js",
+    "library",
+    "framework",
+    "zero",
+    "spa",
+    "lightweight"
   ]
 }
