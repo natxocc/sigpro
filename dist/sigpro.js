@@ -68,6 +68,9 @@
   var proxyCache = new WeakMap;
   var ITER = Symbol("iter");
   var MOUNTED_NODES = new WeakMap;
+  var SVG_NS = "http://www.w3.org/2000/svg";
+  var XLINK_NS = "http://www.w3.org/1999/xlink";
+  var SVG_TAGS = new Set("svg,path,circle,rect,line,polyline,polygon,g,defs,text,textPath,tspan,use,symbol,image,marker,ellipse".split(","));
   var dispose = (eff) => {
     if (!eff || eff._disposed)
       return;
@@ -205,9 +208,6 @@
       computed._dirty = true;
       computed._deps = null;
       computed._disposed = false;
-      computed.stop = () => {};
-      if (activeOwner)
-        onUnmount(computed.stop);
       return computed;
     }
     if (key)
@@ -343,12 +343,10 @@
       isArr(node) ? node.forEach(attach) : attach(node);
       return node;
     }
-    const isSVG = /^(svg|path|circle|rect|line|poly(line|gon)|g|defs|text(path)?|tspan|use|symbol|image|marker|ellipse)$/i.test(tag);
-    const el = isSVG ? doc.createElementNS("http://www.w3.org/2000/svg", tag) : doc.createElement(tag);
+    const isSVG = SVG_TAGS.has(tag);
+    const el = isSVG ? doc.createElementNS(SVG_NS, tag) : doc.createElement(tag);
     el._cleanups = new Set;
-    for (let k in props) {
-      if (!props.hasOwnProperty(k))
-        continue;
+    for (const k of Object.keys(props)) {
       let v = props[k];
       if (k === "ref") {
         isFunc(v) ? v(el) : v.current = el;
@@ -356,8 +354,7 @@
       }
       if (isSVG && k.startsWith("xlink:")) {
         const cleanVal = validateAttr(k.slice(6), v);
-        let lnk = "http://www.w3.org/1999/xlink";
-        cleanVal == null ? el.removeAttributeNS(lnk, k.slice(6)) : el.setAttributeNS(lnk, k.slice(6), cleanVal);
+        cleanVal == null ? el.removeAttributeNS(XLINK_NS, k.slice(6)) : el.setAttributeNS(XLINK_NS, k.slice(6), cleanVal);
         continue;
       }
       if (k.startsWith("on")) {
