@@ -14,12 +14,18 @@
       "script": "./dist/sigpro.js",
       "types": "./sigpro.d.ts"
     },
+    "./router": "./sigpro/router.js",
+    "./fx": "./sigpro/fx.js",
+    "./req": "./sigpro/req.js",
+    "./xss": "./sigpro/xss.js",
+    "./tags": "./sigpro/tags.js",
     "./vite": "./vite/index.js",
     "./vite/*": "./vite/*.js"
   },
   "files": [
     "index.js",
     "sigpro.js",
+    "sigpro/",
     "dist",
     "vite",
     "README.md",
