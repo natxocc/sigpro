@@ -244,7 +244,8 @@ var cleanupNode = (node) => {
     node.childNodes.forEach((n) => cleanupNode(n));
 };
 var DANGEROUS_PROTOCOL = /^\s*(javascript|data|vbscript):/i;
-var isDangerousAttr = (key) => key === "src" || key === "href" || key.startsWith("on");
+var DANGEROUS_URI_ATTRS = new Set(["src", "href", "formaction", "action", "background", "code", "archive"]);
+var isDangerousAttr = (key) => DANGEROUS_URI_ATTRS.has(key) || key.startsWith("on");
 var validateAttr = (key, val) => {
   if (val == null || val === false)
     return null;
@@ -298,8 +299,9 @@ var h = (tag, props = {}, children = []) => {
       continue;
     }
     if (isSVG && k.startsWith("xlink:")) {
-      const ns = "http://www.w3.org/1999/xlink";
-      v == null ? el.removeAttributeNS(ns, k.slice(6)) : el.setAttributeNS(ns, k.slice(6), v);
+      const cleanVal = validateAttr(k.slice(6), v);
+      let lnk = "http://www.w3.org/1999/xlink";
+      cleanVal == null ? el.removeAttributeNS(lnk, k.slice(6)) : el.setAttributeNS(lnk, k.slice(6), cleanVal);
       continue;
     }
     if (k.startsWith("on")) {

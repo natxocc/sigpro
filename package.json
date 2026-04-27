@@ -1,6 +1,6 @@
 {
   "name": "sigpro",
-  "version": "1.2.20",
+  "version": "1.2.21",
   "type": "module",
   "license": "MIT",
   "main": "./dist/sigpro.esm.min.js",
@@ -28,10 +28,10 @@
   "homepage": "https://sigpro.natxocc.com/#/",
   "repository": {
     "type": "git",
-    "url": "https://git.natxocc.com/natxocc/sigpro"
+    "url": "https://github.com/natxocc/sigpro"
   },
   "bugs": {
-    "url": "https://git.natxocc.com/natxocc/sigpro/issues"
+    "url": "https://github.com/natxocc/sigpro/issues"
   },
   "scripts": {
     "clean": "rm -rf dist",

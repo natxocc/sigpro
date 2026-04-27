@@ -230,8 +230,9 @@ const cleanupNode = (node) => {
   if (node.childNodes) node.childNodes.forEach(n => cleanupNode(n));
 };
 
-const DANGEROUS_PROTOCOL = /^\s*(javascript|data|vbscript):/i
-const isDangerousAttr = key => key === 'src' || key === 'href' || key.startsWith('on')
+var DANGEROUS_PROTOCOL = /^\s*(javascript|data|vbscript):/i;
+var DANGEROUS_URI_ATTRS = new Set(["src", "href", "formaction", "action", "background", "code", "archive"]);
+var isDangerousAttr = (key) => DANGEROUS_URI_ATTRS.has(key) || key.startsWith("on");
 
 const validateAttr = (key, val) => {
   if (val == null || val === false) return null
@@ -292,9 +293,12 @@ const h = (tag, props = {}, children = []) => {
       continue
     }
     if (isSVG && k.startsWith("xlink:")) {
-      const ns = "http://www.w3.org/1999/xlink"
-      v == null ? el.removeAttributeNS(ns, k.slice(6)) : el.setAttributeNS(ns, k.slice(6), v)
-      continue
+      const cleanVal = validateAttr(k.slice(6), v);
+      let lnk = "http://www.w3.org/1999/xlink"
+      cleanVal == null
+        ? el.removeAttributeNS(lnk, k.slice(6))
+        : el.setAttributeNS(lnk, k.slice(6), cleanVal);
+      continue;
     }
     if (k.startsWith("on")) {
       const ev = k.slice(2).toLowerCase()
