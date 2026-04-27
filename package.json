@@ -1,6 +1,6 @@
 {
   "name": "sigpro",
-  "version": "1.2.22",
+  "version": "1.2.24",
   "type": "module",
   "license": "MIT",
   "main": "./dist/sigpro.esm.min.js",
@@ -11,12 +11,9 @@
   "exports": {
     ".": {
       "import": "./dist/sigpro.esm.min.js",
-      "script": "./dist/sigpro.js",
+      "script": "./dist/sigpro.min.js",
       "types": "./sigpro.d.ts"
     },
-    "./router": "./sigpro/router.js",
-    "./fx": "./sigpro/fx.js",
-    "./req": "./sigpro/req.js",
     "./xss": "./sigpro/xss.js",
     "./tags": "./sigpro/tags.js",
     "./vite": "./vite/index.js",
@@ -26,8 +23,8 @@
     "index.js",
     "sigpro.js",
     "sigpro/",
-    "dist",
-    "vite",
+    "dist/",
+    "vite/",
     "README.md",
     "LICENSE"
   ],
@@ -39,29 +36,31 @@
   "bugs": {
     "url": "https://github.com/natxocc/sigpro/issues"
   },
-  "scripts": {
-    "clean": "rm -rf dist",
-    "prebuild": "npm run clean",
-    "build:iife": "bun build ./index.js --bundle --outfile=./dist/sigpro.js --format=iife --global-name=SigPro",
-    "build:docs": "bun build ./index.js --bundle --outfile=./docs/sigpro.js --format=iife --global-name=SigPro",
-    "build:iife:min": "bun build ./index.js --bundle --outfile=./dist/sigpro.min.js --format=iife --global-name=SigPro --minify",
-    "build:esm": "bun build ./index.js --bundle --outfile=./dist/sigpro.esm.js --format=esm",
-    "build:esm:min": "bun build ./index.js --bundle --outfile=./dist/sigpro.esm.min.js --format=esm --minify",
-    "build": "bun run build:iife && bun run build:iife:min && bun run build:esm && bun run build:esm:min && bun run build:docs",
-    "docs": "bun x serve docs",
-    "prepublishOnly": "npm run build"
-  },
+"scripts": {
+  "clean": "rm -rf dist",
+  "prebuild": "npm run clean",
+  "build:esm": "bun build ./index.js --bundle --outfile=./dist/sigpro.esm.js --format=esm",
+  "build:esm:min": "bun build ./index.js --bundle --outfile=./dist/sigpro.esm.min.js --format=esm --minify",
+  "build:iife": "bun build ./sigpro-full.js --bundle --outfile=./dist/sigpro.js --format=iife --global-name=SigPro",
+  "build:iife:min": "bun build ./sigpro-full.js --bundle --outfile=./dist/sigpro.min.js --format=iife --global-name=SigPro --minify",
+  "build:docs": "bun build ./sigpro-full.js --bundle --outfile=./docs/sigpro-full.js --format=iife --global-name=SigPro",
+  "build": "bun run build:esm && bun run build:esm:min && bun run build:iife && bun run build:iife:min && bun run build:docs",
+  "docs": "bun x serve docs",
+  "prepublishOnly": "npm run build"
+},
   "keywords": [
     "signals",
     "reactivity",
     "reactive",
-    "pure",
     "vanilla",
     "js",
-    "library",
-    "framework",
-    "zero",
+    "ui",
+    "dom",
+    "state",
+    "frontend",
     "spa",
-    "lightweight"
+    "lightweight",
+    "no-vdom",
+    "sigpro"
   ]
 }

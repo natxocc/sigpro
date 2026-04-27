@@ -1,4 +1,4 @@
-import { setAttrFilter } from './sigpro.core.js';
+import { filterXSS } from '../sigpro.js';
 
 const DANGEROUS_PROTOCOL = /^\s*(javascript|data|vbscript):/i;
 const DANGEROUS_URI_ATTRS = new Set(["src", "href", "formaction", "action", "background", "code", "archive"]);
@@ -16,4 +16,4 @@ const validateAttr = (key, val) => {
   return val;
 };
 
-setAttrFilter(validateAttr);
+filterXSS(validateAttr);

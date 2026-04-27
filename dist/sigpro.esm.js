@@ -15,6 +15,10 @@ var MOUNTED_NODES = new WeakMap;
 var SVG_NS = "http://www.w3.org/2000/svg";
 var XLINK_NS = "http://www.w3.org/1999/xlink";
 var SVG_TAGS = new Set("svg,path,circle,rect,line,polyline,polygon,g,defs,text,textPath,tspan,use,symbol,image,marker,ellipse".split(","));
+var attrFilter = null;
+var filterXSS = (fn) => {
+  attrFilter = fn;
+};
 var dispose = (eff) => {
   if (!eff || eff._disposed)
     return;
@@ -243,21 +247,6 @@ var cleanupNode = (node) => {
   if (node.childNodes)
     node.childNodes.forEach((n) => cleanupNode(n));
 };
-var DANGEROUS_PROTOCOL = /^\s*(javascript|data|vbscript):/i;
-var DANGEROUS_URI_ATTRS = new Set(["src", "href", "formaction", "action", "background", "code", "archive"]);
-var isDangerousAttr = (key) => DANGEROUS_URI_ATTRS.has(key) || key.startsWith("on");
-var validateAttr = (key, val) => {
-  if (val == null || val === false)
-    return null;
-  if (isDangerousAttr(key)) {
-    const sVal = String(val);
-    if (DANGEROUS_PROTOCOL.test(sVal)) {
-      console.warn(`[SigPro] Bloqueado protocolo peligroso en ${key}`);
-      return "#";
-    }
-  }
-  return val;
-};
 var h = (tag, props = {}, children = []) => {
   if (props instanceof Node || isArr(props) || !isObj(props)) {
     children = props;
@@ -296,38 +285,38 @@ var h = (tag, props = {}, children = []) => {
       isFunc(v) ? v(el) : v.current = el;
       continue;
     }
+    let val = attrFilter ? attrFilter(k, v) : v;
     if (isSVG && k.startsWith("xlink:")) {
-      const cleanVal = validateAttr(k.slice(6), v);
-      cleanVal == null ? el.removeAttributeNS(XLINK_NS, k.slice(6)) : el.setAttributeNS(XLINK_NS, k.slice(6), cleanVal);
+      val == null ? el.removeAttributeNS(XLINK_NS, k.slice(6)) : el.setAttributeNS(XLINK_NS, k.slice(6), val);
       continue;
     }
     if (k.startsWith("on")) {
       const ev = k.slice(2).toLowerCase();
-      el.addEventListener(ev, v);
-      const off = () => el.removeEventListener(ev, v);
+      el.addEventListener(ev, val);
+      const off = () => el.removeEventListener(ev, val);
       el._cleanups.add(off);
       onUnmount(off);
-    } else if (isFunc(v)) {
+    } else if (isFunc(val)) {
       const effect = createEffect(() => {
-        const val = validateAttr(k, v());
+        const raw = val();
+        const safeVal = attrFilter ? attrFilter(k, raw) : raw;
         if (k === "class")
-          el.className = val || "";
-        else if (val == null)
+          el.className = safeVal || "";
+        else if (safeVal == null)
           el.removeAttribute(k);
         else if (k in el && !isSVG)
-          el[k] = val;
+          el[k] = safeVal;
         else
-          el.setAttribute(k, val === true ? "" : val);
+          el.setAttribute(k, safeVal === true ? "" : safeVal);
       });
       effect();
       el._cleanups.add(() => dispose(effect));
       onUnmount(() => dispose(effect));
       if (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && (k === "value" || k === "checked")) {
         const evType = k === "checked" ? "change" : "input";
-        el.addEventListener(evType, (ev) => v(ev.target[k]));
+        el.addEventListener(evType, (ev) => val(ev.target[k]));
       }
     } else {
-      const val = validateAttr(k, v);
       if (val != null) {
         if (k in el && !isSVG)
           el[k] = val;
@@ -433,35 +422,6 @@ var when = (cond, SIP, NOP = null) => {
   onUnmount(() => currentView?.destroy());
   return root;
 };
-var fx = ({ name, duration = 200, scale, slide, rotate, blur }, child) => {
-  const el = typeof child === "function" ? child() : child;
-  if (!(el instanceof Node))
-    return el;
-  if (name) {
-    el.style.animation = `${name}-in ${duration}ms`;
-    return el;
-  }
-  const hasTransform = scale || slide || rotate || blur;
-  const initialTransform = [
-    scale ? "scale(0.95)" : "",
-    slide ? "translateY(-10px)" : "",
-    rotate ? "rotate(-2deg)" : ""
-  ].filter(Boolean).join(" ");
-  el.style.transition = `all ${duration}ms ease`;
-  el.style.opacity = "0";
-  if (hasTransform)
-    el.style.transform = initialTransform;
-  if (blur)
-    el.style.filter = "blur(4px)";
-  requestAnimationFrame(() => {
-    el.style.opacity = "1";
-    if (hasTransform)
-      el.style.transform = "none";
-    if (blur)
-      el.style.filter = "none";
-  });
-  return el;
-};
 var each = (src, itemFn, keyField) => {
   const anchor = doc.createTextNode("");
   const root = h("div", { style: "display:contents" }, [anchor]);
@@ -527,47 +487,6 @@ router.params = $({});
 router.to = (p) => window.location.hash = p.replace(/^#?\/?/, "#/");
 router.back = () => window.history.back();
 router.path = () => window.location.hash.replace(/^#/, "") || "/";
-var req = ({ url, method = "GET", headers = {} }) => {
-  const loading = $(false);
-  const error = $(null);
-  const data = $(null);
-  let controller = null;
-  let timeoutId = null;
-  const run = async (body = null) => {
-    controller?.abort();
-    clearTimeout(timeoutId);
-    controller = new AbortController;
-    timeoutId = setTimeout(() => controller.abort(), 1e4);
-    loading(true);
-    error(null);
-    try {
-      const isFormData = body instanceof FormData;
-      const res = await fetch(url, {
-        method,
-        headers: isFormData ? headers : { "Content-Type": "application/json", ...headers },
-        body: isFormData ? body : body ? JSON.stringify(body) : undefined,
-        signal: controller.signal
-      });
-      const text = await res.text();
-      const json = text ? JSON.parse(text) : null;
-      if (!res.ok)
-        throw new Error(json?.message || res.statusText);
-      data(json);
-      return json;
-    } catch (e) {
-      if (e.name !== "AbortError")
-        error(e.message);
-      throw e;
-    } finally {
-      loading(false);
-      clearTimeout(timeoutId);
-      controller = null;
-      timeoutId = null;
-    }
-  };
-  const abort = () => controller?.abort();
-  return { run, abort, loading, error, data };
-};
 var mount = (comp, target) => {
   const t = typeof target === "string" ? doc.querySelector(target) : target;
   if (!t)
@@ -579,27 +498,13 @@ var mount = (comp, target) => {
   MOUNTED_NODES.set(t, inst);
   return inst;
 };
-var sigproFn = Object.freeze({ $, $$, watch, h, when, each, fx, router, req, mount, batch });
-var sigpro = () => {
-  if (typeof window !== "undefined") {
-    Object.assign(window, sigproFn);
-    "a abbr article aside audio b blockquote br button canvas caption cite code col colgroup datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 header hr i iframe img input ins kbd label legend li main mark meter nav object ol optgroup option output p picture pre progress section select slot small source span strong sub summary sup svg table tbody td template textarea tfoot th thead time tr u ul video".split(" ").forEach((tag) => {
-      window[tag] = (props, children) => h(tag, props, children);
-    });
-    console.log("SigPro DX installed.");
-  }
-};
-if (typeof import.meta === "undefined" && typeof window !== "undefined")
-  sigpro();
 export {
   when,
   watch,
-  sigpro,
   router,
-  req,
   mount,
   h,
-  fx,
+  filterXSS,
   each,
   batch,
   $$,

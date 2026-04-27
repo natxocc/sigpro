@@ -120,6 +120,7 @@ When `destroy()` is called (or when a new mount replaces an old one), everything
 
 ```javascript
 import { $, mount, div, h1, button } from 'sigpro';
+import "sigpro/tags" // tags helpers available in global
 
 const App = () => {
   const count = $(0);

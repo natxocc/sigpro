@@ -1,17 +1,19 @@
-# ⚡ SigPro – Complete API Reference
+# SigPro – Complete API Reference
 
 SigPro is a **Real‑DOM first** reactive micro‑framework. No virtual DOM, no diffing overhead – it updates the DOM directly with surgical precision. Built‑in automatic cleanup prevents memory leaks, and the API is designed to be both tiny and powerful.
 
 ```javascript
-import { $, $$, watch, h, when, each, fx, router, req, mount, batch } from 'sigpro'
-// Or, if you prefer the global style in an ESM environment:
-// import { sigpro } from 'sigpro'; sigpro();   // then $, h, div... become window globals
-// In a classic IIFE script (<script src="sigpro.js">), everything is available globally automatically.
+import { $, $$, watch, h, when, each, router, mount, batch } from 'sigpro'
+// Optional side‑effects (activate global helpers & security):
+import 'sigpro/tags'   // → window.div, window.span, etc.
+import 'sigpro/xss'    // → attribute sanitisation
 ```
+
+In a classic IIFE script (`<script src="sigpro.min.js">`), **everything** (core, router, tags, XSS, global functions) is available automatically.
 
 ---
 
-## 🔁 Core Reactivity
+## Core Reactivity
 
 ### `$(value, localStorageKey?)` – Signal & Computed
 
@@ -82,7 +84,7 @@ watch([count, double], ([newCount, newDouble]) => {
 
 ---
 
-## 🧱 Components & DOM (Hyperscript)
+## Components & DOM (Hyperscript)
 
 ### `h(tag, props, children)` – Create DOM Nodes
 
@@ -96,7 +98,7 @@ The universal builder. `props` can be omitted. Children can be strings, numbers,
 | Two‑way binding | `value: mySignal` (works on `input`, `textarea`, `select`) |
 | Refs | `ref: (el) => ...` or `ref: { current: null }` |
 | SVG support | tag names like `svg`, `circle`, `path` – sets correct namespace |
-| Dangerous URL sanitising | `href` / `src` with `javascript:` or `data:` are blocked → `'#'` |
+| Dangerous URL sanitising | `href` / `src` with `javascript:` or `data:` are blocked → `'#'` (when XSS shield is active) |
 
 **Dynamic children** – pass a function as a child, it will be re‑executed and the DOM patched automatically:
 
@@ -108,28 +110,40 @@ h('div', {}, [
 
 ### Tag shortcuts
 
-When using the **ESM module with named imports**, you can import the tag helpers individually:
+Tag helpers are **not exported individually** from the core. To use them globally without the `h(...)` wrapper, activate the side‑effect module:
 
 ```javascript
-import { div, h1, button } from 'sigpro'
+import 'sigpro/tags'   // now window.div, window.span, etc. are available
 
+// You can now write:
 div({ class: 'container' }, [
   h1({}, 'Title'),
   button({ onClick: () => alert('hi') }, 'Click me')
 ])
 ```
 
-If you prefer the **global style** (all tags and core functions on `window`), either:
-- Use the classic IIFE script: `<script src="sigpro.js"></script>`
-- Or in ESM, call `sigpro()` after importing: `import { sigpro } from 'sigpro'; sigpro();`
-
-After that, you can write `div()`, `span()`, etc. directly, without any import.
+In the **IIFE bundle** (`sigpro.min.js`), the helpers are already injected globally – no import needed.
 
 Available tags: `a`, `abbr`, `article`, `aside`, `audio`, `b`, `blockquote`, `br`, `button`, `canvas`, `caption`, `cite`, `code`, `col`, `colgroup`, `datalist`, `dd`, `del`, `details`, `dfn`, `dialog`, `div`, `dl`, `dt`, `em`, `embed`, `fieldset`, `figcaption`, `figure`, `footer`, `form`, `h1`…`h6`, `header`, `hr`, `i`, `iframe`, `img`, `input`, `ins`, `kbd`, `label`, `legend`, `li`, `main`, `mark`, `meter`, `nav`, `object`, `ol`, `optgroup`, `option`, `output`, `p`, `picture`, `pre`, `progress`, `section`, `select`, `slot`, `small`, `source`, `span`, `strong`, `sub`, `summary`, `sup`, `svg`, `table`, `tbody`, `td`, `template`, `textarea`, `tfoot`, `th`, `thead`, `time`, `tr`, `u`, `ul`, `video`.
 
 ---
 
-## 🧩 Flow Control Components
+## Built‑in XSS Shield (Optional)
+
+SigPro includes an optional security layer that sanitises dangerous attributes (`href`, `src`, `formaction`, etc.) and blocks `javascript:` / `data:` / `vbscript:` protocols.  
+To enable it in ESM environments:
+
+```javascript
+import 'sigpro/xss'
+```
+
+In the IIFE bundle, the shield is **active by default**.
+
+When the shield is enabled, trying to set `href="javascript:alert(1)"` will log a warning and replace the value with `'#'`.
+
+---
+
+## Flow Control Components
 
 ### `when(condition, thenComponent, elseComponent?)`
 
@@ -162,7 +176,7 @@ When the array changes, elements are added, removed, or reordered with minimal D
 
 ---
 
-## 💥 Batch
+## Batch
 
 ### `batch(fn)`
 
@@ -178,33 +192,13 @@ batch(() => {
 
 ---
 
-## ✨ Animations – `fx(options, child)`
-
-Applies smooth enter animations (CSS transitions / keyframes). Returns the modified element.
-
-```javascript
-fx({ name: 'fade', duration: 300 }, 
-  div({}, 'Hello')
-)
-```
-
-**Options**  
-- `name` – uses predefined keyframes `${name}-in` (you must define them in your CSS)  
-- `duration` – in ms (default 200)  
-- `scale` – adds `scale(0.95)` → `none`  
-- `slide` – adds `translateY(-10px)` → `none`  
-- `rotate` – adds `rotate(-2deg)` → `none`  
-- `blur` – adds `blur(4px)` → `none`
-
-If `name` is given, it sets `animation: ${name}-in ${duration}ms`. Otherwise it applies a smooth transition from the initial transform/filter to the final state.
-
----
-
-## 🧭 Router – `router(routes)`
+## Router – `router(routes)`
 
 Hash‑based SPA router. Returns a DOM node that renders the current route.
 
 ```javascript
+import { router } from 'sigpro'
+
 const routes = [
   { path: '/', component: () => div({}, 'Home') },
   { path: '/user/:id', component: (params) => div({}, `User ${params.id}`) },
@@ -229,44 +223,7 @@ const App = () => div({}, [
 
 ---
 
-## 🌐 HTTP Requests – `req(config)`
-
-Creates a reactive request controller with built‑in loading/error/data signals and abort support.
-
-```javascript
-const fetchUser = req({ url: '/api/user/1', method: 'GET' })
-
-// start the request
-fetchUser.run().catch(console.error)
-
-// reactively display state
-watch(() => {
-  if (fetchUser.loading()) console.log('loading...')
-  if (fetchUser.error()) console.error(fetchUser.error())
-  if (fetchUser.data()) console.log(fetchUser.data())
-})
-
-// abort if needed
-fetchUser.abort()
-```
-
-**Options**  
-- `url` (required)  
-- `method` (default `'GET'`)  
-- `headers` (object, default `{}`)
-
-**Return value**  
-- `run(body?)` – initiates the request, returns a promise.  
-- `abort()` – aborts the current request (AbortController).  
-- `loading` – signal (boolean)  
-- `error` – signal (`null` or error message)  
-- `data` – signal (`null` or parsed JSON)
-
-> **Note**: Automatically sets `Content-Type: application/json` unless `body` is a `FormData`. Timeout after 10 seconds aborts the request.
-
----
-
-## 🚀 Mounting – `mount(component, target)`
+## Mounting – `mount(component, target)`
 
 Clears the target element and mounts the application. Returns the runtime instance (which has a `.destroy()` method).
 
@@ -280,7 +237,7 @@ If you mount again on the same target, the previous instance is automatically de
 
 ---
 
-## 🧹 Global Cleanup & Memory
+## Global Cleanup & Memory
 
 SigPro tracks every effect, DOM event listener, and nested component. When a component is unmounted:
 - All its effects are disposed.
@@ -292,10 +249,12 @@ You never need to manually clean up – just write reactive code.
 
 ---
 
-## 📦 Full Example – Counter with Persistence
+## Full Example – Counter with Persistence
 
 ```javascript
-import { $, watch, h, mount } from 'sigpro'
+import { $, watch, mount } from 'sigpro'
+import 'sigpro/tags'   // ← activate global helpers
+import 'sigpro/xss'    // ← activate security (optional)
 
 const count = $(0, 'counter') // persists in localStorage
 
@@ -320,8 +279,8 @@ You can rename everything in one line:
 import { $ as signal, watch as effect, h as element, mount as render } from 'sigpro'
 ```
 
-Or assign globally (after calling `sigpro()` or using the classic script):
+In the IIFE bundle, the core functions are already available as both `window.$` and `window.SigPro.$`, so you can alias them globally if needed:
 
 ```javascript
-window.myReactive = $
+window.myReactive = $   // or window.SigPro.$
 ```

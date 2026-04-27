@@ -153,6 +153,7 @@ If you want the router outlet to have no layout impact, you can set `display: co
 
 ```javascript
 import { $, router, mount } from "sigpro";
+import "sigpro/tags" // tags helpers available in global
 
 const Home = () => div("Welcome home");
 const About = () => div("About us");

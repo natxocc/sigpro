@@ -4,58 +4,72 @@ In **SigPro**, you don't need to manually type `h('div', ...)` for every element
 
 ## 1. How it Works
 
-SigPro iterates through a list of standard HTML tags and creates a wrapper function for each one.  
+SigPro creates a wrapper function for each standard HTML tag.  
 - **Under the hood:** `h('button', { onclick: ... }, 'Click')`  
 - **SigPro Style:** `button({ onclick: ... }, 'Click')`
 
-> **Note:** All tag helpers are **lowercase** (e.g., `div`, `span`, `button`). This keeps the syntax close to raw HTML.
-
-These helpers can be used in two ways, depending on your environment:
-
-### Mode A: Classic (IIFE) – Auto‑global  
-When you load the **IIFE bundle** (`sigpro.js`) with a traditional `<script>` tag (no `type="module"`), all tag helpers are automatically injected into the `window` object.  
-```html
-<script src="https://cdn.jsdelivr.net/npm/sigpro@1.2.19/dist/sigpro.js"></script>
-<script>
-  // div, span, button, ... are already global
-  const App = () => div({ class: "card" }, "Hello");
-</script>
-```
-
-### Mode B: ESM (Modern) – Explicit or Imported  
-When you import the **ES module** (via `import` or CDN with `type="module"`), nothing is added to `window` by default. You have two options:
-
-1. **Manual global injection** – import `sigpro` and call it:  
-   ```javascript
-   import { sigpro } from 'sigpro';
-   sigpro();   // now div, span, button, etc. become global
-   ```
-2. **Named imports** (recommended) – import the helpers you need directly:  
-   ```javascript
-   import { div, span, button } from 'sigpro';
-   // use them directly
-   ```
+> **Note:** All tag helpers are **lowercase** (e.g., `div`, `span`, `button`) and can be used directly once globally enabled.
 
 ---
 
-## 2. The Complete List of Tag Helpers
+## 2. Activating the Tag Helpers
 
-All helpers are **lowercase** and follow HTML5 tag names. You can use them globally (after injection) or import them individually.
+Depending on how you load SigPro, the activation varies:
+
+### A. Classic IIFE – Automatic Global Helpers  
+When you use the **IIFE bundle** (`sigpro.js` or `sigpro.min.js`) with a traditional `<script>` tag (no `type="module"`), **all tag helpers, signals, and XSS protection are automatically installed on `window`**. No extra steps needed.
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/sigpro@latest/dist/sigpro.min.js"></script>
+<script>
+  // div, span, button, $, h, mount, router... are already global
+  const App = () => div({ class: "card" }, "Hello");
+  mount(App, '#app');
+</script>
+```
+
+### B. ESM (Modern JavaScript) – Explicit Activation  
+When you import the **ES module** (`import { ... } from 'sigpro'`), the core **does not** add helpers to `window` by default. To enable global tags, import the dedicated side‑effect module:
+
+```js
+import 'sigpro/tags';   // ← activates window.div, window.span, etc.
+
+// Now you can use helpers globally
+const App = () => div({ class: "app" }, "Ready!");
+```
+
+If you also want built‑in **XSS protection**, enable it once:
+
+```js
+import 'sigpro/xss';    // ← add security layer
+import 'sigpro/tags';   // ← global helpers
+```
+
+Both are side‑effect modules, so the order doesn’t matter.
+
+> **Important:** The tag helpers are **not** exported as individual named exports from the core (`sigpro`). They become available as global functions (`window.div`, etc.) after the side‑effect runs.  
+> If you prefer to avoid globals, you can always use `h('div', ...)` directly—it’s perfectly fine.
+
+---
+
+## 3. The Complete List of Tag Helpers
+
+All helpers are **lowercase** and follow HTML5 tag names.
 
 | Category | Available functions |
 | :--- | :--- |
 | **Structure** | `div`, `span`, `p`, `section`, `nav`, `main`, `header`, `footer`, `article`, `aside` |
-| **Typography** | `h1`, `h2`, `h3`, `h4`, `h5`, `h6`, `ul`, `ol`, `li`, `dl`, `dt`, `dd`, `strong`, `em`, `code`, `pre`, `small`, `b`, `u`, `mark` |
+| **Typography** | `h1`…`h6`, `ul`, `ol`, `li`, `dl`, `dt`, `dd`, `strong`, `em`, `code`, `pre`, `small`, `b`, `u`, `mark` |
 | **Interactive** | `button`, `a`, `label`, `br`, `hr`, `details`, `summary`, `dialog` |
 | **Forms** | `form`, `input`, `select`, `option`, `textarea`, `fieldset`, `legend` |
 | **Tables** | `table`, `thead`, `tbody`, `tr`, `th`, `td`, `tfoot`, `caption` |
 | **Media** | `img`, `canvas`, `video`, `audio`, `svg`, `iframe`, `picture`, `source` |
 
-Full list includes all standard tags: `a`, `abbr`, `article`, `aside`, `audio`, `b`, `blockquote`, `br`, `button`, `canvas`, `caption`, `cite`, `code`, `col`, `colgroup`, `datalist`, `dd`, `del`, `details`, `dfn`, `dialog`, `div`, `dl`, `dt`, `em`, `embed`, `fieldset`, `figcaption`, `figure`, `footer`, `form`, `h1`…`h6`, `header`, `hr`, `i`, `iframe`, `img`, `input`, `ins`, `kbd`, `label`, `legend`, `li`, `main`, `mark`, `meter`, `nav`, `object`, `ol`, `optgroup`, `option`, `output`, `p`, `picture`, `pre`, `progress`, `section`, `select`, `slot`, `small`, `source`, `span`, `strong`, `sub`, `summary`, `sup`, `svg`, `table`, `tbody`, `td`, `template`, `textarea`, `tfoot`, `th`, `thead`, `time`, `tr`, `u`, `ul`, `video`.
+Full list: `a`, `abbr`, `article`, `aside`, `audio`, `b`, `blockquote`, `br`, `button`, `canvas`, `caption`, `cite`, `code`, `col`, `colgroup`, `datalist`, `dd`, `del`, `details`, `dfn`, `dialog`, `div`, `dl`, `dt`, `em`, `embed`, `fieldset`, `figcaption`, `figure`, `footer`, `form`, `h1`…`h6`, `header`, `hr`, `i`, `iframe`, `img`, `input`, `ins`, `kbd`, `label`, `legend`, `li`, `main`, `mark`, `meter`, `nav`, `object`, `ol`, `optgroup`, `option`, `output`, `p`, `picture`, `pre`, `progress`, `section`, `select`, `slot`, `small`, `source`, `span`, `strong`, `sub`, `summary`, `sup`, `svg`, `table`, `tbody`, `td`, `template`, `textarea`, `tfoot`, `th`, `thead`, `time`, `tr`, `u`, `ul`, `video`.
 
 ---
 
-## 3. Usage Patterns
+## 4. Usage Patterns
 
 ### A. Attributes + Children
 
@@ -79,7 +93,7 @@ section([
 
 ---
 
-## 4. Reactive Power
+## 5. Reactive Power
 
 These helpers are natively wired into SigPro's reactivity system.
 
@@ -126,7 +140,7 @@ div([
 
 ---
 
-## 5. Custom Components with `h()` or Tag Helpers
+## 6. Custom Components with `h()` or Tag Helpers
 
 While the tag helpers cover all standard HTML tags, you can create reusable components using them directly.
 
@@ -170,7 +184,7 @@ const Timer = () => {
 
 ---
 
-## 6. Comparison with `h()`
+## 7. Comparison with `h()`
 
 | Use case | Recommendation |
 | :--- | :--- |
@@ -182,11 +196,17 @@ const Timer = () => {
 
 ---
 
-## 7. Complete Example
+## 8. Complete Example
+
+### ESM (modern projects)
 
 ```javascript
-// In a modern ESM environment (recommended)
-import { div, h1, input, p, button, mount, $ } from 'sigpro';
+// Enable global helpers + security
+import 'sigpro/tags';
+import 'sigpro/xss';
+
+// Import core functions
+import { $, mount } from 'sigpro';
 
 const nameSignal = $('');
 
@@ -204,10 +224,10 @@ const App = () =>
 mount(App, '#app');
 ```
 
-Or using the classic script (auto‑global):
+### Classic IIFE (auto‑global)
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/sigpro@1.2.19/dist/sigpro.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sigpro@1.2.23/dist/sigpro.min.js"></script>
 <script>
   const nameSignal = $('');
   const App = () => div({ class: "app" }, [
@@ -222,23 +242,24 @@ Or using the classic script (auto‑global):
 
 ---
 
-## 8. Important Notes
+## 9. Important Notes
 
 - **Naming:** All tag helpers are **lowercase**.  
 - **Global availability:**  
-  - **IIFE script** → automatically on `window`.  
-  - **ESM module** → not global by default; use `import { div } from 'sigpro'` or call `sigpro()` to inject all globals.  
+  - **IIFE script** – automatically on `window`.  
+  - **ESM module** – not global by default; use `import 'sigpro/tags'` to activate them.  
 - **Custom components:** Use **PascalCase** for your own component functions (e.g., `UserCard`) to visually distinguish them from built‑in tags.
 
 ---
 
-## 9. Summary
+## 10. Summary
 
 | Feature | Description |
 | :--- | :--- |
 | **Tag helpers** | Lowercase functions for every HTML element (e.g., `div()`, `button()`). |
-| **Availability** | Auto‑global in IIFE; in ESM use named imports or `sigpro()`. |
+| **Activation** | IIFE: automatic. ESM: `import 'sigpro/tags'`. |
 | **Reactive attributes** | Pass a function to any attribute to keep it synced. |
 | **Two‑way binding** | Assign a signal directly to `value` or `checked` on form elements. |
 | **Dynamic children** | Pass a function as a child for live updating content. |
 | **Auto‑cleanup** | All effects, events, and children are disposed when the element is removed. |
+| **Security** | Optional XSS shield: `import 'sigpro/xss'`. |

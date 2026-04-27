@@ -48,15 +48,16 @@ bun add sigpro
 
 ```html
 <script type="module">
-  // Import the module – no automatic global injection
-  import { sigpro, $, h, mount } from 'https://cdn.jsdelivr.net/npm/sigpro@1.2.19/+esm';
+  // Import the core – no global helpers or XSS yet
+  import { $, h, mount } from 'https://cdn.jsdelivr.net/npm/sigpro@1.2.23/dist/sigpro.esm.min.js';
 
-  // Option A: manually inject all globals (like the classic script)
-  sigpro();  // now $, h, div, watch, etc. are on window
-
-  // Option B: use named imports (no global pollution)
+  // Option A: use named imports (no globals, recommended)
   const count = $(0);
-  mount(() => h1(() => `Count: ${count()}`), '#app');
+  mount(() => h('h1', {}, () => `Count: ${count()}`), '#app');
+
+  // Option B: enable global tag helpers (still optional)
+  import 'https://cdn.jsdelivr.net/npm/sigpro@1.2.23/sigpro/tags.js';
+  // now div, span, button, etc. become global
 </script>
 ```
 
@@ -66,10 +67,10 @@ bun add sigpro
   <div class="tab-content bg-base-100 border-base-300 rounded-box p-6">
 
 ```html
-<!-- Classic script: auto‑installs everything on window -->
-<script src="https://cdn.jsdelivr.net/npm/sigpro@1.2.19/dist/sigpro.js"></script>
+<!-- Classic script: full kit (core, router, tags, XSS) auto‑installed -->
+<script src="https://cdn.jsdelivr.net/npm/sigpro@1.2.23/dist/sigpro.min.js"></script>
 <script>
-  // $, h, div, button, watch, ... are already global
+  // $, h, div, button, router, etc. are already global
   const count = $(0);
   const App = () => div({ class: "card" }, [
     h1(() => `Count: ${count()}`),
@@ -93,10 +94,12 @@ SigPro uses **lowercase** Tag Helpers (e.g., `div`, `button`) to keep the syntax
   <div class="tab-content bg-base-100 border-base-300 rounded-lg p-6 mt-2">
 
 ```javascript
-// App.js – Using named imports (recommended)
-import { $, h1, button, div, mount } from 'sigpro';
+// App.js – Use named imports for the core, activate helpers if needed
+import { $, mount } from 'sigpro';
+import 'sigpro/tags';   // ← make div, h1, button, etc. global
+import 'sigpro/xss';    // ← optional: activate XSS shield
 
-export const App = () => {
+const App = () => {
   const count = $(0);
   return div({ class: "card p-4" }, [
     h1(() => `Count is: ${count()}`),
@@ -106,10 +109,6 @@ export const App = () => {
     ),
   ]);
 };
-
-// main.js
-import { mount } from 'sigpro';
-import { App } from './App.js';
 
 mount(App, '#app');
 ```
@@ -125,9 +124,9 @@ mount(App, '#app');
   <body>
     <div id="app"></div>
 
-    <script src="https://cdn.jsdelivr.net/npm/sigpro@1.2.19/dist/sigpro.js"></script>
+    <!-- IIFE full bundle – everything ready to use -->
+    <script src="https://cdn.jsdelivr.net/npm/sigpro@1.2.23/dist/sigpro.min.js"></script>
     <script>
-      // Everything is already global – no import needed
       const name = $('Developer');
       const App = () => section({ class: "container" }, [
         h2(() => `Welcome, ${name()}`),
@@ -153,32 +152,36 @@ mount(App, '#app');
 
 SigPro gives you full control over global pollution.
 
-### Mode A: Classic (IIFE) – Auto‑injection
-When you load the **IIFE bundle** (`sigpro.js`) with a traditional `<script>` tag (no `type="module"`), the library automatically injects:
-- All core functions (`$`, `$$`, `watch`, `h`, `when`, `each`, `fx`, `router`, `req`, `mount`, `batch`) into `window`.
-- Lowercase tag helpers (`div`, `span`, `button`, etc.) also become global functions.
+### Mode A: Classic (IIFE) – Full Auto‑injection
+When you load the **IIFE full bundle** (`sigpro.min.js`) with a traditional `<script>` tag (no `type="module"`), the library automatically provides **everything**:
+- Core functions (`$`, `$$`, `watch`, `h`, `when`, `each`, `router`, `mount`, `batch`) directly on `window` (also available as `SigPro.*`).
+- Lowercase tag helpers (`div`, `span`, `button`, …) become global functions.
+- Built‑in XSS protection activated.
 
 ✅ Zero configuration – just drop the script and start coding.
 
-### Mode B: ESM (Modern) – Explicit Injection
-When you import the **ESM module** (from CDN or via `import`), **nothing** is added to `window` by default. You have two clean options:
+### Mode B: ESM (Modern) – Explicit Activation
+When you import the **ESM core** (`import { ... } from 'sigpro'`), **only the reactive core and router are available**. Tags and security are opt‑in:
 
-1. **Named imports** (recommended for most apps):
+1. **Named imports** (for the core):
    ```javascript
-   import { $, h, mount } from 'sigpro';
+   import { $, h, mount, router } from 'sigpro';
    ```
-   No global pollution, perfect for bundlers and large projects.
+   No global pollution – perfect for bundlers and large projects.
 
-2. **Manual global injection** (similar to classic mode but controlled):
+2. **Activate global helpers** (when you want `div`, `span`, etc. without importing each one):
    ```javascript
-   import { sigpro } from 'sigpro';
-   sigpro();  // now $, h, div, button, ... are on window
+   import 'sigpro/tags';   // side‑effect: injects all tag helpers into window
    ```
-   Useful for quick prototyping or when you prefer the global style.
+
+3. **Activate XSS shield** (optional):
+   ```javascript
+   import 'sigpro/xss';    // side‑effect: enables attribute sanitization
+   ```
 
 ### Why two modes?
-- **Legacy / no‑build**: Use the IIFE script and get everything automatically.
-- **Modern ESM**: Keep your global namespace clean, leverage tree‑shaking, or inject only when you need it.
+- **Legacy / no‑build**: Use the IIFE full script and get everything automatically.
+- **Modern ESM**: Keep your global namespace clean, only activate helpers/security when needed, and benefit from tree‑shaking.
 
 ---
 

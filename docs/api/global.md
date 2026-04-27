@@ -112,6 +112,7 @@ export const filteredTodos = $(() => {
 ```javascript
 // components/TodoApp.js
 import { todos, filter, addTodo, toggleTodo, filteredTodos } from "../store/todos.js";
+import "sigpro/tags" // tags helpers available in global
 
 const TodoApp = () =>
   div({ class: "todo-app" }, [
