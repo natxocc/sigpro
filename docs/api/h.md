@@ -138,7 +138,8 @@ h('svg', { width: 100, height: 100 }, [
 ## Complete Example
 
 ```javascript
-import { $, h, mount } from 'sigpro';
+import { sigpro } from 'sigpro';
+sigpro(); // tags helpers available in global also core functions
 
 const dynamicTag = $('h1');
 

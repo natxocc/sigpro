@@ -32,20 +32,12 @@ When you use the **IIFE bundle** (`sigpro.js` or `sigpro.min.js`) with a traditi
 When you import the **ES module** (`import { ... } from 'sigpro'`), the core **does not** add helpers to `window` by default. To enable global tags, import the dedicated side‑effect module:
 
 ```js
-import 'sigpro/tags';   // ← activates window.div, window.span, etc.
+import { sigpro } from 'sigpro';
+sigpro(); // tags helpers available in global also core functions
 
 // Now you can use helpers globally
 const App = () => div({ class: "app" }, "Ready!");
 ```
-
-If you also want built‑in **XSS protection**, enable it once:
-
-```js
-import 'sigpro/xss';    // ← add security layer
-import 'sigpro/tags';   // ← global helpers
-```
-
-Both are side‑effect modules, so the order doesn’t matter.
 
 > **Important:** The tag helpers are **not** exported as individual named exports from the core (`sigpro`). They become available as global functions (`window.div`, etc.) after the side‑effect runs.  
 > If you prefer to avoid globals, you can always use `h('div', ...)` directly—it’s perfectly fine.
@@ -201,12 +193,8 @@ const Timer = () => {
 ### ESM (modern projects)
 
 ```javascript
-// Enable global helpers + security
-import 'sigpro/tags';
-import 'sigpro/xss';
-
-// Import core functions
-import { $, mount } from 'sigpro';
+import { sigpro } from 'sigpro';
+sigpro(); // tags helpers available in global also core functions
 
 const nameSignal = $('');
 
@@ -240,26 +228,3 @@ mount(App, '#app');
 </script>
 ```
 
----
-
-## 9. Important Notes
-
-- **Naming:** All tag helpers are **lowercase**.  
-- **Global availability:**  
-  - **IIFE script** – automatically on `window`.  
-  - **ESM module** – not global by default; use `import 'sigpro/tags'` to activate them.  
-- **Custom components:** Use **PascalCase** for your own component functions (e.g., `UserCard`) to visually distinguish them from built‑in tags.
-
----
-
-## 10. Summary
-
-| Feature | Description |
-| :--- | :--- |
-| **Tag helpers** | Lowercase functions for every HTML element (e.g., `div()`, `button()`). |
-| **Activation** | IIFE: automatic. ESM: `import 'sigpro/tags'`. |
-| **Reactive attributes** | Pass a function to any attribute to keep it synced. |
-| **Two‑way binding** | Assign a signal directly to `value` or `checked` on form elements. |
-| **Dynamic children** | Pass a function as a child for live updating content. |
-| **Auto‑cleanup** | All effects, events, and children are disposed when the element is removed. |
-| **Security** | Optional XSS shield: `import 'sigpro/xss'`. |

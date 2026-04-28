@@ -48,16 +48,13 @@ bun add sigpro
 
 ```html
 <script type="module">
-  // Import the core – no global helpers or XSS yet
-  import { $, h, mount } from 'https://cdn.jsdelivr.net/npm/sigpro@1.2.23/dist/sigpro.esm.min.js';
+  // Import the core
+  import { sigpro, $, h, mount } from 'https://cdn.jsdelivr.net/npm/sigpro@latest/dist/sigpro.esm.min.js';
+  sigpro(); // Optional: now div, span, button, etc. become global
 
   // Option A: use named imports (no globals, recommended)
   const count = $(0);
   mount(() => h('h1', {}, () => `Count: ${count()}`), '#app');
-
-  // Option B: enable global tag helpers (still optional)
-  import 'https://cdn.jsdelivr.net/npm/sigpro@1.2.23/sigpro/tags.js';
-  // now div, span, button, etc. become global
 </script>
 ```
 
@@ -68,7 +65,7 @@ bun add sigpro
 
 ```html
 <!-- Classic script: full kit (core, router, tags, XSS) auto‑installed -->
-<script src="https://cdn.jsdelivr.net/npm/sigpro@1.2.23/dist/sigpro.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sigpro@latest/dist/sigpro.min.js"></script>
 <script>
   // $, h, div, button, router, etc. are already global
   const count = $(0);
@@ -95,9 +92,8 @@ SigPro uses **lowercase** Tag Helpers (e.g., `div`, `button`) to keep the syntax
 
 ```javascript
 // App.js – Use named imports for the core, activate helpers if needed
-import { $, mount } from 'sigpro';
-import 'sigpro/tags';   // ← make div, h1, button, etc. global
-import 'sigpro/xss';    // ← optional: activate XSS shield
+import { sigpro, $, mount } from 'sigpro';
+sigpro(); // Optional: now div, span, button, etc. become global
 
 const App = () => {
   const count = $(0);
@@ -171,12 +167,8 @@ When you import the **ESM core** (`import { ... } from 'sigpro'`), **only the re
 
 2. **Activate global helpers** (when you want `div`, `span`, etc. without importing each one):
    ```javascript
-   import 'sigpro/tags';   // side‑effect: injects all tag helpers into window
-   ```
-
-3. **Activate XSS shield** (optional):
-   ```javascript
-   import 'sigpro/xss';    // side‑effect: enables attribute sanitization
+   import { sigpro } from 'sigpro';
+   sigpro();   // side‑effect: injects all tag helpers into window
    ```
 
 ### Why two modes?

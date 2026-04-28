@@ -119,8 +119,8 @@ When `destroy()` is called (or when a new mount replaces an old one), everything
 ## Complete Example
 
 ```javascript
-import { $, mount, div, h1, button } from 'sigpro';
-import "sigpro/tags" // tags helpers available in global
+import { sigpro } from 'sigpro';
+sigpro(); // tags helpers available in global also core functions
 
 const App = () => {
   const count = $(0);

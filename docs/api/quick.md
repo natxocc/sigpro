@@ -1,18 +1,5 @@
 # SigPro – Complete API Reference
 
-SigPro is a **Real‑DOM first** reactive micro‑framework. No virtual DOM, no diffing overhead – it updates the DOM directly with surgical precision. Built‑in automatic cleanup prevents memory leaks, and the API is designed to be both tiny and powerful.
-
-```javascript
-import { $, $$, watch, h, when, each, router, mount, batch } from 'sigpro'
-// Optional side‑effects (activate global helpers & security):
-import 'sigpro/tags'   // → window.div, window.span, etc.
-import 'sigpro/xss'    // → attribute sanitisation
-```
-
-In a classic IIFE script (`<script src="sigpro.min.js">`), **everything** (core, router, tags, XSS, global functions) is available automatically.
-
----
-
 ## Core Reactivity
 
 ### `$(value, localStorageKey?)` – Signal & Computed
@@ -113,7 +100,8 @@ h('div', {}, [
 Tag helpers are **not exported individually** from the core. To use them globally without the `h(...)` wrapper, activate the side‑effect module:
 
 ```javascript
-import 'sigpro/tags'   // now window.div, window.span, etc. are available
+import { sigpro } from "sigpro"
+sigpro();  // now window.div, window.span, etc. are available
 
 // You can now write:
 div({ class: 'container' }, [
@@ -125,21 +113,6 @@ div({ class: 'container' }, [
 In the **IIFE bundle** (`sigpro.min.js`), the helpers are already injected globally – no import needed.
 
 Available tags: `a`, `abbr`, `article`, `aside`, `audio`, `b`, `blockquote`, `br`, `button`, `canvas`, `caption`, `cite`, `code`, `col`, `colgroup`, `datalist`, `dd`, `del`, `details`, `dfn`, `dialog`, `div`, `dl`, `dt`, `em`, `embed`, `fieldset`, `figcaption`, `figure`, `footer`, `form`, `h1`…`h6`, `header`, `hr`, `i`, `iframe`, `img`, `input`, `ins`, `kbd`, `label`, `legend`, `li`, `main`, `mark`, `meter`, `nav`, `object`, `ol`, `optgroup`, `option`, `output`, `p`, `picture`, `pre`, `progress`, `section`, `select`, `slot`, `small`, `source`, `span`, `strong`, `sub`, `summary`, `sup`, `svg`, `table`, `tbody`, `td`, `template`, `textarea`, `tfoot`, `th`, `thead`, `time`, `tr`, `u`, `ul`, `video`.
-
----
-
-## Built‑in XSS Shield (Optional)
-
-SigPro includes an optional security layer that sanitises dangerous attributes (`href`, `src`, `formaction`, etc.) and blocks `javascript:` / `data:` / `vbscript:` protocols.  
-To enable it in ESM environments:
-
-```javascript
-import 'sigpro/xss'
-```
-
-In the IIFE bundle, the shield is **active by default**.
-
-When the shield is enabled, trying to set `href="javascript:alert(1)"` will log a warning and replace the value with `'#'`.
 
 ---
 
@@ -252,9 +225,8 @@ You never need to manually clean up – just write reactive code.
 ## Full Example – Counter with Persistence
 
 ```javascript
-import { $, watch, mount } from 'sigpro'
-import 'sigpro/tags'   // ← activate global helpers
-import 'sigpro/xss'    // ← activate security (optional)
+import { sigpro } from 'sigpro';
+sigpro();  // All in global window
 
 const count = $(0, 'counter') // persists in localStorage
 
@@ -267,20 +239,4 @@ const App = () =>
   ])
 
 mount(App, '#app')
-```
-
----
-
-## 🔧 Customising the API (Renaming)
-
-You can rename everything in one line:
-
-```javascript
-import { $ as signal, watch as effect, h as element, mount as render } from 'sigpro'
-```
-
-In the IIFE bundle, the core functions are already available as both `window.$` and `window.SigPro.$`, so you can alias them globally if needed:
-
-```javascript
-window.myReactive = $   // or window.SigPro.$
 ```

@@ -15,10 +15,6 @@ var MOUNTED_NODES = new WeakMap;
 var SVG_NS = "http://www.w3.org/2000/svg";
 var XLINK_NS = "http://www.w3.org/1999/xlink";
 var SVG_TAGS = new Set("svg,path,circle,rect,line,polyline,polygon,g,defs,text,textPath,tspan,use,symbol,image,marker,ellipse".split(","));
-var attrFilter = null;
-var filterXSS = (fn) => {
-  attrFilter = fn;
-};
 var dispose = (eff) => {
   if (!eff || eff._disposed)
     return;
@@ -247,6 +243,21 @@ var cleanupNode = (node) => {
   if (node.childNodes)
     node.childNodes.forEach((n) => cleanupNode(n));
 };
+var DANGEROUS_PROTOCOL = /^\s*(javascript|data|vbscript):/i;
+var DANGEROUS_URI_ATTRS = new Set(["src", "href", "formaction", "action", "background", "code", "archive"]);
+var isDangerousAttr = (key) => DANGEROUS_URI_ATTRS.has(key) || key.startsWith("on");
+var validateAttr = (key, val) => {
+  if (val == null || val === false)
+    return null;
+  if (isDangerousAttr(key)) {
+    const sVal = String(val);
+    if (DANGEROUS_PROTOCOL.test(sVal)) {
+      console.warn(`[SigPro] Bloqueado protocolo peligroso en ${key}`);
+      return "#";
+    }
+  }
+  return val;
+};
 var h = (tag, props = {}, children = []) => {
   if (props instanceof Node || isArr(props) || !isObj(props)) {
     children = props;
@@ -285,38 +296,38 @@ var h = (tag, props = {}, children = []) => {
       isFunc(v) ? v(el) : v.current = el;
       continue;
     }
-    let val = attrFilter ? attrFilter(k, v) : v;
     if (isSVG && k.startsWith("xlink:")) {
-      val == null ? el.removeAttributeNS(XLINK_NS, k.slice(6)) : el.setAttributeNS(XLINK_NS, k.slice(6), val);
+      const cleanVal = validateAttr(k.slice(6), v);
+      cleanVal == null ? el.removeAttributeNS(XLINK_NS, k.slice(6)) : el.setAttributeNS(XLINK_NS, k.slice(6), cleanVal);
       continue;
     }
     if (k.startsWith("on")) {
       const ev = k.slice(2).toLowerCase();
-      el.addEventListener(ev, val);
-      const off = () => el.removeEventListener(ev, val);
+      el.addEventListener(ev, v);
+      const off = () => el.removeEventListener(ev, v);
       el._cleanups.add(off);
       onUnmount(off);
-    } else if (isFunc(val)) {
+    } else if (isFunc(v)) {
       const effect = createEffect(() => {
-        const raw = val();
-        const safeVal = attrFilter ? attrFilter(k, raw) : raw;
+        const val = validateAttr(k, v());
         if (k === "class")
-          el.className = safeVal || "";
-        else if (safeVal == null)
+          el.className = val || "";
+        else if (val == null)
           el.removeAttribute(k);
         else if (k in el && !isSVG)
-          el[k] = safeVal;
+          el[k] = val;
         else
-          el.setAttribute(k, safeVal === true ? "" : safeVal);
+          el.setAttribute(k, val === true ? "" : val);
       });
       effect();
       el._cleanups.add(() => dispose(effect));
       onUnmount(() => dispose(effect));
       if (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && (k === "value" || k === "checked")) {
         const evType = k === "checked" ? "change" : "input";
-        el.addEventListener(evType, (ev) => val(ev.target[k]));
+        el.addEventListener(evType, (ev) => v(ev.target[k]));
       }
     } else {
+      const val = validateAttr(k, v);
       if (val != null) {
         if (k in el && !isSVG)
           el[k] = val;
@@ -498,13 +509,23 @@ var mount = (comp, target) => {
   MOUNTED_NODES.set(t, inst);
   return inst;
 };
+var sigpro = () => {
+  if (typeof window === "undefined")
+    return;
+  Object.assign(window, { $, $$, watch, h, when, each, router, mount, batch });
+  "a abbr article aside ... video".split(" ").forEach((tag) => {
+    window[tag] = (props, children) => h(tag, props, children);
+  });
+};
+if (typeof import.meta === "undefined" && typeof window !== "undefined")
+  sigpro();
 export {
   when,
   watch,
+  sigpro,
   router,
   mount,
   h,
-  filterXSS,
   each,
   batch,
   $$,
