@@ -512,4 +512,4 @@ if (typeof window !== "undefined") {
     .forEach(tag => { window[tag] = (props, children) => h(tag, props, children) })
 }
 
-export { $, $$, watch, h, when, each, router, mount, batch }
+export { $, $$, watch, batch, h, mount, when, each, router, onUnmount }
