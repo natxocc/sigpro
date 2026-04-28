@@ -2,7 +2,7 @@
 
 The `h` function is the **core DOM builder** of SigPro. It creates DOM elements from a tag name, props, and children. While the global tag helpers (`div()`, `button()`, etc.) are built on top of `h`, you may need `h` directly for dynamic tag names or when you prefer an explicit function style.
 
-> **Availability:** `h` and all tag helpers (`div`, `button`, etc.) are exported from the SigPro module. In **ESM** you must import them (`import { h, div, button } from 'sigpro'`) or inject all globals via `sigpro()`. In the **IIFE** classic script, `h` and all tag helpers are automatically available on `window`. The examples below assume the functions are already in scope.
+> **Availability:** `h` and all tag helpers (`div`, `button`, etc.) are exported from the SigPro module. In **ESM** you must import them (`import { h, div, button } from 'sigpro'`). In the **IIFE** classic script, `h` and all tag helpers are automatically available on `window`. The examples below assume the functions are already in scope.
 
 ## Function Signature
 
@@ -131,15 +131,14 @@ h('svg', { width: 100, height: 100 }, [
 | **Availability** | Import or global | Import or global (same) |
 | **Performance** | Identical | Identical (helpers call `h` internally) |
 
-> **Recommendation:** Use tag helpers (`div()`, `button()`, etc.) for most cases – they are shorter and more readable. Use `h` directly only when the tag name is dynamic (e.g., `h(props.tag, ...)`). Remember that in ESM you need to import the helpers or call `sigpro()` to make them global.
+> **Recommendation:** Use tag helpers (`div()`, `button()`, etc.) for most cases – they are shorter and more readable. Use `h` directly only when the tag name is dynamic (e.g., `h(props.tag, ...)`).
 
 ---
 
 ## Complete Example
 
 ```javascript
-import { sigpro } from 'sigpro';
-sigpro(); // tags helpers available in global also core functions
+import 'sigpro';
 
 const dynamicTag = $('h1');
 

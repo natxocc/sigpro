@@ -32,8 +32,7 @@ When you use the **IIFE bundle** (`sigpro.js` or `sigpro.min.js`) with a traditi
 When you import the **ES module** (`import { ... } from 'sigpro'`), the core **does not** add helpers to `window` by default. To enable global tags, import the dedicated side‑effect module:
 
 ```js
-import { sigpro } from 'sigpro';
-sigpro(); // tags helpers available in global also core functions
+import 'sigpro';
 
 // Now you can use helpers globally
 const App = () => div({ class: "app" }, "Ready!");
@@ -193,8 +192,7 @@ const Timer = () => {
 ### ESM (modern projects)
 
 ```javascript
-import { sigpro } from 'sigpro';
-sigpro(); // tags helpers available in global also core functions
+import 'sigpro';
 
 const nameSignal = $('');
 

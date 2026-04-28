@@ -62,8 +62,7 @@ Create reactive, persistent components with a syntax that feels like Vanilla JS,
 ```
 
 ```javascript
-import { sigpro } from "sigpro";
-sigpro(); // All functions and tags are available in window
+import "sigpro";
 
 const Counter = () => {
   // Simple signal

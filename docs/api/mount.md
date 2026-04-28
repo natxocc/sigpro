@@ -17,7 +17,7 @@ mount(component: Function | Node, target: string | HTMLElement): RuntimeObject
 - `container`: The actual DOM element created by the renderer.
 - `destroy()`: A method to completely unmount and clean up the application.
 
-> **Availability:** `mount` is exported from the SigPro module. In **ESM** you must import it (`import { mount } from 'sigpro'`) or inject all globals via `sigpro()`. In the **IIFE** classic script, it is automatically available on `window`. The examples below assume the function is already in scope.
+> **Availability:** `mount` is exported from the SigPro module. In **ESM** you must import it (`import { mount } from 'sigpro'`). In the **IIFE** classic script, it is automatically available on `window`. The examples below assume the function is already in scope.
 
 ---
 
@@ -119,8 +119,8 @@ When `destroy()` is called (or when a new mount replaces an old one), everything
 ## Complete Example
 
 ```javascript
-import { sigpro } from 'sigpro';
-sigpro(); // tags helpers available in global also core functions
+import 'sigpro';
+
 
 const App = () => {
   const count = $(0);

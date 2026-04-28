@@ -20,7 +20,7 @@ watch(deps: Signal[], callback: (values: any[]) => void): StopFunction
 
 **Returns:** A `StopFunction` that, when called, destroys the watcher and releases memory.
 
-> **Availability:** `watch` is exported from the SigPro module. In **ESM** you must import it (`import { watch } from 'sigpro'`) or inject all globals via `sigpro()`. In the **IIFE** classic script, it is automatically available on `window`. The examples below assume the function is already in scope.
+> **Availability:** `watch` is exported from the SigPro module. In **ESM** you must import it (`import { watch } from 'sigpro'`). In the **IIFE** classic script, it is automatically available on `window`. The examples below assume the function is already in scope.
 
 ---
 

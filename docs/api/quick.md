@@ -100,8 +100,7 @@ h('div', {}, [
 Tag helpers are **not exported individually** from the core. To use them globally without the `h(...)` wrapper, activate the side‑effect module:
 
 ```javascript
-import { sigpro } from "sigpro"
-sigpro();  // now window.div, window.span, etc. are available
+import "sigpro"
 
 // You can now write:
 div({ class: 'container' }, [
@@ -225,8 +224,7 @@ You never need to manually clean up – just write reactive code.
 ## Full Example – Counter with Persistence
 
 ```javascript
-import { sigpro } from 'sigpro';
-sigpro();  // All in global window
+import 'sigpro';
 
 const count = $(0, 'counter') // persists in localStorage
 

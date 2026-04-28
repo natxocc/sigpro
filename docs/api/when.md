@@ -20,7 +20,7 @@ when(
 
 **Returns:** A `div` with `style="display:contents"` that acts as an anchor for the dynamic content. This element is part of the DOM and will be replaced/updated automatically.
 
-> **Availability:** `when` is exported from the SigPro module. In **ESM** you must import it (`import { when } from 'sigpro'`) or inject all globals via `sigpro()`. In the **IIFE** classic script, it is automatically available on `window`. The examples below assume the function is already in scope.
+> **Availability:** `when` is exported from the SigPro module. In **ESM** you must import it (`import { when } from 'sigpro'`). In the **IIFE** classic script, it is automatically available on `window`. The examples below assume the function is already in scope.
 
 ---
 

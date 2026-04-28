@@ -49,8 +49,7 @@ bun add sigpro
 ```html
 <script type="module">
   // Import the core
-  import { sigpro, $, h, mount } from 'https://cdn.jsdelivr.net/npm/sigpro@latest/dist/sigpro.esm.min.js';
-  sigpro(); // Optional: now div, span, button, etc. become global
+  import { $, h, mount } from 'https://cdn.jsdelivr.net/npm/sigpro@latest/dist/sigpro.esm.min.js';
 
   // Option A: use named imports (no globals, recommended)
   const count = $(0);
@@ -92,8 +91,7 @@ SigPro uses **lowercase** Tag Helpers (e.g., `div`, `button`) to keep the syntax
 
 ```javascript
 // App.js – Use named imports for the core, activate helpers if needed
-import { sigpro, $, mount } from 'sigpro';
-sigpro(); // Optional: now div, span, button, etc. become global
+import { $, mount } from 'sigpro';
 
 const App = () => {
   const count = $(0);
@@ -159,17 +157,11 @@ When you load the **IIFE full bundle** (`sigpro.min.js`) with a traditional `<sc
 ### Mode B: ESM (Modern) – Explicit Activation
 When you import the **ESM core** (`import { ... } from 'sigpro'`), **only the reactive core and router are available**. Tags and security are opt‑in:
 
-1. **Named imports** (for the core):
+**Named imports** (for the core):
    ```javascript
    import { $, h, mount, router } from 'sigpro';
    ```
    No global pollution – perfect for bundlers and large projects.
-
-2. **Activate global helpers** (when you want `div`, `span`, etc. without importing each one):
-   ```javascript
-   import { sigpro } from 'sigpro';
-   sigpro();   // side‑effect: injects all tag helpers into window
-   ```
 
 ### Why two modes?
 - **Legacy / no‑build**: Use the IIFE full script and get everything automatically.

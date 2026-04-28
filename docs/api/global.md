@@ -2,7 +2,7 @@
 
 SigPro leverages the native power and efficiency of **signals** to create robust global stores with **zero complexity**. While other frameworks force you into heavy libraries and rigid boilerplate (Redux, Pinia, or Svelte stores), SigPro treats “the store” as a simple architectural choice: **defining a signal outside of a component.**
 
-> **Availability:** `$` (and other core functions) are exported from the SigPro module. In **ESM** you must import them (`import { $ } from 'sigpro'`) or inject all globals via `sigpro()`. In the **IIFE** classic script, `$` is automatically available on `window`. The examples below assume `$` is already in scope (via import or global).
+> **Availability:** `$` (and other core functions) are exported from the SigPro module. In **ESM** you must import them (`import { $ } from 'sigpro'`). In the **IIFE** classic script, `$` is automatically available on `window`. The examples below assume `$` is already in scope (via import or global).
 
 ## Modular Organization (Zero Constraints)
 
@@ -111,9 +111,8 @@ export const filteredTodos = $(() => {
 
 ```javascript
 // components/TodoApp.js
-import { sigpro } from 'sigpro';
+import 'sigpro';
 import { todos, filter, addTodo, toggleTodo, filteredTodos } from "../store/todos.js";
-sigpro(); // tags helpers available in global also core functions
 
 const TodoApp = () =>
   div({ class: "todo-app" }, [

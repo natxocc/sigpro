@@ -17,7 +17,7 @@ router(routes: Route[]): HTMLElement
 
 **Returns:** A `div` element (with class `"router-hook"`) that acts as the router outlet. The router automatically destroys the previous view and mounts the matched component when the hash changes.
 
-> **Availability:** `router` and its helper methods (`router.to`, `router.back`, `router.path`, `router.params`) are exported from the SigPro module. In **ESM** you must import them (`import { router } from 'sigpro'`) or inject all globals via `sigpro()`. In the **IIFE** classic script, they are automatically available on `window`. The examples below assume the functions are already in scope.
+> **Availability:** `router` and its helper methods (`router.to`, `router.back`, `router.path`, `router.params`) are exported from the SigPro module. In **ESM** you must import them (`import { router } from 'sigpro'`). In the **IIFE** classic script, they are automatically available on `window`. The examples below assume the functions are already in scope.
 
 ---
 
@@ -152,8 +152,7 @@ If you want the router outlet to have no layout impact, you can set `display: co
 ## Complete Example
 
 ```javascript
-import { sigpro } from 'sigpro';
-sigpro(); // tags helpers available in global also core functions
+import 'sigpro';
 
 const Home = () => div("Welcome home");
 const About = () => div("About us");
