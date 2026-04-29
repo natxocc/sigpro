@@ -3,6 +3,11 @@
   "version": "1.2.26",
   "type": "module",
   "license": "MIT",
+  "author": {
+    "name": "NatxoCC",
+    "email": "sigpro@natxocc.com",
+    "url": "https://sigpro.natxocc.com"
+  },
   "main": "./dist/sigpro.esm.min.js",
   "module": "./dist/sigpro.esm.min.js",
   "unpkg": "./dist/sigpro.min.js",
