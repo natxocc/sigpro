@@ -36,7 +36,8 @@
     "url": "https://github.com/natxocc/sigpro"
   },
   "bugs": {
-    "url": "https://github.com/natxocc/sigpro/issues"
+    "url": "https://github.com/natxocc/sigpro/issues",
+    "email": "sigpro@natxocc.com"
   },
   "scripts": {
     "clean": "rm -rf dist",
