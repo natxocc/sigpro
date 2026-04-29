@@ -118,24 +118,6 @@ export function each<T>(
   keyField?: keyof T
 ): HTMLElement;
 
-/**
- * Simple animation helper for enter transitions.
- *
- * @param options - Animation settings
- * @param child - Node or function returning node
- * @returns The animated node
- */
-export function fx(
-  options: {
-    name?: string;
-    duration?: number;
-    scale?: boolean;
-    slide?: boolean;
-    rotate?: boolean;
-    blur?: boolean;
-  },
-  child: Node | (() => Node)
-): Node;
 
 // ============================================================================
 // Router
@@ -167,22 +149,6 @@ export namespace router {
   /** Current path without hash */
   export function path(): string;
 }
-
-// ============================================================================
-// HTTP Requests
-// ============================================================================
-
-export function req(config: {
-  url: string;
-  method?: string;
-  headers?: Record<string, string>;
-}): {
-  run: (body?: any) => Promise<any>;
-  abort: () => void;
-  loading: Signal<boolean>;
-  error: Signal<string | null>;
-  data: Signal<any | null>;
-};
 
 // ============================================================================
 // Mount API
@@ -315,9 +281,7 @@ declare const SigPro: {
   h: typeof h;
   when: typeof when;
   each: typeof each;
-  fx: typeof fx;
   router: typeof router;
-  req: typeof req;
   mount: typeof mount;
   batch: typeof batch;
 };
@@ -336,9 +300,7 @@ declare global {
     h: typeof h;
     when: typeof when;
     each: typeof each;
-    fx: typeof fx;
     router: typeof router;
-    req: typeof req;
     mount: typeof mount;
     batch: typeof batch;
     SigPro: typeof SigPro;
