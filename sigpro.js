@@ -312,6 +312,7 @@ const h = (tag, props = {}, children = []) => {
         const val = validateAttr(k, v())
         if (k === "class") el.className = val || ""
         else if (val == null) el.removeAttribute(k)
+        else if (k === "style" && typeof val === "string") el.setAttribute("style", val)
         else if (k in el && !isSVG) el[k] = val
         else el.setAttribute(k, val === true ? "" : val)
       })
@@ -325,7 +326,8 @@ const h = (tag, props = {}, children = []) => {
     } else {
       const val = validateAttr(k, v)
       if (val != null) {
-        if (k in el && !isSVG) el[k] = val
+        if (k === "style" && typeof val === "string") el.setAttribute("style", val)
+        else if (k in el && !isSVG) el[k] = val
         else el.setAttribute(k, val === true ? "" : val)
       }
     }

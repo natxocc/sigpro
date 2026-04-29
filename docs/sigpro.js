@@ -43,6 +43,7 @@
     when: () => when,
     watch: () => watch,
     router: () => router,
+    onUnmount: () => onUnmount,
     mount: () => mount,
     h: () => h,
     each: () => each,
@@ -367,6 +368,8 @@
             el.className = val || "";
           else if (val == null)
             el.removeAttribute(k);
+          else if (k === "style" && typeof val === "string")
+            el.setAttribute("style", val);
           else if (k in el && !isSVG)
             el[k] = val;
           else
@@ -382,7 +385,9 @@
       } else {
         const val = validateAttr(k, v);
         if (val != null) {
-          if (k in el && !isSVG)
+          if (k === "style" && typeof val === "string")
+            el.setAttribute("style", val);
+          else if (k in el && !isSVG)
             el[k] = val;
           else
             el.setAttribute(k, val === true ? "" : val);
