@@ -29,7 +29,7 @@ When you use the **IIFE bundle** (`sigpro.js` or `sigpro.min.js`) with a traditi
 ```
 
 ### B. ESM (Modern JavaScript) – Explicit Activation  
-When you import the **ES module** (`import { ... } from 'sigpro'`), the core **does not** add helpers to `window` by default. To enable global tags, import the dedicated side‑effect module:
+**ES module** (`import { ... } from 'sigpro'`) or full `import 'sigpro'`.
 
 ```js
 import 'sigpro';
@@ -38,7 +38,6 @@ import 'sigpro';
 const App = () => div({ class: "app" }, "Ready!");
 ```
 
-> **Important:** The tag helpers are **not** exported as individual named exports from the core (`sigpro`). They become available as global functions (`window.div`, etc.) after the side‑effect runs.  
 > If you prefer to avoid globals, you can always use `h('div', ...)` directly—it’s perfectly fine.
 
 ---
