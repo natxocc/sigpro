@@ -98,7 +98,6 @@ mount(Counter, "#app");
 | **Routing** | **Reactive Hash (Router) + File-based (Vite)** | Virtual Router (External) | File-based / External |
 | **Learning Curve** | **Zero (Vanilla JS)** | Steep (JSX/Templates) | Medium (Directives) |
 
-**~3KB** with full functions, less than **1KB** with minimal tree shaking
 -----
 
 ## Scalable Architecture with Vite
