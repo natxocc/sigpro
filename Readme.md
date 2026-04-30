@@ -3,7 +3,7 @@ Blazing fast, zero-overhead, vanilla JS renderer with atomic reactivity.
 # `SigPro`
 
 [![npm version](https://img.shields.io/npm/v/sigpro.svg)](https://www.npmjs.com/package/sigpro)
-![bundle size](https://img.shields.io/badge/dynamic/json?url=https://git.natxocc.com/raw/branch/main/size.json&query=$.size&label=size)
+[![bundle size](https://img.shields.io/badge/bundle_size-12.4_kB_gzip-blue)](https://git.natxocc.com/natxocc/sigpro)
 [![license](https://img.shields.io/npm/l/sigpro)](https://github.com/natxocc/sigpro/blob/main/LICENSE)
 
 [**Explore the Docs →**](https://sigpro.natxocc.com/#/)
