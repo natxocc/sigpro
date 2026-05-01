@@ -119,7 +119,7 @@ When `destroy()` is called (or when a new mount replaces an old one), everything
 ## Complete Example
 
 ```javascript
-import 'sigpro';
+import { $, mount } from 'sigpro';
 
 
 const App = () => {

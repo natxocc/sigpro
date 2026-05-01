@@ -29,10 +29,10 @@ When you use the **IIFE bundle** (`sigpro.js` or `sigpro.min.js`) with a traditi
 ```
 
 ### B. ESM (Modern JavaScript) – Explicit Activation  
-**ES module** (`import { ... } from 'sigpro'`) or full `import 'sigpro'`.
+**ES module** (`import { ... } from 'sigpro'`).
 
 ```js
-import 'sigpro';
+import { ... } from 'sigpro';
 
 // Now you can use helpers globally
 const App = () => div({ class: "app" }, "Ready!");
@@ -191,7 +191,7 @@ const Timer = () => {
 ### ESM (modern projects)
 
 ```javascript
-import 'sigpro';
+import { $, mount } from 'sigpro';
 
 const nameSignal = $('');
 

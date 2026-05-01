@@ -51,11 +51,11 @@ Thanks to **SigPro's synchronous initialization**, you no longer need to wrap yo
 
 ```javascript
 // src/main.js
-import SigPro from 'sigpro';
+import { mount, router } from 'sigpro';
 import { routes } from 'virtual:sigpro-routes';
 
 // The Core already has Router ready
-Mount(Router(routes), '#app');
+mount(router(routes), '#app');
 ```
 
   </div>

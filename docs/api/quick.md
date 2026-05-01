@@ -97,7 +97,7 @@ h('div', {}, [
 
 ### Tag shortcuts
 
-Tag helpers are **not exported individually** from the core. To use them globally without the `h(...)` wrapper, activate the side‑effect module:
+Tag helpers **are exported** from the core.
 
 ```javascript
 import "sigpro"
@@ -224,7 +224,7 @@ You never need to manually clean up – just write reactive code.
 ## Full Example – Counter with Persistence
 
 ```javascript
-import 'sigpro';
+import { $, mount } from 'sigpro';
 
 const count = $(0, 'counter') // persists in localStorage
 

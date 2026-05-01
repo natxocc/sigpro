@@ -152,7 +152,7 @@ If you want the router outlet to have no layout impact, you can set `display: co
 ## Complete Example
 
 ```javascript
-import 'sigpro';
+import { mount } from 'sigpro';
 
 const Home = () => div("Welcome home");
 const About = () => div("About us");
