@@ -1,60 +1,4 @@
 (() => {
-  var __defProp = Object.defineProperty;
-  var __getOwnPropNames = Object.getOwnPropertyNames;
-  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-  var __hasOwnProp = Object.prototype.hasOwnProperty;
-  function __accessProp(key) {
-    return this[key];
-  }
-  var __toCommonJS = (from) => {
-    var entry = (__moduleCache ??= new WeakMap).get(from), desc;
-    if (entry)
-      return entry;
-    entry = __defProp({}, "__esModule", { value: true });
-    if (from && typeof from === "object" || typeof from === "function") {
-      for (var key of __getOwnPropNames(from))
-        if (!__hasOwnProp.call(entry, key))
-          __defProp(entry, key, {
-            get: __accessProp.bind(from, key),
-            enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
-          });
-    }
-    __moduleCache.set(from, entry);
-    return entry;
-  };
-  var __moduleCache;
-  var __returnValue = (v) => v;
-  function __exportSetter(name, newValue) {
-    this[name] = __returnValue.bind(null, newValue);
-  }
-  var __export = (target, all) => {
-    for (var name in all)
-      __defProp(target, name, {
-        get: all[name],
-        enumerable: true,
-        configurable: true,
-        set: __exportSetter.bind(all, name)
-      });
-  };
-
-  // index.js
-  var exports_sigpro = {};
-  __export(exports_sigpro, {
-    when: () => when,
-    watch: () => watch,
-    router: () => router,
-    onUnmount: () => onUnmount,
-    mount: () => mount,
-    isObj: () => isObj,
-    isFunc: () => isFunc,
-    isArr: () => isArr,
-    h: () => h,
-    each: () => each,
-    batch: () => batch,
-    $$: () => $$,
-    $: () => $
-  });
-
   // sigpro.js
   var isFunc = (f) => typeof f === "function";
   var isObj = (o) => o && typeof o === "object";
@@ -559,6 +503,7 @@
   router.to = (p) => window.location.hash = p.replace(/^#?\/?/, "#/");
   router.back = () => window.history.back();
   router.path = () => window.location.hash.replace(/^#/, "") || "/";
+  var Fragment = (props) => props.children;
   var mount = (comp, target) => {
     const t = typeof target === "string" ? doc.querySelector(target) : target;
     if (!t)
@@ -570,8 +515,10 @@
     MOUNTED_NODES.set(t, inst);
     return inst;
   };
+
+  // sigpro_IIFE.js
   if (typeof window !== "undefined") {
-    Object.assign(window, { $, $$, watch, h, when, each, router, mount, batch, onUnmount, isArr, isFunc, isObj });
+    Object.assign(window, { $, $$, watch, h, Fragment, when, each, router, mount, batch, onUnmount, isArr, isFunc, isObj });
     "a abbr article aside audio b blockquote br button canvas caption cite code col colgroup datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 header hr i iframe img input ins kbd label legend li main mark meter nav object ol optgroup option output p picture pre progress section select slot small source span strong sub summary sup svg table tbody td template textarea tfoot th thead time tr u ul video".split(" ").forEach((tag) => {
       window[tag] = (props, children) => h(tag, props, children);
     });

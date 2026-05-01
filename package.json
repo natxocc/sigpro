@@ -1,6 +1,6 @@
 {
   "name": "sigpro",
-  "version": "1.2.30",
+  "version": "1.2.31",
   "type": "module",
   "license": "MIT",
   "author": {
@@ -8,14 +8,14 @@
     "email": "sigpro@natxocc.com",
     "url": "https://sigpro.natxocc.com"
   },
-  "main": "./dist/sigpro.esm.min.js",
+  "main": "./dist/sigpro.esm.js",
   "module": "./dist/sigpro.esm.min.js",
   "unpkg": "./dist/sigpro.min.js",
   "jsdelivr": "./dist/sigpro.min.js",
   "types": "./sigpro.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/sigpro.esm.min.js",
+      "import": "./dist/sigpro.esm.js",
       "script": "./dist/sigpro.min.js",
       "types": "./sigpro.d.ts"
     },
@@ -23,12 +23,11 @@
     "./vite/*": "./vite/*.js"
   },
   "files": [
-    "index.js",
-    "sigpro.js",
     "dist/",
     "vite/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "sigpro.d.ts"
   ],
   "homepage": "https://sigpro.natxocc.com/#/",
   "repository": {
@@ -42,11 +41,11 @@
   "scripts": {
     "clean": "rm -rf dist",
     "prebuild": "npm run clean",
-    "build:iife": "bun build ./index.js --bundle --outfile=./dist/sigpro.js --format=iife --global-name=SigPro",
-    "build:docs": "bun build ./index.js --bundle --outfile=./docs/sigpro.js --format=iife --global-name=SigPro",
-    "build:iife:min": "bun build ./index.js --bundle --outfile=./dist/sigpro.min.js --format=iife --global-name=SigPro --minify",
-    "build:esm": "bun build ./index.js --bundle --outfile=./dist/sigpro.esm.js --format=esm",
-    "build:esm:min": "bun build ./index.js --bundle --outfile=./dist/sigpro.esm.min.js --format=esm --minify",
+    "build:iife": "bun build ./sigpro_IIFE.js --bundle --outfile=./dist/sigpro.js --format=iife --global-name=SigPro",
+    "build:iife:min": "bun build ./sigpro_IIFE.js --bundle --outfile=./dist/sigpro.min.js --format=iife --global-name=SigPro --minify",
+    "build:esm": "bun build ./sigpro_ESM.js --bundle --outfile=./dist/sigpro.esm.js --format=esm",
+    "build:esm:min": "bun build ./sigpro_ESM.js --bundle --outfile=./dist/sigpro.esm.min.js --format=esm --minify",
+    "build:docs": "bun build ./sigpro_IIFE.js --bundle --outfile=./docs/sigpro.js --format=iife --global-name=SigPro",
     "build": "bun run build:iife && bun run build:iife:min && bun run build:esm && bun run build:esm:min && bun run build:docs",
     "docs": "bun x serve docs",
     "prepublishOnly": "npm run build"
