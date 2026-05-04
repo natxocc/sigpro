@@ -1,6 +1,6 @@
 {
   "name": "sigpro",
-  "version": "1.2.32",
+  "version": "1.2.35",
   "type": "module",
   "license": "MIT",
   "author": {
@@ -19,12 +19,12 @@
       "script": "./dist/sigpro.min.js",
       "types": "./sigpro.d.ts"
     },
-    "./vite": "./vite/index.js",
-    "./vite/*": "./vite/*.js"
+    "./vite": {
+      "import": "./dist/vite.js"
+    }
   },
   "files": [
     "dist/",
-    "vite/",
     "README.md",
     "LICENSE",
     "sigpro.d.ts"
@@ -39,21 +39,22 @@
     "email": "sigpro@natxocc.com"
   },
   "scripts": {
+    "del": "bun pm cache rm && rm -f bun.lockb && rm -f bun.lock",
     "clean": "rm -rf dist",
     "prebuild": "npm run clean",
-    "build:iife": "bun build ./sigpro_umd.js --bundle --outfile=./dist/sigpro.js --format=iife --global-name=sp",
-    "build:iife:min": "bun build ./sigpro_umd.js --bundle --outfile=./dist/sigpro.min.js --format=iife --global-name=sp --minify",
-    "build:esm": "bun build ./sigpro.js --bundle --outfile=./dist/sigpro.esm.js --format=esm",
-    "build:esm:min": "bun build ./sigpro.js --bundle --outfile=./dist/sigpro.esm.min.js --format=esm --minify",
-    "build:docs": "bun build ./sigpro_umd.js --bundle --outfile=./docs/sigpro.js --format=iife --global-name=sp",
-    "build": "bun run build:iife && bun run build:iife:min && bun run build:esm && bun run build:esm:min && bun run build:docs",
-    "docs": "bun x serve docs",
-    "prepublishOnly": "npm run build"
+    "build:iife": "bun build ./src/build_umd.js --bundle --outfile=./dist/sigpro.js --format=iife --global-name=sp",
+    "build:iife:min": "bun build ./src/build_umd.js --bundle --outfile=./dist/sigpro.min.js --format=iife --global-name=sp --minify",
+    "build:esm": "bun build ./src/sigpro.js --bundle --outfile=./dist/sigpro.esm.js --format=esm",
+    "build:esm:min": "bun build ./src/sigpro.js --bundle --outfile=./dist/sigpro.esm.min.js --format=esm --minify",
+    "build:copy": "cp ./src/vite.js ./dist/vite.js && cp ./dist/sigpro.js ./docs/sigpro.js",
+    "build": "bun run build:iife && bun run build:iife:min && bun run build:esm && bun run build:esm:min && bun run build:copy",
+    "docs": "bun x serve docs"
   },
   "keywords": [
     "signals",
     "reactivity",
     "reactive",
+    "pure",
     "vanilla",
     "js",
     "ui",
@@ -62,7 +63,6 @@
     "frontend",
     "spa",
     "lightweight",
-    "no-vdom",
     "sigpro"
   ]
 }

@@ -213,7 +213,7 @@ const watch = (sources, cb) => {
     return () => dispose(effect)
   }
   const effect = createEffect(() => {
-    const vals = Array.isArray(sources) ? sources.map(s => s()) : sources()
+    const vals = isArr(sources) ? sources.map(s => s()) : sources()
     untrack(() => cb(vals))
   })
   effect()
@@ -238,10 +238,7 @@ const validateAttr = (key, val) => {
   if (val == null || val === false) return null
   if (isDangerousAttr(key)) {
     const sVal = String(val)
-    if (DANGEROUS_PROTOCOL.test(sVal)) {
-      console.warn(`[SigPro] Bloqueado protocolo peligroso en ${key}`)
-      return '#'
-    }
+    if (DANGEROUS_PROTOCOL.test(sVal)) return '#'
   }
   return val
 }

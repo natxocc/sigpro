@@ -1,4 +1,4 @@
-// sigpro.js
+// src/sigpro.js
 var isFunc = (f) => typeof f === "function";
 var isObj = (o) => o && typeof o === "object";
 var isArr = Array.isArray;
@@ -224,7 +224,7 @@ var watch = (sources, cb) => {
     return () => dispose(effect2);
   }
   const effect = createEffect(() => {
-    const vals = Array.isArray(sources) ? sources.map((s) => s()) : sources();
+    const vals = isArr(sources) ? sources.map((s) => s()) : sources();
     untrack(() => cb(vals));
   });
   effect();
@@ -250,10 +250,8 @@ var validateAttr = (key, val) => {
     return null;
   if (isDangerousAttr(key)) {
     const sVal = String(val);
-    if (DANGEROUS_PROTOCOL.test(sVal)) {
-      console.warn(`[SigPro] Bloqueado protocolo peligroso en ${key}`);
+    if (DANGEROUS_PROTOCOL.test(sVal))
       return "#";
-    }
   }
   return val;
 };
