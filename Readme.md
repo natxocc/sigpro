@@ -3,7 +3,7 @@ Blazing fast, zero-overhead, vanilla JS renderer with atomic reactivity.
 # `SigPro`
 
 [![npm version](https://img.shields.io/npm/v/sigpro.svg)](https://www.npmjs.com/package/sigpro)
-[![brotli size](https://img.shields.io/bundlejs/size/sigpro?compression=brotli)](https://bundlejs.com/?q=sigpro)
+[![js size](https://img.shields.io/badge/js_size-2.8_kB_brotli-blue)]
 [![license](https://img.shields.io/npm/l/sigpro)](https://github.com/natxocc/sigpro/blob/main/LICENSE)
 
 [**Explore the Docs →**](https://sigpro.natxocc.com/#/)
@@ -62,7 +62,7 @@ Create reactive, persistent components with a syntax that feels like Vanilla JS,
 ```
 
 ```javascript
-import "sigpro";
+import { $, mount } from "sigpro";
 
 const Counter = () => {
   // Simple signal
@@ -89,7 +89,7 @@ mount(Counter, "#app");
 
 | Feature | **SigPro** | React / Vue | Svelte |
 | :--- | :--- | :--- | :--- |
-| **Payload (Gzipped)** | **~3KB** | ~30KB - 50KB | ~5KB (Compiled Runtime) |
+| **Payload (Gzipped)** | **<3KB** | ~30KB - 50KB | ~5KB (Compiled Runtime) |
 | **State Logic** | **Atomic Signals** | Virtual DOM Diffing | Compiler Dirty Bits |
 | **Update Speed** | **Direct Node Access** | Component Re-render | Block Reconciliation |
 | **Native Persistence** | **Included ($)** | Requires Plugins | Manual |

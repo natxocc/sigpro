@@ -1,6 +1,6 @@
-# The Signal Function: `$( )`
+# The Signal Function: `$()`
 
-The `$( )` function is the core constructor of SigPro. It defines how data is stored, computed, and persisted.
+The `$()` function is the **only** reactive primitive in SigPro. It defines how data is stored, computed, and persisted. For complex nested objects, you compose signals naturally.
 
 ## Function Signature
 
@@ -99,175 +99,181 @@ When calling the setter, you can pass an **updater function** to access the curr
 
 ---
 
-# The Reactive Object: `$$( )`
+## Composing Signals for Complex State
 
-The `$$( )` function creates a reactive proxy for complex nested objects. Unlike `$()`, which tracks a single value, `$$()` tracks **every property access** automatically.
-
-## Function Signature
-
-```typescript
-$$<T extends object>(obj: T): T
-```
-
-| Parameter | Type | Required | Description |
-| :--- | :--- | :--- | :--- |
-| **`obj`** | `object` | Yes | The object to make reactive. Properties are tracked recursively. |
-
-**Returns:** A reactive proxy that behaves like the original object but triggers updates when any property changes.
-
----
-
-## Usage Patterns
+For nested objects, **compose signals** instead of using magic proxies. This gives you explicit control over reactivity and memory.
 
 ### 1. Simple Object
 
-<div id="demo-dollar-simple"></div>
+<div id="demo-compose-simple"></div>
 
 ```javascript
 {
-  const state = $$({ count: 0, name: "Juan" });
-  watch(() => console.log(`Count is now ${state.count}`));
+  const count = $(0);
+  const name = $("Juan");
+  
+  // Optionally create a derived combined state
+  const state = $(() => ({ count: count(), name: name() }));
 
   const App = () => div([
-    p(() => `Count: ${state.count}, Name: ${state.name}`),
-    button({ onClick: () => state.count++ }, "Increment count"),
-    button({ onClick: () => state.name = state.name === "Juan" ? "Ana" : "Juan" }, "Toggle name")
+    p(() => `Count: ${count()}, Name: ${name()}`),
+    button({ onClick: () => count(count() + 1) }, "Increment count"),
+    button({ onClick: () => name(name() === "Juan" ? "Ana" : "Juan") }, "Toggle name")
   ]);
-  setTimeout(() => mount(App, '#demo-dollar-simple'), 50);
+  setTimeout(() => mount(App, '#demo-compose-simple'), 50);
 }
 ```
 
-### 2. Deep Reactivity
+### 2. Deeply Nested State
 
-<div id="demo-dollar-deep"></div>
+<div id="demo-compose-deep"></div>
 
 ```javascript
 {
-  const user = $$({
-    profile: {
-      name: "Juan",
-      address: { city: "Madrid", zip: "28001" }
-    }
-  });
+  const profileName = $("Juan");
+  const profileCity = $("Madrid");
+  const profileZip = $("28001");
 
-  watch(() => user.profile.address.city, () => console.log("City changed"));
+  // Computed derived values
+  const fullAddress = $(() => `${profileCity()}, ${profileZip()}`);
+  
+  watch(profileCity, () => console.log("City changed to:", profileCity()));
 
   const App = () => div([
-    p(() => `City: ${user.profile.address.city}`),
-    button({ onClick: () => user.profile.address.city = "Barcelona" }, "Change to Barcelona")
+    p(() => `Name: ${profileName()}`),
+    p(() => `City: ${profileCity()}`),
+    p(() => `Full address: ${fullAddress()}`),
+    button({ onClick: () => profileCity("Barcelona") }, "Change to Barcelona")
   ]);
-  setTimeout(() => mount(App, '#demo-dollar-deep'), 50);
+  setTimeout(() => mount(App, '#demo-compose-deep'), 50);
 }
 ```
 
 ### 3. Arrays
 
-<div id="demo-dollar-array"></div>
+<div id="demo-compose-array"></div>
 
 ```javascript
 {
-  const todos = $$([
+  const todos = $([
     { id: 1, text: "Learn SigPro", done: false },
     { id: 2, text: "Build an app", done: false }
   ]);
 
-  watch(() => todos.length, () => console.log(`You have ${todos.length} todos`));
+  const todoCount = $(() => todos().length);
+  
+  watch(todoCount, () => console.log(`You have ${todoCount()} todos`));
 
   const App = () => div([
-    ul(() => todos.map(todo => li(todo.text + (todo.done ? " ✓" : "")))),
-    button({ onClick: () => todos.push({ id: Date.now(), text: "New todo", done: false }) }, "Add todo"),
-    button({ onClick: () => todos[0].done = !todos[0].done }, "Toggle first todo")
+    ul(() => todos().map(todo => li(todo.text + (todo.done ? " ✓" : "")))),
+    button({ onClick: () => todos(prev => [...prev, { id: Date.now(), text: "New todo", done: false }]) }, "Add todo"),
+    button({ onClick: () => {
+      const updated = [...todos()];
+      updated[0] = { ...updated[0], done: !updated[0].done };
+      todos(updated);
+    }}, "Toggle first todo")
   ]);
-  setTimeout(() => mount(App, '#demo-dollar-array'), 50);
+  setTimeout(() => mount(App, '#demo-compose-array'), 50);
 }
 ```
 
-### 4. Mixed with Signals
+### 4. Complete Form Example
 
-<div id="demo-dollar-mixed"></div>
+<div id="demo-compose-form"></div>
 
 ```javascript
 {
-  const form = $$({
-    fields: { email: "", password: "" },
-    isValid: $(false)
-  });
+  const email = $("");
+  const password = $("");
+  const isValid = $(() => email().includes("@") && password().length > 6);
 
-  const canSubmit = $(() => 
-    form.fields.email.includes("@") && 
-    form.fields.password.length > 6
-  );
-
-  watch(canSubmit, valid => form.isValid(valid));
+  watch(isValid, valid => console.log("Form valid:", valid));
 
   const App = () => div([
-    input({ type: "email", placeholder: "Email", value: () => form.fields.email, onInput: e => form.fields.email = e.target.value }),
-    input({ type: "password", placeholder: "Password", value: () => form.fields.password, onInput: e => form.fields.password = e.target.value }),
-    p(() => `Form valid: ${form.isValid() ? "Yes" : "No"}`)
+    input({ 
+      type: "email", 
+      placeholder: "Email", 
+      value: email, 
+      onInput: e => email(e.target.value) 
+    }),
+    input({ 
+      type: "password", 
+      placeholder: "Password", 
+      value: password, 
+      onInput: e => password(e.target.value) 
+    }),
+    p(() => `Form valid: ${isValid() ? "Yes" : "No"}`)
   ]);
-  setTimeout(() => mount(App, '#demo-dollar-mixed'), 50);
+  setTimeout(() => mount(App, '#demo-compose-form'), 50);
 }
 ```
 
 ---
 
-## Key Differences: `$()` vs `$$()`
+## Best Practices for Complex State
 
-| Feature | `$()` Signal | `$$()` Reactive |
-| :--- | :--- | :--- |
-| **Primitives** | ✅ Works directly | ❌ Needs wrapper object |
-| **Objects** | Manual tracking | ✅ Automatic deep tracking |
-| **Nested properties** | ❌ Not reactive | ✅ Fully reactive |
-| **Arrays** | Requires reassignment | ✅ Methods (push, pop, etc.) work |
-| **Syntax** | `count()` / `count(5)` | `state.count = 5` |
-| **LocalStorage** | ✅ Built-in | ❌ (use `$()` for persistence) |
-| **Performance** | Lighter | Slightly heavier (Proxy) |
-| **Destructuring** | ✅ Safe | ❌ Breaks reactivity |
-
----
-
-## When to Use Each
-
-### Use `$()` when:
-
-<div id="demo-use-dollar"></div>
+### ✅ DO: Compose signals explicitly
 
 ```javascript
-{
-  const count = $(0);
-  const firstName = $("John");
-  const lastName = $("Doe");
-  const fullName = $(() => `${firstName()} ${lastName()}`);
-
-  const App = () => div([
-    p(() => `Count: ${count()}`),
-    button({ onClick: () => count(count() + 1) }, "Count up"),
-    p(() => `Full name: ${fullName()}`),
-    input({ value: firstName, placeholder: "First name" }),
-    input({ value: lastName, placeholder: "Last name" })
-  ]);
-  setTimeout(() => mount(App, '#demo-use-dollar'), 50);
+// Clear, predictable, and memory-safe
+const user = {
+  name: $("Juan"),
+  email: $("juan@example.com"),
+  preferences: {
+    theme: $("dark"),
+    notifications: $(true)
+  }
 }
+
+// Computed values derived from composition
+const userDisplay = $(() => `${user.name()} <${user.email()}>`)
 ```
 
-### Use `$$()` when:
-
-<div id="demo-use-dollar-dollar"></div>
+### ✅ DO: Create store patterns
 
 ```javascript
-{
-  const form = $$({ email: "", password: "" });
-  const settings = $$({ theme: "dark", notifications: true });
-
-  const App = () => div([
-    input({ placeholder: "Email", onInput: e => form.email = e.target.value }),
-    input({ placeholder: "Password", type: "password", onInput: e => form.password = e.target.value }),
-    p(() => `Email: ${form.email}, Password: ${form.password}`),
-    button({ onClick: () => settings.theme = settings.theme === "dark" ? "light" : "dark" }, "Toggle theme"),
-    p(() => `Current theme: ${settings.theme}`)
-  ]);
-  setTimeout(() => mount(App, '#demo-use-dollar-dollar'), 50);
+const createUserStore = () => {
+  const name = $("")
+  const email = $("")
+  
+  const isValid = $(() => name().length > 0 && email().includes("@"))
+  
+  const actions = {
+    setName: (value) => name(value),
+    setEmail: (value) => email(value),
+    reset: () => {
+      name("")
+      email("")
+    }
+  }
+  
+  return { name, email, isValid, ...actions }
 }
+
+const userStore = createUserStore()
+```
+
+### ❌ DON'T: Try to wrap objects with signals
+
+```javascript
+// Wrong - loses reactivity on nested properties
+const user = $({ name: "Juan", email: "..." })
+user().name = "Ana" // ❌ Not reactive!
+
+// Correct - each property its own signal
+const userName = $("Juan")
+const userEmail = $("...")
+```
+
+### ❌ DON'T: Destructure signals in reactive contexts
+
+```javascript
+// Wrong - breaks tracking
+const { name, email } = user
+watch(() => name(), ...) // ❌ 'name' is not tracked properly
+
+// Correct - use the original signal
+watch(() => user.name(), ...) // ✅
 ```
 
 ---
@@ -276,115 +282,121 @@ $$<T extends object>(obj: T): T
 
 ### ✅ DO:
 ```javascript
-// Access properties directly
-state.count = 10;
-state.user.name = "Ana";
-todos.push(newItem);
+// Update by recreating objects for arrays
+todos(prev => [...prev, newTodo])
 
-// Track in effects
-watch(() => state.count, () => {});
-watch(() => state.user.name, () => {});
+// Update objects immutably
+const current = user()
+user({ ...current, name: "Ana" })
+
+// Track individual signals
+watch(() => user.name(), () => {})
+watch(() => user.email(), () => {})
 ```
 
 ### ❌ DON'T:
 ```javascript
-// Destructuring breaks reactivity
-const { count, user } = state; // ❌ count and user are not reactive
+// Mutate objects directly
+user().name = "Ana" // ❌ Not reactive
 
-// Reassigning the whole object
-state = { count: 10 }; // ❌ Loses reactivity
+// Mutate arrays in place
+todos().push(newTodo) // ❌ Not reactive
 
-// Using primitive directly
-const count = $$(0); // ❌ Doesn't work (use $() instead)
+// Destructure in component bodies
+const { name, email } = user // ❌ Breaks reactivity
 ```
 
 ---
 
 ## Automatic Cleanup
 
-Like all SigPro reactive primitives, `$$()` integrates with the cleanup system:
+All signals integrate with the cleanup system:
 
-- Effects tracking reactive properties are automatically disposed
-- No manual cleanup needed
-- Works with `watch`, `when`, and `each`
+```javascript
+// Effects are automatically disposed when components unmount
+const name = $("Juan")
+watch(name, () => console.log("Name changed"))
 
----
-
-## Technical Comparison
-
-| Aspect | `$()` | `$$()` |
-| :--- | :--- | :--- |
-| **Implementation** | Closure with Set | Proxy with WeakMap |
-| **Tracking** | Explicit (function call) | Implicit (property access) |
-| **Memory** | Minimal | Slightly more (WeakMap cache) |
-| **Use Case** | Simple state | Complex state |
-| **Learning Curve** | Low | Low (feels like plain JS) |
+// Manual cleanup if needed
+const stop = watch(name, callback)
+stop() // Clean up manually
+```
 
 ---
 
 ## Complete Example
 
-<div id="demo-complete"></div>
+<div id="demo-complete-final"></div>
 
 ```javascript
 {
-  const app = {
-    theme: $("dark", "theme_complete"),
-    sidebarOpen: $(true),
-    user: $$({ name: "", email: "", preferences: { notifications: true, language: "es" } }),
-    isLoggedIn: $(() => !!app.user.name),
-    login(name, email) {
-      app.user.name = name;
-      app.user.email = email;
-    },
-    logout() {
-      app.user.name = "";
-      app.user.email = "";
-      app.user.preferences.notifications = true;
-    }
-  };
-
+  // All state as explicit signals
+  const theme = $("dark", "theme_complete")
+  const sidebarOpen = $(true)
+  const userName = $("")
+  const userEmail = $("")
+  const notifications = $(true)
+  const language = $("es")
+  
+  // Computed signals
+  const isLoggedIn = $(() => !!userName() && !!userEmail())
+  
+  // Actions as plain functions
+  const login = (name, email) => {
+    userName(name)
+    userEmail(email)
+  }
+  
+  const logout = () => {
+    userName("")
+    userEmail("")
+    notifications(true) // Reset on logout
+  }
+  
+  // Components using signals directly
   const LoginForm = () => div([
-    input({ placeholder: "Name", onInput: e => app.user.name = e.target.value }),
-    input({ placeholder: "Email", onInput: e => app.user.email = e.target.value }),
-    button({ onClick: () => app.login(app.user.name, app.user.email) }, "Login")
-  ]);
+    input({ 
+      placeholder: "Name", 
+      onInput: e => userName(e.target.value) 
+    }),
+    input({ 
+      placeholder: "Email", 
+      onInput: e => userEmail(e.target.value) 
+    }),
+    button({ 
+      onClick: () => login(userName(), userEmail()) 
+    }, "Login")
+  ])
 
   const UserProfile = () => div([
-    h2(() => `Welcome ${app.user.name}`),
-    p(() => `Email: ${app.user.email}`),
-    p(() => `Notifications: ${app.user.preferences.notifications ? "ON" : "OFF"}`),
-    button({ onClick: () => app.user.preferences.notifications = !app.user.preferences.notifications }, "Toggle Notifications"),
-    button({ onClick: app.logout }, "Logout")
-  ]);
+    h2(() => `Welcome ${userName()}`),
+    p(() => `Email: ${userEmail()}`),
+    p(() => `Notifications: ${notifications() ? "ON" : "OFF"}`),
+    p(() => `Language: ${language()}`),
+    button({ 
+      onClick: () => notifications(!notifications()) 
+    }, "Toggle Notifications"),
+    button({ onClick: logout }, "Logout")
+  ])
 
   const App = () => div({ class: "complete-example" }, [
-    when(() => app.isLoggedIn(), () => UserProfile(), () => LoginForm())
-  ]);
+    when(() => isLoggedIn(), () => UserProfile(), () => LoginForm())
+  ])
 
-  setTimeout(() => mount(App, '#demo-complete'), 50);
+  setTimeout(() => mount(App, '#demo-complete-final'), 50)
 }
 ```
 
 ---
 
-## Migration from `$()` to `$$()`
+## Summary
 
-If you have code using nested signals:
+With **only `$()`** as your reactive primitive:
 
-```javascript
-// Before - Manual nesting
-const user = $({
-  name: $(""),
-  email: $("")
-});
-user().name("Juan"); // Need to call inner signal
+- ✅ **Explicit** - You know exactly what's reactive
+- ✅ **Memory safe** - No hidden proxies or WeakMap caches
+- ✅ **Predictable** - No magic, just signals
+- ✅ **Performant** - Minimal overhead
+- ✅ **Debuggable** - Clear data flow
 
-// After - Automatic nesting
-const user = $$({
-  name: "",
-  email: ""
-});
-user.name = "Juan"; // Direct assignment
-```
-
+Complex state is built by **composing signals**, not by wrapping objects. This gives you the same power as reactive proxies but with better control and fewer surprises.

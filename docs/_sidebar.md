@@ -2,15 +2,14 @@
 
 * **Introduction**
   * [Installation](install.md)
-  * [Vite Plugin](vite/plugin.md)
+  * [Router](router.md)
 
 * **API Reference**
   * [Quick Start](api/quick.md)
-  * [Signals & Proxies](api/signal.md)
+  * [$ignal](api/signal.md)
   * [watch](api/watch.md)
   * [when](api/when.md)
   * [each](api/each.md)
-  * [router](api/router.md)
   * [mount](api/mount.md)
   * [h](api/h.md)
 

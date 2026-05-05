@@ -9,8 +9,6 @@ var activeOwner = null;
 var isFlushing = false;
 var batchDepth = 0;
 var effectQueue = new Set;
-var proxyCache = new WeakMap;
-var ITER = Symbol("iter");
 var MOUNTED_NODES = new WeakMap;
 var SVG_NS = "http://www.w3.org/2000/svg";
 var XLINK_NS = "http://www.w3.org/1999/xlink";
@@ -170,52 +168,6 @@ var $ = (val, key = null) => {
     trackUpdate(subs);
     return val;
   };
-};
-var $$ = (target) => {
-  if (!isObj(target))
-    return target;
-  const cached = proxyCache.get(target);
-  if (cached)
-    return cached;
-  const subs = new Map;
-  const getSubs = (key) => {
-    let set = subs.get(key);
-    if (!set)
-      subs.set(key, set = new Set);
-    return set;
-  };
-  const proxy = new Proxy(target, {
-    get(target2, key, receiver) {
-      if (typeof key !== "symbol")
-        trackUpdate(getSubs(key));
-      return $$(Reflect.get(target2, key, receiver));
-    },
-    set(target2, key, value, receiver) {
-      const hadKey = Reflect.has(target2, key);
-      const oldValue = Reflect.get(target2, key, receiver);
-      const result = Reflect.set(target2, key, value, receiver);
-      if (result && !Object.is(oldValue, value)) {
-        trackUpdate(getSubs(key), true);
-        if (!hadKey)
-          trackUpdate(getSubs(ITER), true);
-      }
-      return result;
-    },
-    deleteProperty(target2, key) {
-      const result = Reflect.deleteProperty(target2, key);
-      if (result) {
-        trackUpdate(getSubs(key), true);
-        trackUpdate(getSubs(ITER), true);
-      }
-      return result;
-    },
-    ownKeys(target2) {
-      trackUpdate(getSubs(ITER));
-      return Reflect.ownKeys(target2);
-    }
-  });
-  proxyCache.set(target, proxy);
-  return proxy;
 };
 var watch = (sources, cb) => {
   if (cb === undefined) {
@@ -466,39 +418,6 @@ var each = (src, itemFn, keyField) => {
   });
   return root;
 };
-var router = (routes) => {
-  const getHash = () => window.location.hash.slice(1) || "/";
-  const path = $(getHash());
-  const handler = () => path(getHash());
-  window.addEventListener("hashchange", handler);
-  onUnmount(() => window.removeEventListener("hashchange", handler));
-  const hook = h("div", { class: "router-hook" });
-  let currentView = null;
-  watch([path], () => {
-    const cur = path();
-    const route = routes.find((r) => {
-      const p1 = r.path.split("/").filter(Boolean);
-      const p2 = cur.split("/").filter(Boolean);
-      return p1.length === p2.length && p1.every((p, i) => p[0] === ":" || p === p2[i]);
-    }) || routes.find((r) => r.path === "*");
-    if (route) {
-      currentView?.destroy();
-      const params = {};
-      route.path.split("/").filter(Boolean).forEach((p, i) => {
-        if (p[0] === ":")
-          params[p.slice(1)] = cur.split("/").filter(Boolean)[i];
-      });
-      router.params(params);
-      currentView = render(() => isFunc(route.component) ? route.component(params) : route.component);
-      hook.replaceChildren(currentView.container);
-    }
-  });
-  return hook;
-};
-router.params = $({});
-router.to = (p) => window.location.hash = p.replace(/^#?\/?/, "#/");
-router.back = () => window.history.back();
-router.path = () => window.location.hash.replace(/^#/, "") || "/";
 var Fragment = (props) => props.children;
 var mount = (comp, target) => {
   const t = typeof target === "string" ? doc.querySelector(target) : target;
@@ -519,7 +438,7 @@ if (typeof window !== "undefined") {
 export {
   when,
   watch,
-  router,
+  render,
   onUnmount,
   mount,
   isObj,
@@ -529,6 +448,5 @@ export {
   each,
   batch,
   Fragment,
-  $$,
   $
 };

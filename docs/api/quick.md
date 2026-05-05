@@ -169,7 +169,7 @@ batch(() => {
 Hash‑based SPA router. Returns a DOM node that renders the current route.
 
 ```javascript
-import { router } from 'sigpro'
+import { router } from 'sigpro/router' // import router
 
 const routes = [
   { path: '/', component: () => div({}, 'Home') },

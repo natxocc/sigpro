@@ -182,7 +182,7 @@ SigPro stands out by removing the "Build Step" tax and the "Virtual DOM" overhea
 
 | Feature            | **SigPro**       | **SolidJS**  | **Svelte**   | **React**   | **Vue**     |
 | :----------------- | :--------------- | :----------- | :----------- | :---------- | :---------- |
-| **Bundle Size**    | **~3KB**         | ~7KB         | ~4KB         | ~40KB+      | ~30KB       |
+| **Bundle Size**    | **<3KB**         | ~7KB         | ~4KB         | ~40KB+      | ~30KB       |
 | **DOM Strategy**   | **Direct DOM**   | Direct DOM   | Compiled DOM | Virtual DOM | Virtual DOM |
 | **Reactivity**     | **Fine-grained** | Fine-grained | Compiled     | Re-renders  | Proxies     |
 | **Build Step**     | **Optional**     | Required     | Required     | Required    | Optional    |
