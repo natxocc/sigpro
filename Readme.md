@@ -122,7 +122,7 @@ src/
 ```javascript
 // vite.config.js
 import { defineConfig } from 'vite';
-import { sigproRouter } from 'sigpro/vite';
+import { sigproRouter } from 'sigpro/router';
 
 export default defineConfig({
   plugins: [sigproRouter()]
