@@ -1,6 +1,6 @@
 {
   "name": "sigpro",
-  "version": "1.2.36",
+  "version": "1.2.37",
   "type": "module",
   "license": "MIT",
   "author": {
@@ -21,6 +21,9 @@
     },
     "./router": {
       "import": "./dist/router.js"
+    },
+    "./utils": {
+      "import": "./dist/utils.js"
     }
   },
   "files": [
@@ -47,8 +50,9 @@
     "build:esm": "bun build ./src/sigpro.js --bundle --outfile=./dist/sigpro.esm.js --format=esm",
     "build:esm:min": "bun build ./src/sigpro.js --bundle --outfile=./dist/sigpro.esm.min.js --format=esm --minify",
     "build:router": "bun build ./src/router.js --bundle --outfile=./dist/router.js --format=esm --external:fs --external:path",
+    "build:utils": "bun build ./src/utils.js --bundle --outfile=./dist/utils.js --format=esm --external:fs --external:path",
     "build:copy": "cp ./dist/sigpro.js ./docs/sigpro.js",
-    "build": "bun run build:iife && bun run build:iife:min && bun run build:esm && bun run build:esm:min && bun run build:router && bun run build:copy",
+    "build": "bun run build:iife && bun run build:iife:min && bun run build:esm && bun run build:esm:min && bun run build:router && bun run build:utils && bun run build:copy",
     "docs": "bun x serve docs"
   },
   "keywords": [
