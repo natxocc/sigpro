@@ -1,433 +1,250 @@
-const isFunc = f => typeof f === "function"
-const isObj = o => o && typeof o === "object"
-const isArr = Array.isArray
-const doc = typeof document !== "undefined" ? document : null
-const ensureNode = n => n?._isRuntime ? n.container : (n instanceof Node ? n : doc.createTextNode(n == null ? "" : String(n)))
+const isFunc = f => typeof f == "function";
+const isObj = o => o && typeof o == "object";
+const isArr = Array.isArray;
+const doc = typeof document < "u" ? document : null;
+const txt = s => doc.createTextNode(s == null ? "" : String(s));
+const toNd = n => n?._rt ? n._cnt : (n instanceof Node ? n : txt(n));
+const Fragment = p => p.children;
+const val = v => isFunc(v) ? v() : v;
 
-let activeEffect = null
-let activeOwner = null
-let isFlushing = false
-let batchDepth = 0
-const effectQueue = new Set()
-const MOUNTED_NODES = new WeakMap()
+let aEff = null, aOwn = null, isFlushing = 0, bDepth = 0;
+const eQ = new Set(), MOUNTED = new WeakMap();
 
-const SVG_NS = "http://www.w3.org/2000/svg"
-const XLINK_NS = "http://www.w3.org/1999/xlink"
-const SVG_TAGS = new Set("svg,path,circle,rect,line,polyline,polygon,g,defs,text,textPath,tspan,use,symbol,image,marker,ellipse".split(","))
+const SVG_NS = "http://www.w3.org/2000/svg", XLINK = "http://www.w3.org/1999/xlink";
+const SVG_TAGS = new Set("svg,path,circle,rect,line,polyline,polygon,g,defs,text,textPath,tspan,use,symbol,image,marker,ellipse".split(","));
+const DANG_ATTR = new Set(["src","href","formaction","action","background","code","archive"]);
 
-const dispose = eff => {
-  if (!eff || eff._disposed) return
-  eff._disposed = true
-  const stack = [eff]
-  while (stack.length) {
-    const e = stack.pop()
-    if (e._cleanups) {
-      e._cleanups.forEach(fn => fn())
-      e._cleanups.clear()
-    }
-    if (e._children) {
-      e._children.forEach(child => stack.push(child))
-      e._children.clear()
-    }
-    if (e._deps) {
-      e._deps.forEach(depSet => depSet.delete(e))
-      e._deps.clear()
-    }
+const clr = s => { if(s){ s.forEach(f => f()); s.clear(); } };
+const dispose = e => {
+  if (!e || e._x) return;
+  e._x = 1;
+  let st = [e], c;
+  while ((c = st.pop())) {
+    clr(c._c);
+    if (c._ch) { c._ch.forEach(x => st.push(x)); c._ch.clear(); }
+    if (c._d) { c._d.forEach(d => d.delete(c)); c._d.clear(); }
   }
-}
-
-const onUnmount = fn => {
-  if (activeOwner) (activeOwner._cleanups ||= new Set()).add(fn)
-}
-
-const untrack = fn => {
-  const p = activeEffect
-  activeEffect = null
-  try { return fn() } finally { activeEffect = p }
-}
-
-const createEffect = (fn, isComputed = false) => {
-  const effect = () => {
-    if (effect._disposed) return
-    if (effect._deps) effect._deps.forEach(s => s.delete(effect))
-    if (effect._cleanups) {
-      effect._cleanups.forEach(c => c())
-      effect._cleanups.clear()
-    }
-    const prevEffect = activeEffect
-    const prevOwner = activeOwner
-    activeEffect = activeOwner = effect
-    try {
-      return effect._result = fn()
-    } catch (e) {
-      console.error("[SigPro]", e)
-    } finally {
-      activeEffect = prevEffect
-      activeOwner = prevOwner
-    }
-  }
-  effect._deps = effect._cleanups = effect._children = null
-  effect._disposed = false
-  effect._isComputed = isComputed
-  effect._depth = activeEffect ? activeEffect._depth + 1 : 0
-  effect._mounts = []
-  effect._parent = activeOwner
-  if (activeOwner) (activeOwner._children ||= new Set()).add(effect)
-  return effect
-}
-
-const flush = () => {
-  if (isFlushing) return
-  isFlushing = true
-  const sorted = Array.from(effectQueue).sort((a, b) => a._depth - b._depth)
-  effectQueue.clear()
-  for (const e of sorted) if (!e._disposed) e()
-  isFlushing = false
-}
-
-const batch = fn => {
-  batchDepth++
-  try {
-    return fn()
-  } finally {
-    batchDepth--
-    if (batchDepth === 0 && effectQueue.size > 0 && !isFlushing) flush()
-  }
-}
-
-const trackUpdate = (subs, trigger = false) => {
-  if (!trigger && activeEffect && !activeEffect._disposed) {
-    subs.add(activeEffect);
-    (activeEffect._deps ||= new Set()).add(subs)
-  } else if (trigger && subs.size > 0) {
-    let hasQueue = false
-    for (const e of subs) {
-      if (e === activeEffect || e._disposed) continue
-      if (e._isComputed) {
-        e._dirty = true
-        if (e._subs) trackUpdate(e._subs, true)
-      } else {
-        effectQueue.add(e)
-        hasQueue = true
-      }
-    }
-    if (hasQueue && !isFlushing && batchDepth === 0) queueMicrotask(flush)
-  }
-}
-
-const $ = (val, key = null) => {
-  const subs = new Set()
-  if (isFunc(val)) {
-    let cache
-    const computed = () => {
-      if (computed._dirty) {
-        const prev = activeEffect
-        activeEffect = computed
-        try {
-          const next = val()
-          if (!Object.is(cache, next)) {
-            cache = next
-            trackUpdate(subs, true)
-          }
-        } finally {
-          activeEffect = prev
-        }
-        computed._dirty = false
-      }
-      trackUpdate(subs)
-      return cache
-    }
-    computed._isComputed = true
-    computed._subs = subs
-    computed._dirty = true
-    computed._deps = null
-    computed._disposed = false
-    return computed
-  }
-  if (key) try { val = JSON.parse(localStorage.getItem(key)) ?? val } catch (e) { }
-  return (...args) => {
-    if (args.length) {
-      const next = isFunc(args[0]) ? args[0](val) : args[0]
-      if (!Object.is(val, next)) {
-        val = next
-        if (key) localStorage.setItem(key, JSON.stringify(val))
-        trackUpdate(subs, true)
-      }
-    }
-    trackUpdate(subs)
-    return val
-  }
-}
-
-const watch = (sources, cb) => {
-  if (cb === undefined) {
-    const effect = createEffect(sources)
-    effect()
-    return () => dispose(effect)
-  }
-  const effect = createEffect(() => {
-    const vals = isArr(sources) ? sources.map(s => s()) : sources()
-    untrack(() => cb(vals))
-  })
-  effect()
-  return () => dispose(effect)
-}
-
-const cleanupNode = (node) => {
-  if (!node) return;
-  if (node._cleanups) {
-    node._cleanups.forEach(fn => fn());
-    node._cleanups.clear();
-  }
-  if (node._ownerEffect) dispose(node._ownerEffect);
-  if (node.childNodes) node.childNodes.forEach(n => cleanupNode(n));
 };
 
-var DANGEROUS_PROTOCOL = /^\s*(javascript|data|vbscript):/i;
-var DANGEROUS_URI_ATTRS = new Set(["src", "href", "formaction", "action", "background", "code", "archive"]);
-var isDangerousAttr = (key) => DANGEROUS_URI_ATTRS.has(key) || key.startsWith("on");
+const onUnmount = f => aOwn && (aOwn._c ||= new Set()).add(f);
+const untrack = f => { let p = aEff; aEff = null; try { return f() } finally { aEff = p } };
 
-const validateAttr = (key, val) => {
-  if (val == null || val === false) return null
-  if (isDangerousAttr(key)) {
-    const sVal = String(val)
-    if (DANGEROUS_PROTOCOL.test(sVal)) return '#'
-  }
-  return val
-}
+const createEffect = (f, isC = 0) => {
+  const e = () => {
+    if (e._x) return;
+    if (e._d) e._d.forEach(s => s.delete(e));
+    clr(e._c);
+    let pE = aEff, pO = aOwn;
+    aEff = aOwn = e;
+    try { return e._res = f(); }
+    catch (err) { console.error("[SigPro]", err); }
+    finally { aEff = pE; aOwn = pO; }
+  };
+  e._d = e._c = e._ch = null;
+  e._x = 0; e._iC = isC;
+  e._dp = aEff ? aEff._dp + 1 : 0;
+  e._m = []; e._p = aOwn;
+  if (aOwn) (aOwn._ch ||= new Set()).add(e);
+  return e;
+};
 
-const h = (tag, props = {}, children = []) => {
-  if (props instanceof Node || isArr(props) || !isObj(props)) {
-    children = props
-    props = {}
+const flush = () => {
+  if (isFlushing) return;
+  isFlushing = 1;
+  let q = [...eQ].sort((a, b) => a._dp - b._dp);
+  eQ.clear();
+  for (let e of q) if (!e._x) e();
+  isFlushing = 0;
+};
+
+const batch = f => {
+  bDepth++;
+  try { return f() } finally { if (!--bDepth && eQ.size && !isFlushing) flush() }
+};
+
+const trkUpd = (s, trg = 0) => {
+  if (!trg && aEff && !aEff._x) {
+    s.add(aEff);
+    (aEff._d ||= new Set()).add(s);
+  } else if (trg && s.size) {
+    let q = 0;
+    for (let e of s) {
+      if (e === aEff || e._x) continue;
+      if (e._iC) { e._dt = 1; if (e._sb) trkUpd(e._sb, 1); }
+      else { eQ.add(e); q = 1; }
+    }
+    if (q && !isFlushing && !bDepth) queueMicrotask(flush);
   }
+};
+
+const $ = (v, k = null) => {
+  let s = new Set();
+  if (isFunc(v)) {
+    let c, cp = () => {
+      if (cp._dt) {
+        let p = aEff; aEff = cp;
+        try { let n = v(); if (!Object.is(c, n)) { c = n; trkUpd(s, 1); } }
+        finally { aEff = p; }
+        cp._dt = 0;
+      }
+      trkUpd(s); return c;
+    };
+    cp._iC = cp._dt = 1; cp._sb = s; cp._d = null; cp._x = 0;
+    return cp;
+  }
+  if (k) try { v = JSON.parse(localStorage.getItem(k)) ?? v } catch(e){}
+  return (...a) => {
+    if (a.length) {
+      let n = isFunc(a[0]) ? a[0](v) : a[0];
+      if (!Object.is(v, n)) { v = n; if (k) localStorage.setItem(k, JSON.stringify(v)); trkUpd(s, 1); }
+    }
+    trkUpd(s); return v;
+  };
+};
+
+const watch = (src, cb) => {
+  let e = createEffect(cb ? () => { let v = isArr(src) ? src.map(s=>s()) : src(); untrack(() => cb(v)) } : src);
+  e(); return () => dispose(e);
+};
+
+const clnNd = n => {
+  if (!n) return;
+  clr(n._c);
+  if (n._oE) dispose(n._oE);
+  if (n.childNodes) n.childNodes.forEach(clnNd);
+};
+
+const valAtt = (k, v) => (v == null || v === false) ? null : 
+  (DANG_ATTR.has(k) || k.startsWith("on")) && /^\s*(javascript|data|vbscript):/i.test(String(v)) ? '#' : v;
+
+const h = (tag, prp = {}, ch = []) => {
+  if (prp instanceof Node || isArr(prp) || !isObj(prp)) { ch = prp; prp = {}; }
 
   if (isFunc(tag)) {
-    const effect = createEffect(() => {
-      const result = tag(props, {
-        children,
-        emit: (ev, ...args) => props[`on${ev[0].toUpperCase()}${ev.slice(1)}`]?.(...args)
-      })
-      effect._result = result
-      return result
-    })
-    effect()
-
-    const result = effect._result
-    if (result == null) return null
-
-    const node = (result instanceof Node || (isArr(result) && result.every(n => n instanceof Node)))
-      ? result
-      : doc.createTextNode(String(result))
-
-    const attach = n => {
-      if (isObj(n) && !n._isRuntime) {
-        n._mounts = effect._mounts || []
-        n._cleanups = effect._cleanups || new Set()
-        n._ownerEffect = effect
-      }
-    }
-
-    isArr(node) ? node.forEach(attach) : attach(node)
-    return node
+    let e = createEffect(() => e._res = tag(prp, { children: ch, emit: (ev, ...a) => prp[`on${ev[0].toUpperCase()}${ev.slice(1)}`]?.(...a) }));
+    e();
+    if (e._res == null) return null;
+    let nd = e._res instanceof Node || (isArr(e._res) && e._res.every(n => n instanceof Node)) ? e._res : txt(e._res);
+    let att = n => { if (isObj(n) && !n._rt) { n._m = e._m || []; n._c = e._c || new Set(); n._oE = e; } };
+    isArr(nd) ? nd.forEach(att) : att(nd);
+    return nd;
   }
 
-  const isSVG = SVG_TAGS.has(tag)
-  const el = isSVG ? doc.createElementNS(SVG_NS, tag) : doc.createElement(tag)
-  el._cleanups = new Set()
+  let isS = SVG_TAGS.has(tag), el = isS ? doc.createElementNS(SVG_NS, tag) : doc.createElement(tag);
+  el._c = new Set();
 
-  for (const k of Object.keys(props)) {
-    let v = props[k]
-    if (k === "ref") {
-      isFunc(v) ? v(el) : (v.current = el)
-      continue
-    }
-    if (isSVG && k.startsWith("xlink:")) {
-      const cleanVal = validateAttr(k.slice(6), v)
-      cleanVal == null
-        ? el.removeAttributeNS(XLINK_NS, k.slice(6))
-        : el.setAttributeNS(XLINK_NS, k.slice(6), cleanVal)
-      continue
+  for (let k in prp) {
+    let v = prp[k];
+    if (k === "ref") { isFunc(v) ? v(el) : (v.current = el); continue; }
+    if (isS && k.startsWith("xlink:")) {
+      let cv = valAtt(k.slice(6), v);
+      cv == null ? el.removeAttributeNS(XLINK, k.slice(6)) : el.setAttributeNS(XLINK, k.slice(6), cv);
+      continue;
     }
     if (k.startsWith("on")) {
-      const ev = k.slice(2).toLowerCase()
-      el.addEventListener(ev, v)
-      const off = () => el.removeEventListener(ev, v)
-      el._cleanups.add(off)
-      onUnmount(off)
+      let ev = k.slice(2).toLowerCase(); el.addEventListener(ev, v);
+      let off = () => el.removeEventListener(ev, v); el._c.add(off); onUnmount(off);
     } else if (isFunc(v)) {
-      const effect = createEffect(() => {
-        const val = validateAttr(k, v())
-        if (k === "class") el.className = val || ""
-        else if (val == null) el.removeAttribute(k)
-        else if (k === "style" && typeof val === "string") el.setAttribute("style", val)
-        else if (k in el && !isSVG) el[k] = val
-        else el.setAttribute(k, val === true ? "" : val)
-      })
-      effect()
-      el._cleanups.add(() => dispose(effect))
-      onUnmount(() => dispose(effect))
+      let e = createEffect(() => {
+        let r = valAtt(k, v());
+        if (k === "class") el.className = r || "";
+        else if (r == null) el.removeAttribute(k);
+        else if (k === "style" && typeof r == "string") el.setAttribute("style", r);
+        else if (k in el && !isS) el[k] = r;
+        else el.setAttribute(k, r === true ? "" : r);
+      });
+      e(); el._c.add(() => dispose(e)); onUnmount(() => dispose(e));
       if (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && (k === "value" || k === "checked")) {
-        const evType = k === "checked" ? "change" : "input"
-        el.addEventListener(evType, ev => v(ev.target[k]))
+        el.addEventListener(k === "checked" ? "change" : "input", ev => v(ev.target[k]));
       }
     } else {
-      const val = validateAttr(k, v)
-      if (val != null) {
-        if (k === "style" && typeof val === "string") el.setAttribute("style", val)
-        else if (k in el && !isSVG) el[k] = val
-        else el.setAttribute(k, val === true ? "" : val)
+      let r = valAtt(k, v);
+      if (r != null) {
+        if (k === "style" && typeof r == "string") el.setAttribute("style", r);
+        else if (k in el && !isS) el[k] = r;
+        else el.setAttribute(k, r === true ? "" : r);
       }
     }
   }
 
-  const append = c => {
-    if (isArr(c)) return c.forEach(append)
+  const app = c => {
+    if (isArr(c)) return c.forEach(app);
     if (isFunc(c)) {
-      const anchor = doc.createTextNode("")
-      el.appendChild(anchor)
-      let currentNodes = []
-      const effect = createEffect(() => {
-        const res = c()
-        const next = (isArr(res) ? res : [res]).map(ensureNode)
-        currentNodes.forEach(n => {
-          if (n._isRuntime) n.destroy()
-          else cleanupNode(n)
-          if (n.parentNode) n.remove()
-        })
-        let ref = anchor
-        for (let i = next.length - 1; i >= 0; i--) {
-          const node = next[i]
-          if (node.parentNode !== ref.parentNode) ref.parentNode?.insertBefore(node, ref)
-          if (node._mounts) node._mounts.forEach(fn => fn())
-          ref = node
+      let anc = txt(""), cur = []; el.appendChild(anc);
+      let e = createEffect(() => {
+        let r = c(), nxt = (isArr(r) ? r : [r]).map(toNd), ref = anc;
+        cur.forEach(n => { n._rt ? n._del() : clnNd(n); if (n.parentNode) n.remove(); });
+        for (let i = nxt.length - 1; i >= 0; i--) {
+          let nd = nxt[i];
+          if (nd.parentNode !== ref.parentNode) ref.parentNode?.insertBefore(nd, ref);
+          if (nd._m) nd._m.forEach(f => f()); ref = nd;
         }
-        currentNodes = next
-      })
-      effect()
-      el._cleanups.add(() => dispose(effect))
-      onUnmount(() => dispose(effect))
+        cur = nxt;
+      });
+      e(); el._c.add(() => dispose(e)); onUnmount(() => dispose(e));
     } else {
-      const node = ensureNode(c)
-      el.appendChild(node)
-      if (node._mounts) node._mounts.forEach(fn => fn())
+      let nd = toNd(c); el.appendChild(nd);
+      if (nd._m) nd._m.forEach(f => f());
     }
-  }
-  append(children)
-  return el
+  };
+  app(ch); return el;
+};
+
+const render = rFn => {
+  let c = new Set(), pO = aOwn, pE = aEff, cnt = doc.createElement("div");
+  cnt.style.display = "contents"; cnt.setAttribute("role", "presentation");
+  aOwn = { _c: c }; aEff = null;
+  const pRes = r => {
+    if (!r) return;
+    if (r._rt) { c.add(r._del); cnt.appendChild(r._cnt); }
+    else if (isArr(r)) r.forEach(pRes);
+    else cnt.appendChild(r instanceof Node ? r : txt(r));
+  };
+  try { pRes(rFn({ onCleanup: f => c.add(f) })); } finally { aOwn = pO; aEff = pE; }
+  return { _rt: 1, _cnt: cnt, _del: () => { clr(c); clnNd(cnt); cnt.remove(); } };
+};
+
+const when = (c, Y, N = null) => {
+  let anc = txt(""), rt = h("div", { style: "display:contents" }, [anc]), v;
+  watch(() => !!val(c), s => {
+    if (v) { v._del(); v = null; }
+    let ct = s ? Y : N;
+    if (ct) { v = render(() => val(ct)); rt.insertBefore(v._cnt, anc); }
+  });
+  onUnmount(() => v?._del()); return rt;
+};
+
+const each = (s, fn, kF) => {
+  let anc = txt(""), rt = h("div", { style: "display:contents" }, [anc]), cch = new Map();
+  watch(() => val(s) || [], it => {
+    let nCc = new Map(), nOd = [];
+    for (let i = 0, l = (it||[]).length; i < l; i++) {
+      let t = it[i], k = kF ? (t?.[kF] ?? i) : (t?.id ?? i), v = cch.get(k);
+      if (!v) v = render(() => fn(t, i)); else cch.delete(k);
+      nCc.set(k, v); nOd.push(v);
+    }
+    cch.forEach(v => v._del());
+    let ref = anc;
+    for (let i = nOd.length - 1; i >= 0; i--) {
+      let nd = nOd[i]._cnt;
+      if (nd.nextSibling !== ref) rt.insertBefore(nd, ref); ref = nd;
+    }
+    cch = nCc;
+  });
+  return rt;
+};
+
+const mount = (c, tgt) => {
+  let t = typeof tgt == "string" ? doc.querySelector(tgt) : tgt;
+  if (!t) return;
+  if (MOUNTED.has(t)) MOUNTED.get(t)._del();
+  let i = render(isFunc(c) ? c : () => c);
+  t.replaceChildren(i._cnt); MOUNTED.set(t, i); return i;
+};
+
+if (typeof window < "u") {
+  "a abbr article aside audio b blockquote br button canvas caption cite code col colgroup datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 header hr i iframe img input ins kbd label legend li main mark meter nav object ol optgroup option output p picture pre progress section select slot small source span strong sub summary sup svg table tbody td template textarea tfoot th thead time tr u ul video"
+    .split(" ").forEach(t => window[t] = (p, c) => h(t, p, c));
 }
 
-const render = renderFn => {
-  const cleanups = new Set()
-  const previousOwner = activeOwner
-  const previousEffect = activeEffect
-  const container = doc.createElement("div")
-  container.style.display = "contents"
-  container.setAttribute("role", "presentation")
-  activeOwner = { _cleanups: cleanups }
-  activeEffect = null
-
-  const processResult = result => {
-    if (!result) return
-    if (result._isRuntime) {
-      cleanups.add(result.destroy)
-      container.appendChild(result.container)
-    } else if (isArr(result)) {
-      result.forEach(processResult)
-    } else {
-      container.appendChild(result instanceof Node ? result : doc.createTextNode(String(result == null ? "" : result)))
-    }
-  }
-
-  try {
-    processResult(renderFn({ onCleanup: fn => cleanups.add(fn) }))
-  } finally {
-    activeOwner = previousOwner
-    activeEffect = previousEffect
-  }
-
-  return {
-    _isRuntime: true,
-    container,
-    destroy: () => {
-      cleanups.forEach(fn => fn())
-      cleanupNode(container)
-      container.remove()
-    }
-  }
-}
-
-const when = (cond, SIP, NOP = null) => {
-  const anchor = doc.createTextNode("")
-  const root = h("div", { style: "display:contents" }, [anchor])
-  let currentView = null
-
-  watch(
-    () => !!(isFunc(cond) ? cond() : cond),
-    show => {
-      if (currentView) {
-        currentView.destroy()
-        currentView = null
-      }
-
-      const content = show ? SIP : NOP
-      if (content) {
-        currentView = render(() => isFunc(content) ? content() : content)
-        root.insertBefore(currentView.container, anchor)
-      }
-    }
-  )
-
-  onUnmount(() => currentView?.destroy())
-  return root
-}
-
-const each = (src, itemFn, keyField) => {
-  const anchor = doc.createTextNode("")
-  const root = h("div", { style: "display:contents" }, [anchor])
-  let cache = new Map()
-  watch(() => (isFunc(src) ? src() : src) || [], items => {
-    const nextCache = new Map()
-    const nextOrder = []
-    const newItems = items || []
-    for (let i = 0; i < newItems.length; i++) {
-      const item = newItems[i]
-      const key = keyField ? (item?.[keyField] ?? i) : (item?.id ?? i)
-      let view = cache.get(key)
-      if (!view) view = render(() => itemFn(item, i))
-      else cache.delete(key)
-      nextCache.set(key, view)
-      nextOrder.push(view)
-    }
-    cache.forEach(view => view.destroy())
-    let lastRef = anchor
-    for (let i = nextOrder.length - 1; i >= 0; i--) {
-      const view = nextOrder[i]
-      const node = view.container
-      if (node.nextSibling !== lastRef) root.insertBefore(node, lastRef)
-      lastRef = node
-    }
-    cache = nextCache
-  })
-  return root
-}
-
-const Fragment = (props) => props.children;
-
-const mount = (comp, target) => {
-  const t = typeof target === "string" ? doc.querySelector(target) : target
-  if (!t) return
-  if (MOUNTED_NODES.has(t)) MOUNTED_NODES.get(t).destroy()
-  const inst = render(isFunc(comp) ? comp : () => comp)
-  t.replaceChildren(inst.container)
-  MOUNTED_NODES.set(t, inst)
-  return inst
-}
-
-if (typeof window !== "undefined") {
-    "a abbr article aside audio b blockquote br button canvas caption cite code col colgroup datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 header hr i iframe img input ins kbd label legend li main mark meter nav object ol optgroup option output p picture pre progress section select slot small source span strong sub summary sup svg table tbody td template textarea tfoot th thead time tr u ul video"
-        .split(" ")
-        .forEach(tag => { window[tag] = (props, children) => h(tag, props, children) })
-}
-
-export { $, watch, batch, h, Fragment, render, mount, when, each, onUnmount, isArr, isFunc, isObj }
+export { $, watch, batch, h, Fragment, render, mount, when, each, onUnmount, val, isArr, isFunc, isObj };

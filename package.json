@@ -19,8 +19,8 @@
       "script": "./dist/sigpro.min.js",
       "types": "./sigpro.d.ts"
     },
-    "./plus": {
-      "import": "./dist/sigpro.plus.js"
+    "./utils": {
+      "import": "./dist/sigpro.utils.js"
     },
     "./vite": {
       "import": "./dist/sigpro.vite.js"
@@ -49,10 +49,10 @@
     "build:iife:min": "bun build ./src/build_umd.js --bundle --outfile=./dist/sigpro.min.js --format=iife --global-name=sp --minify",
     "build:esm": "bun build ./src/sigpro.js --bundle --outfile=./dist/sigpro.esm.js --format=esm",
     "build:esm:min": "bun build ./src/sigpro.js --bundle --outfile=./dist/sigpro.esm.min.js --format=esm --minify",
-    "build:plus": "bun build ./src/sigpro.plus.js --bundle --outfile=./dist/sigpro.plus.js --format=esm",
+    "build:utils": "bun build ./src/sigpro.utils.js --bundle --outfile=./dist/sigpro.utils.js --format=esm",
     "build:vite": "bun build ./src/sigpro.vite.js --bundle --outfile=./dist/sigpro.vite.js --format=esm  --external:fs --external:path",
     "build:copy": "cp ./dist/sigpro.js ./docs/sigpro.js",
-    "build": "bun run build:iife && bun run build:iife:min && bun run build:esm && bun run build:esm:min && bun run build:plus && bun run build:vite && bun run build:copy",
+    "build": "bun run build:iife && bun run build:iife:min && bun run build:esm && bun run build:esm:min && bun run build:utils && bun run build:vite && bun run build:copy",
     "docs": "bun x serve docs"
   },
   "keywords": [

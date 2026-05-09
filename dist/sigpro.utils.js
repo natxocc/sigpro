@@ -5,8 +5,6 @@ var isArr = Array.isArray;
 var doc = typeof document < "u" ? document : null;
 var txt = (s) => doc.createTextNode(s == null ? "" : String(s));
 var toNd = (n) => n?._rt ? n._cnt : n instanceof Node ? n : txt(n);
-var Fragment = (p) => p.children;
-var val = (v) => isFunc(v) ? v() : v;
 var aEff = null;
 var aOwn = null;
 var isFlushing = 0;
@@ -88,15 +86,6 @@ var flush = () => {
     if (!e._x)
       e();
   isFlushing = 0;
-};
-var batch = (f) => {
-  bDepth++;
-  try {
-    return f();
-  } finally {
-    if (!--bDepth && eQ.size && !isFlushing)
-      flush();
-  }
 };
 var trkUpd = (s, trg = 0) => {
   if (!trg && aEff && !aEff._x) {
@@ -320,74 +309,88 @@ var render = (rFn) => {
     cnt.remove();
   } };
 };
-var when = (c, Y, N = null) => {
-  let anc = txt(""), rt = h("div", { style: "display:contents" }, [anc]), v;
-  watch(() => !!val(c), (s) => {
-    if (v) {
-      v._del();
-      v = null;
-    }
-    let ct = s ? Y : N;
-    if (ct) {
-      v = render(() => val(ct));
-      rt.insertBefore(v._cnt, anc);
-    }
-  });
-  onUnmount(() => v?._del());
-  return rt;
-};
-var each = (s, fn, kF) => {
-  let anc = txt(""), rt = h("div", { style: "display:contents" }, [anc]), cch = new Map;
-  watch(() => val(s) || [], (it) => {
-    let nCc = new Map, nOd = [];
-    for (let i = 0, l = (it || []).length;i < l; i++) {
-      let t = it[i], k = kF ? t?.[kF] ?? i : t?.id ?? i, v = cch.get(k);
-      if (!v)
-        v = render(() => fn(t, i));
-      else
-        cch.delete(k);
-      nCc.set(k, v);
-      nOd.push(v);
-    }
-    cch.forEach((v) => v._del());
-    let ref = anc;
-    for (let i = nOd.length - 1;i >= 0; i--) {
-      let nd = nOd[i]._cnt;
-      if (nd.nextSibling !== ref)
-        rt.insertBefore(nd, ref);
-      ref = nd;
-    }
-    cch = nCc;
-  });
-  return rt;
-};
-var mount = (c, tgt) => {
-  let t = typeof tgt == "string" ? doc.querySelector(tgt) : tgt;
-  if (!t)
-    return;
-  if (MOUNTED.has(t))
-    MOUNTED.get(t)._del();
-  let i = render(isFunc(c) ? c : () => c);
-  t.replaceChildren(i._cnt);
-  MOUNTED.set(t, i);
-  return i;
-};
 if (typeof window < "u") {
   "a abbr article aside audio b blockquote br button canvas caption cite code col colgroup datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 header hr i iframe img input ins kbd label legend li main mark meter nav object ol optgroup option output p picture pre progress section select slot small source span strong sub summary sup svg table tbody td template textarea tfoot th thead time tr u ul video".split(" ").forEach((t) => window[t] = (p, c) => h(t, p, c));
 }
+
+// src/sigpro.utils.js
+var router = (routes) => {
+  const getHash = () => window.location.hash.slice(1) || "/";
+  const path = $(getHash());
+  const handler = () => path(getHash());
+  window.addEventListener("hashchange", handler);
+  const hook = h("div", { class: "router-hook" });
+  let currentView = null;
+  watch([path], () => {
+    const cur = path();
+    const route = routes.find((r) => {
+      const p1 = r.path.split("/").filter(Boolean);
+      const p2 = cur.split("/").filter(Boolean);
+      return p1.length === p2.length && p1.every((p, i) => p[0] === ":" || p === p2[i]);
+    }) || routes.find((r) => r.path === "*");
+    if (route) {
+      currentView?.destroy();
+      const params = {};
+      route.path.split("/").filter(Boolean).forEach((p, i) => {
+        if (p[0] === ":")
+          params[p.slice(1)] = cur.split("/").filter(Boolean)[i];
+      });
+      router.params(params);
+      currentView = render(() => isFunc(route.component) ? route.component(params) : route.component);
+      hook.replaceChildren(currentView.container);
+    }
+  });
+  hook.destroy = () => {
+    window.removeEventListener("hashchange", handler);
+    currentView?.destroy();
+  };
+  return hook;
+};
+router.params = $({});
+router.to = (p) => window.location.hash = p.replace(/^#?\/?/, "#/");
+router.back = () => window.history.back();
+router.path = () => window.location.hash.replace(/^#/, "") || "/";
+var db = async (url, data = {}, loading = null) => {
+  if (loading)
+    loading(true);
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+      credentials: "include"
+    });
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Error ${res.status}: ${errorText}`);
+    }
+    return await res.json();
+  } finally {
+    if (loading)
+      loading(false);
+  }
+};
+var currentLocale = $("en");
+var translations = {};
+var addLang = (obj) => {
+  for (const locale of Object.keys(obj)) {
+    if (!translations[locale])
+      translations[locale] = {};
+    Object.assign(translations[locale], obj[locale]);
+  }
+};
+var setLocale = (locale) => {
+  if (locale && translations[locale]) {
+    currentLocale(locale);
+  }
+};
+var t = (key) => {
+  return () => translations[currentLocale()]?.[key] ?? key;
+};
 export {
-  when,
-  watch,
-  val,
-  render,
-  onUnmount,
-  mount,
-  isObj,
-  isFunc,
-  isArr,
-  h,
-  each,
-  batch,
-  Fragment,
-  $
+  t,
+  setLocale,
+  router,
+  db,
+  addLang
 };
