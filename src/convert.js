@@ -1,4 +1,4 @@
-const { $, div, h1, label, textarea, button, span } = window;
+import { $ } from "./sigpro.js";
 
 function html2sigpro(h) {
     const B = new Set(['allowfullscreen', 'async', 'autofocus', 'autoplay', 'checked', 'controls', 'default', 'defer', 'disabled', 'formnovalidate', 'hidden', 'ismap', 'itemscope', 'loop', 'multiple', 'muted', 'nomodule', 'novalidate', 'open', 'playsinline', 'readonly', 'required', 'reversed', 'selected', 'truespeed']),
@@ -34,7 +34,7 @@ const converter = () => {
     const setInH = (v) => inH(v);
     const outS = $('');
     const setOutS = (v) => outS(v);
-    cnv = () => { try { setOutS(html2sigpro(inH())) } catch (e) { setOutS('Error: ' + e.message) } },
+    const cnv = () => { try { setOutS(html2sigpro(inH())) } catch (e) { setOutS('Error: ' + e.message) } },
         txS = "width:100%;height:200px;padding:10px;border:1px solid #ccc;border-radius:4px;font-family:monospace;font-size:14px;box-sizing:border-box;resize:vertical",
         btS = "padding:8px 16px;border:none;border-radius:4px;cursor:pointer;margin-right:8px;font-size:14px";
 

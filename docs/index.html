@@ -64,8 +64,13 @@
       };
     </script>
     <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/search.min.js"></script>
-    <script src="./sigpro.js"></script>
-    <script src="./convert.js"></script>
+    <script type="module">
+      import * as SigPro from "./sigpro.js";
+      Object.assign(window, SigPro);
+      import("./convert.js").then(() => {
+        console.log("SigPro y Convert cargados correctamente.");
+      });
+    </script>
     <script src="//cdn.jsdelivr.net/npm/docsify/lib/docsify.min.js"></script>
     <script src="//cdn.jsdelivr.net/npm/docsify-copy-code/dist/docsify-copy-code.min.js"></script>
   </body>
