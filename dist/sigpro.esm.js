@@ -1,12 +1,12 @@
 // src/sigpro.js
-var isFunc = (f) => typeof f == "function";
-var isObj = (o) => o && typeof o == "object";
-var isArr = Array.isArray;
+var isF = (f) => typeof f == "function";
+var isO = (o) => o && typeof o == "object";
+var isA = Array.isArray;
 var doc = typeof document < "u" ? document : null;
 var txt = (s) => doc.createTextNode(s == null ? "" : String(s));
 var toNd = (n) => n?._rt ? n._cnt : n instanceof Node ? n : txt(n);
 var Fragment = (p) => p.children;
-var val = (v) => isFunc(v) ? v() : v;
+var val = (v) => isF(v) ? v() : v;
 var aEff = null;
 var aOwn = null;
 var isFlushing = 0;
@@ -122,7 +122,7 @@ var trkUpd = (s, trg = 0) => {
 };
 var $ = (v, k = null) => {
   let s = new Set;
-  if (isFunc(v)) {
+  if (isF(v)) {
     let c, cp = () => {
       if (cp._dt) {
         let p = aEff;
@@ -153,7 +153,7 @@ var $ = (v, k = null) => {
     } catch (e) {}
   return (...a) => {
     if (a.length) {
-      let n = isFunc(a[0]) ? a[0](v) : a[0];
+      let n = isF(a[0]) ? a[0](v) : a[0];
       if (!Object.is(v, n)) {
         v = n;
         if (k)
@@ -167,7 +167,7 @@ var $ = (v, k = null) => {
 };
 var watch = (src, cb) => {
   let e = createEffect(cb ? () => {
-    let v = isArr(src) ? src.map((s) => s()) : src();
+    let v = isA(src) ? src.map((s) => s()) : src();
     untrack(() => cb(v));
   } : src);
   e();
@@ -184,24 +184,24 @@ var clnNd = (n) => {
 };
 var valAtt = (k, v) => v == null || v === false ? null : (DANG_ATTR.has(k) || k.startsWith("on")) && /^\s*(javascript|data|vbscript):/i.test(String(v)) ? "#" : v;
 var h = (tag, prp = {}, ch = []) => {
-  if (prp instanceof Node || isArr(prp) || !isObj(prp)) {
+  if (prp instanceof Node || isA(prp) || !isO(prp)) {
     ch = prp;
     prp = {};
   }
-  if (isFunc(tag)) {
+  if (isF(tag)) {
     let e = createEffect(() => e._res = tag(prp, { children: ch, emit: (ev, ...a) => prp[`on${ev[0].toUpperCase()}${ev.slice(1)}`]?.(...a) }));
     e();
     if (e._res == null)
       return null;
-    let nd = e._res instanceof Node || isArr(e._res) && e._res.every((n) => n instanceof Node) ? e._res : txt(e._res);
+    let nd = e._res instanceof Node || isA(e._res) && e._res.every((n) => n instanceof Node) ? e._res : txt(e._res);
     let att = (n) => {
-      if (isObj(n) && !n._rt) {
+      if (isO(n) && !n._rt) {
         n._m = e._m || [];
         n._c = e._c || new Set;
         n._oE = e;
       }
     };
-    isArr(nd) ? nd.forEach(att) : att(nd);
+    isA(nd) ? nd.forEach(att) : att(nd);
     return nd;
   }
   let isS = SVG_TAGS.has(tag), el = isS ? doc.createElementNS(SVG_NS, tag) : doc.createElement(tag);
@@ -209,7 +209,7 @@ var h = (tag, prp = {}, ch = []) => {
   for (let k in prp) {
     let v = prp[k];
     if (k === "ref") {
-      isFunc(v) ? v(el) : v.current = el;
+      isF(v) ? v(el) : v.current = el;
       continue;
     }
     if (isS && k.startsWith("xlink:")) {
@@ -223,7 +223,7 @@ var h = (tag, prp = {}, ch = []) => {
       let off = () => el.removeEventListener(ev, v);
       el._c.add(off);
       onUnmount(off);
-    } else if (isFunc(v)) {
+    } else if (isF(v)) {
       let e = createEffect(() => {
         let r = valAtt(k, v());
         if (k === "class")
@@ -256,13 +256,13 @@ var h = (tag, prp = {}, ch = []) => {
     }
   }
   const app = (c) => {
-    if (isArr(c))
+    if (isA(c))
       return c.forEach(app);
-    if (isFunc(c)) {
+    if (isF(c)) {
       let anc = txt(""), cur = [];
       el.appendChild(anc);
       let e = createEffect(() => {
-        let r = c(), nxt = (isArr(r) ? r : [r]).map(toNd), ref = anc;
+        let r = c(), nxt = (isA(r) ? r : [r]).map(toNd), ref = anc;
         cur.forEach((n) => {
           n._rt ? n._del() : clnNd(n);
           if (n.parentNode)
@@ -303,7 +303,7 @@ var render = (rFn) => {
     if (r._rt) {
       c.add(r._del);
       cnt.appendChild(r._cnt);
-    } else if (isArr(r))
+    } else if (isA(r))
       r.forEach(pRes);
     else
       cnt.appendChild(r instanceof Node ? r : txt(r));
@@ -367,27 +367,29 @@ var mount = (c, tgt) => {
     return;
   if (MOUNTED.has(t))
     MOUNTED.get(t)._del();
-  let i = render(isFunc(c) ? c : () => c);
+  let i = render(isF(c) ? c : () => c);
   t.replaceChildren(i._cnt);
   MOUNTED.set(t, i);
   return i;
 };
-if (typeof window < "u") {
+var SigPro = { $, watch, batch, h, Fragment, render, mount, when, each, onUnmount, val, isA, isF, isO };
+if (typeof window !== "undefined") {
+  window.SigPro = SigPro;
   "a abbr article aside audio b blockquote br button canvas caption cite code col colgroup datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 header hr i iframe img input ins kbd label legend li main mark meter nav object ol optgroup option output p picture pre progress section select slot small source span strong sub summary sup svg table tbody td template textarea tfoot th thead time tr u ul video".split(" ").forEach((t) => window[t] = (p, c) => h(t, p, c));
 }
 export {
-  when,
   watch,
   val,
   render,
   onUnmount,
   mount,
-  isObj,
-  isFunc,
-  isArr,
+  isO,
+  isF,
+  isA,
   h,
   each,
   batch,
+  SigPro,
   Fragment,
   $
 };

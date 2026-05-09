@@ -1,13 +1,45 @@
 (() => {
+  var __defProp = Object.defineProperty;
+  var __returnValue = (v) => v;
+  function __exportSetter(name, newValue) {
+    this[name] = __returnValue.bind(null, newValue);
+  }
+  var __export = (target, all) => {
+    for (var name in all)
+      __defProp(target, name, {
+        get: all[name],
+        enumerable: true,
+        configurable: true,
+        set: __exportSetter.bind(all, name)
+      });
+  };
+
   // src/sigpro.js
-  var isFunc = (f) => typeof f == "function";
-  var isObj = (o) => o && typeof o == "object";
-  var isArr = Array.isArray;
+  var exports_sigpro = {};
+  __export(exports_sigpro, {
+    watch: () => watch,
+    val: () => val,
+    render: () => render,
+    onUnmount: () => onUnmount,
+    mount: () => mount,
+    isO: () => isO,
+    isF: () => isF,
+    isA: () => isA,
+    h: () => h,
+    each: () => each,
+    batch: () => batch,
+    SigPro: () => SigPro,
+    Fragment: () => Fragment,
+    $: () => $
+  });
+  var isF = (f) => typeof f == "function";
+  var isO = (o) => o && typeof o == "object";
+  var isA = Array.isArray;
   var doc = typeof document < "u" ? document : null;
   var txt = (s) => doc.createTextNode(s == null ? "" : String(s));
   var toNd = (n) => n?._rt ? n._cnt : n instanceof Node ? n : txt(n);
   var Fragment = (p) => p.children;
-  var val = (v) => isFunc(v) ? v() : v;
+  var val = (v) => isF(v) ? v() : v;
   var aEff = null;
   var aOwn = null;
   var isFlushing = 0;
@@ -123,7 +155,7 @@
   };
   var $ = (v, k = null) => {
     let s = new Set;
-    if (isFunc(v)) {
+    if (isF(v)) {
       let c, cp = () => {
         if (cp._dt) {
           let p = aEff;
@@ -154,7 +186,7 @@
       } catch (e) {}
     return (...a) => {
       if (a.length) {
-        let n = isFunc(a[0]) ? a[0](v) : a[0];
+        let n = isF(a[0]) ? a[0](v) : a[0];
         if (!Object.is(v, n)) {
           v = n;
           if (k)
@@ -168,7 +200,7 @@
   };
   var watch = (src, cb) => {
     let e = createEffect(cb ? () => {
-      let v = isArr(src) ? src.map((s) => s()) : src();
+      let v = isA(src) ? src.map((s) => s()) : src();
       untrack(() => cb(v));
     } : src);
     e();
@@ -185,24 +217,24 @@
   };
   var valAtt = (k, v) => v == null || v === false ? null : (DANG_ATTR.has(k) || k.startsWith("on")) && /^\s*(javascript|data|vbscript):/i.test(String(v)) ? "#" : v;
   var h = (tag, prp = {}, ch = []) => {
-    if (prp instanceof Node || isArr(prp) || !isObj(prp)) {
+    if (prp instanceof Node || isA(prp) || !isO(prp)) {
       ch = prp;
       prp = {};
     }
-    if (isFunc(tag)) {
+    if (isF(tag)) {
       let e = createEffect(() => e._res = tag(prp, { children: ch, emit: (ev, ...a) => prp[`on${ev[0].toUpperCase()}${ev.slice(1)}`]?.(...a) }));
       e();
       if (e._res == null)
         return null;
-      let nd = e._res instanceof Node || isArr(e._res) && e._res.every((n) => n instanceof Node) ? e._res : txt(e._res);
+      let nd = e._res instanceof Node || isA(e._res) && e._res.every((n) => n instanceof Node) ? e._res : txt(e._res);
       let att = (n) => {
-        if (isObj(n) && !n._rt) {
+        if (isO(n) && !n._rt) {
           n._m = e._m || [];
           n._c = e._c || new Set;
           n._oE = e;
         }
       };
-      isArr(nd) ? nd.forEach(att) : att(nd);
+      isA(nd) ? nd.forEach(att) : att(nd);
       return nd;
     }
     let isS = SVG_TAGS.has(tag), el = isS ? doc.createElementNS(SVG_NS, tag) : doc.createElement(tag);
@@ -210,7 +242,7 @@
     for (let k in prp) {
       let v = prp[k];
       if (k === "ref") {
-        isFunc(v) ? v(el) : v.current = el;
+        isF(v) ? v(el) : v.current = el;
         continue;
       }
       if (isS && k.startsWith("xlink:")) {
@@ -224,7 +256,7 @@
         let off = () => el.removeEventListener(ev, v);
         el._c.add(off);
         onUnmount(off);
-      } else if (isFunc(v)) {
+      } else if (isF(v)) {
         let e = createEffect(() => {
           let r = valAtt(k, v());
           if (k === "class")
@@ -257,13 +289,13 @@
       }
     }
     const app = (c) => {
-      if (isArr(c))
+      if (isA(c))
         return c.forEach(app);
-      if (isFunc(c)) {
+      if (isF(c)) {
         let anc = txt(""), cur = [];
         el.appendChild(anc);
         let e = createEffect(() => {
-          let r = c(), nxt = (isArr(r) ? r : [r]).map(toNd), ref = anc;
+          let r = c(), nxt = (isA(r) ? r : [r]).map(toNd), ref = anc;
           cur.forEach((n) => {
             n._rt ? n._del() : clnNd(n);
             if (n.parentNode)
@@ -304,7 +336,7 @@
       if (r._rt) {
         c.add(r._del);
         cnt.appendChild(r._cnt);
-      } else if (isArr(r))
+      } else if (isA(r))
         r.forEach(pRes);
       else
         cnt.appendChild(r instanceof Node ? r : txt(r));
@@ -368,16 +400,26 @@
       return;
     if (MOUNTED.has(t))
       MOUNTED.get(t)._del();
-    let i = render(isFunc(c) ? c : () => c);
+    let i = render(isF(c) ? c : () => c);
     t.replaceChildren(i._cnt);
     MOUNTED.set(t, i);
     return i;
   };
-  if (typeof window < "u") {
+  var SigPro = { $, watch, batch, h, Fragment, render, mount, when, each, onUnmount, val, isA, isF, isO };
+  if (typeof window !== "undefined") {
+    window.SigPro = SigPro;
     "a abbr article aside audio b blockquote br button canvas caption cite code col colgroup datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 header hr i iframe img input ins kbd label legend li main mark meter nav object ol optgroup option output p picture pre progress section select slot small source span strong sub summary sup svg table tbody td template textarea tfoot th thead time tr u ul video".split(" ").forEach((t) => window[t] = (p, c) => h(t, p, c));
   }
 
   // src/sigpro.utils.js
+  var exports_sigpro_utils = {};
+  __export(exports_sigpro_utils, {
+    t: () => t,
+    setLocale: () => setLocale,
+    router: () => router,
+    db: () => db,
+    addLang: () => addLang
+  });
   var router = (routes) => {
     const getHash = () => window.location.hash.slice(1) || "/";
     const path = $(getHash());
@@ -400,7 +442,7 @@
             params[p.slice(1)] = cur.split("/").filter(Boolean)[i];
         });
         router.params(params);
-        currentView = render(() => isFunc(route.component) ? route.component(params) : route.component);
+        currentView = render(() => isF(route.component) ? route.component(params) : route.component);
         hook.replaceChildren(currentView.container);
       }
     });
@@ -414,6 +456,26 @@
   router.to = (p) => window.location.hash = p.replace(/^#?\/?/, "#/");
   router.back = () => window.history.back();
   router.path = () => window.location.hash.replace(/^#/, "") || "/";
+  var db = async (url, data = {}, loading = null) => {
+    if (loading)
+      loading(true);
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include"
+      });
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Error ${res.status}: ${errorText}`);
+      }
+      return await res.json();
+    } finally {
+      if (loading)
+        loading(false);
+    }
+  };
   var currentLocale = $("en");
   var translations = {};
   var addLang = (obj) => {
@@ -423,12 +485,19 @@
       Object.assign(translations[locale], obj[locale]);
     }
   };
+  var setLocale = (locale) => {
+    if (locale && translations[locale]) {
+      currentLocale(locale);
+    }
+  };
   var t = (key) => {
     return () => translations[currentLocale()]?.[key] ?? key;
   };
 
   // src/build_umd.js
   if (typeof window !== "undefined") {
-    Object.assign(window, { $, watch, h, Fragment, when, each, router, addLang, t, mount, batch, isArr, isFunc, isObj });
+    const SigPro2 = { ...exports_sigpro, ...exports_sigpro_utils };
+    window.SigPro = SigPro2;
+    Object.assign(window, SigPro2);
   }
 })();

@@ -1,5 +1,5 @@
 // plus
-import { h, watch, $, render, isFunc } from './sigpro';
+import { h, watch, $, render, isF } from './sigpro.js';
 
 // router
 export const router = routes => {
@@ -26,7 +26,7 @@ export const router = routes => {
         if (p[0] === ":") params[p.slice(1)] = cur.split("/").filter(Boolean)[i];
       });
       router.params(params);
-      currentView = render(() => isFunc(route.component) ? route.component(params) : route.component);
+      currentView = render(() => isF(route.component) ? route.component(params) : route.component);
       hook.replaceChildren(currentView.container);
     }
   });

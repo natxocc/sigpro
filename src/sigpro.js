@@ -1,20 +1,20 @@
-const isFunc = f => typeof f == "function";
-const isObj = o => o && typeof o == "object";
-const isArr = Array.isArray;
+export const isF = f => typeof f == "function";
+export const isO = o => o && typeof o == "object";
+export const isA = Array.isArray;
 const doc = typeof document < "u" ? document : null;
 const txt = s => doc.createTextNode(s == null ? "" : String(s));
 const toNd = n => n?._rt ? n._cnt : (n instanceof Node ? n : txt(n));
-const Fragment = p => p.children;
-const val = v => isFunc(v) ? v() : v;
+export const Fragment = p => p.children;
+export const val = v => isF(v) ? v() : v;
 
 let aEff = null, aOwn = null, isFlushing = 0, bDepth = 0;
 const eQ = new Set(), MOUNTED = new WeakMap();
 
 const SVG_NS = "http://www.w3.org/2000/svg", XLINK = "http://www.w3.org/1999/xlink";
 const SVG_TAGS = new Set("svg,path,circle,rect,line,polyline,polygon,g,defs,text,textPath,tspan,use,symbol,image,marker,ellipse".split(","));
-const DANG_ATTR = new Set(["src","href","formaction","action","background","code","archive"]);
+const DANG_ATTR = new Set(["src", "href", "formaction", "action", "background", "code", "archive"]);
 
-const clr = s => { if(s){ s.forEach(f => f()); s.clear(); } };
+const clr = s => { if (s) { s.forEach(f => f()); s.clear(); } };
 const dispose = e => {
   if (!e || e._x) return;
   e._x = 1;
@@ -26,7 +26,7 @@ const dispose = e => {
   }
 };
 
-const onUnmount = f => aOwn && (aOwn._c ||= new Set()).add(f);
+export const onUnmount = f => aOwn && (aOwn._c ||= new Set()).add(f);
 const untrack = f => { let p = aEff; aEff = null; try { return f() } finally { aEff = p } };
 
 const createEffect = (f, isC = 0) => {
@@ -57,7 +57,7 @@ const flush = () => {
   isFlushing = 0;
 };
 
-const batch = f => {
+export const batch = f => {
   bDepth++;
   try { return f() } finally { if (!--bDepth && eQ.size && !isFlushing) flush() }
 };
@@ -77,9 +77,9 @@ const trkUpd = (s, trg = 0) => {
   }
 };
 
-const $ = (v, k = null) => {
+export const $ = (v, k = null) => {
   let s = new Set();
-  if (isFunc(v)) {
+  if (isF(v)) {
     let c, cp = () => {
       if (cp._dt) {
         let p = aEff; aEff = cp;
@@ -92,18 +92,18 @@ const $ = (v, k = null) => {
     cp._iC = cp._dt = 1; cp._sb = s; cp._d = null; cp._x = 0;
     return cp;
   }
-  if (k) try { v = JSON.parse(localStorage.getItem(k)) ?? v } catch(e){}
+  if (k) try { v = JSON.parse(localStorage.getItem(k)) ?? v } catch (e) { }
   return (...a) => {
     if (a.length) {
-      let n = isFunc(a[0]) ? a[0](v) : a[0];
+      let n = isF(a[0]) ? a[0](v) : a[0];
       if (!Object.is(v, n)) { v = n; if (k) localStorage.setItem(k, JSON.stringify(v)); trkUpd(s, 1); }
     }
     trkUpd(s); return v;
   };
 };
 
-const watch = (src, cb) => {
-  let e = createEffect(cb ? () => { let v = isArr(src) ? src.map(s=>s()) : src(); untrack(() => cb(v)) } : src);
+export const watch = (src, cb) => {
+  let e = createEffect(cb ? () => { let v = isA(src) ? src.map(s => s()) : src(); untrack(() => cb(v)) } : src);
   e(); return () => dispose(e);
 };
 
@@ -114,19 +114,19 @@ const clnNd = n => {
   if (n.childNodes) n.childNodes.forEach(clnNd);
 };
 
-const valAtt = (k, v) => (v == null || v === false) ? null : 
+const valAtt = (k, v) => (v == null || v === false) ? null :
   (DANG_ATTR.has(k) || k.startsWith("on")) && /^\s*(javascript|data|vbscript):/i.test(String(v)) ? '#' : v;
 
-const h = (tag, prp = {}, ch = []) => {
-  if (prp instanceof Node || isArr(prp) || !isObj(prp)) { ch = prp; prp = {}; }
+export const h = (tag, prp = {}, ch = []) => {
+  if (prp instanceof Node || isA(prp) || !isO(prp)) { ch = prp; prp = {}; }
 
-  if (isFunc(tag)) {
+  if (isF(tag)) {
     let e = createEffect(() => e._res = tag(prp, { children: ch, emit: (ev, ...a) => prp[`on${ev[0].toUpperCase()}${ev.slice(1)}`]?.(...a) }));
     e();
     if (e._res == null) return null;
-    let nd = e._res instanceof Node || (isArr(e._res) && e._res.every(n => n instanceof Node)) ? e._res : txt(e._res);
-    let att = n => { if (isObj(n) && !n._rt) { n._m = e._m || []; n._c = e._c || new Set(); n._oE = e; } };
-    isArr(nd) ? nd.forEach(att) : att(nd);
+    let nd = e._res instanceof Node || (isA(e._res) && e._res.every(n => n instanceof Node)) ? e._res : txt(e._res);
+    let att = n => { if (isO(n) && !n._rt) { n._m = e._m || []; n._c = e._c || new Set(); n._oE = e; } };
+    isA(nd) ? nd.forEach(att) : att(nd);
     return nd;
   }
 
@@ -135,7 +135,7 @@ const h = (tag, prp = {}, ch = []) => {
 
   for (let k in prp) {
     let v = prp[k];
-    if (k === "ref") { isFunc(v) ? v(el) : (v.current = el); continue; }
+    if (k === "ref") { isF(v) ? v(el) : (v.current = el); continue; }
     if (isS && k.startsWith("xlink:")) {
       let cv = valAtt(k.slice(6), v);
       cv == null ? el.removeAttributeNS(XLINK, k.slice(6)) : el.setAttributeNS(XLINK, k.slice(6), cv);
@@ -144,7 +144,7 @@ const h = (tag, prp = {}, ch = []) => {
     if (k.startsWith("on")) {
       let ev = k.slice(2).toLowerCase(); el.addEventListener(ev, v);
       let off = () => el.removeEventListener(ev, v); el._c.add(off); onUnmount(off);
-    } else if (isFunc(v)) {
+    } else if (isF(v)) {
       let e = createEffect(() => {
         let r = valAtt(k, v());
         if (k === "class") el.className = r || "";
@@ -168,11 +168,11 @@ const h = (tag, prp = {}, ch = []) => {
   }
 
   const app = c => {
-    if (isArr(c)) return c.forEach(app);
-    if (isFunc(c)) {
+    if (isA(c)) return c.forEach(app);
+    if (isF(c)) {
       let anc = txt(""), cur = []; el.appendChild(anc);
       let e = createEffect(() => {
-        let r = c(), nxt = (isArr(r) ? r : [r]).map(toNd), ref = anc;
+        let r = c(), nxt = (isA(r) ? r : [r]).map(toNd), ref = anc;
         cur.forEach(n => { n._rt ? n._del() : clnNd(n); if (n.parentNode) n.remove(); });
         for (let i = nxt.length - 1; i >= 0; i--) {
           let nd = nxt[i];
@@ -190,14 +190,14 @@ const h = (tag, prp = {}, ch = []) => {
   app(ch); return el;
 };
 
-const render = rFn => {
+export const render = rFn => {
   let c = new Set(), pO = aOwn, pE = aEff, cnt = doc.createElement("div");
   cnt.style.display = "contents"; cnt.setAttribute("role", "presentation");
   aOwn = { _c: c }; aEff = null;
   const pRes = r => {
     if (!r) return;
     if (r._rt) { c.add(r._del); cnt.appendChild(r._cnt); }
-    else if (isArr(r)) r.forEach(pRes);
+    else if (isA(r)) r.forEach(pRes);
     else cnt.appendChild(r instanceof Node ? r : txt(r));
   };
   try { pRes(rFn({ onCleanup: f => c.add(f) })); } finally { aOwn = pO; aEff = pE; }
@@ -214,11 +214,11 @@ const when = (c, Y, N = null) => {
   onUnmount(() => v?._del()); return rt;
 };
 
-const each = (s, fn, kF) => {
+export const each = (s, fn, kF) => {
   let anc = txt(""), rt = h("div", { style: "display:contents" }, [anc]), cch = new Map();
   watch(() => val(s) || [], it => {
     let nCc = new Map(), nOd = [];
-    for (let i = 0, l = (it||[]).length; i < l; i++) {
+    for (let i = 0, l = (it || []).length; i < l; i++) {
       let t = it[i], k = kF ? (t?.[kF] ?? i) : (t?.id ?? i), v = cch.get(k);
       if (!v) v = render(() => fn(t, i)); else cch.delete(k);
       nCc.set(k, v); nOd.push(v);
@@ -234,17 +234,17 @@ const each = (s, fn, kF) => {
   return rt;
 };
 
-const mount = (c, tgt) => {
+ export const mount = (c, tgt) => {
   let t = typeof tgt == "string" ? doc.querySelector(tgt) : tgt;
   if (!t) return;
   if (MOUNTED.has(t)) MOUNTED.get(t)._del();
-  let i = render(isFunc(c) ? c : () => c);
+  let i = render(isF(c) ? c : () => c);
   t.replaceChildren(i._cnt); MOUNTED.set(t, i); return i;
 };
 
-if (typeof window < "u") {
+export const SigPro = { $, watch, batch, h, Fragment, render, mount, when, each, onUnmount, val, isA, isF, isO };
+if (typeof window !== "undefined") {
+  window.SigPro = SigPro;
   "a abbr article aside audio b blockquote br button canvas caption cite code col colgroup datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 header hr i iframe img input ins kbd label legend li main mark meter nav object ol optgroup option output p picture pre progress section select slot small source span strong sub summary sup svg table tbody td template textarea tfoot th thead time tr u ul video"
     .split(" ").forEach(t => window[t] = (p, c) => h(t, p, c));
 }
-
-export { $, watch, batch, h, Fragment, render, mount, when, each, onUnmount, val, isArr, isFunc, isObj };
