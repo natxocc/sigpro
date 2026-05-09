@@ -51,7 +51,7 @@
               );
               codeBlocks.forEach((code) => {
                 try {
-                  const scriptContent = `(function() { ${code.innerText} })();`;
+                  const scriptContent = `(function() { ${code.innerText} }).call(window);`;
                   const runDemo = new Function(scriptContent);
                   runDemo();
                 } catch (err) {
@@ -65,6 +65,7 @@
     </script>
     <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/search.min.js"></script>
     <script src="./sigpro.js"></script>
+    <script src="./convert.js"></script>
     <script src="//cdn.jsdelivr.net/npm/docsify/lib/docsify.min.js"></script>
     <script src="//cdn.jsdelivr.net/npm/docsify-copy-code/dist/docsify-copy-code.min.js"></script>
   </body>
