@@ -65,7 +65,7 @@
     </script>
     <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/search.min.js"></script>
     <script type="module">
-      import * as SigPro from "./sigpro.js";
+      import * as SigPro from "./sigpro.min.js";
       Object.assign(window, SigPro);
       import("./convert.js").then(() => {
         console.log("SigPro y Convert cargados correctamente.");

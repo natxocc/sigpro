@@ -8,16 +8,16 @@
     "email": "sigpro@natxocc.com",
     "url": "https://sigpro.natxocc.com"
   },
-  "main": "./dist/sigpro.js",
-  "module": "./dist/sigpro.js",
-  "unpkg": "./dist/sigpro.js",
-  "jsdelivr": "./dist/sigpro.js",
+  "main": "./dist/sigpro.min.js",
+  "module": "./dist/sigpro.min.js",
+  "unpkg": "./dist/sigpro.min.js",
+  "jsdelivr": "./dist/sigpro.min.js",
   "types": "./sigpro.d.ts",
   "exports": {
     ".": {
       "types": "./sigpro.d.ts",
-      "import": "./dist/sigpro.js",
-      "default": "./dist/sigpro.js"
+      "import": "./dist/sigpro.min.js",
+      "default": "./dist/sigpro.min.js"
     },
     "./utils": "./dist/sigpro.utils.js",
     "./vite": "./dist/sigpro.vite.js"
@@ -41,11 +41,11 @@
     "del": "bun pm cache rm && rm -f bun.lockb && rm -f bun.lock",
     "clean": "rm -rf dist",
     "prebuild": "npm run clean",
-    "build:core": "bun build ./src/sigpro.js --bundle --outfile=./dist/sigpro.js --format=esm",
+    "build:core": "bun build ./src/sigpro.js --bundle --outfile=./dist/sigpro.min.js --format=esm --minify",
     "build:utils": "bun build ./src/sigpro.utils.js --bundle --outfile=./dist/sigpro.utils.js --format=esm --external ./src/sigpro.js",
     "build:vite": "bun build ./src/sigpro.vite.js --bundle --outfile=./dist/sigpro.vite.js --format=esm --external fs --external path",
     "build:convert": "bun build ./src/convert.js --bundle --outfile=./docs/convert.js --format=esm --external ./src/sigpro.js",
-    "build:copy": "cp ./dist/sigpro.js ./docs/sigpro.js",
+    "build:copy": "cp ./dist/sigpro.min.js ./docs/sigpro.min.js",
     "build": "bun run build:core && bun run build:utils && bun run build:vite && bun run build:convert && bun run build:copy",
     "docs": "bun x serve docs"
   },
