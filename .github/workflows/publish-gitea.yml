@@ -1,4 +1,4 @@
-name: Publicar Paquete SigPro (NPM)
+name: Publish to SigPro (NPM)
 
 on:
   workflow_dispatch:
@@ -20,7 +20,6 @@ jobs:
       - name: Checkout código
         uses: actions/checkout@v4
         env:
-          # ESTO ES LO QUE NO DEBÍ QUITAR: El mapeo de la URL interna a la externa
           GIT_CONFIG_PARAMETERS: "'url.https://git.natxocc.com/.insteadOf=http://gitea:3000/'"
 
       - name: Instalar Bun
@@ -39,8 +38,6 @@ jobs:
           # 1. Definimos la URL del registro
           REGISTRY="git.natxocc.com/api/packages/natxocc/npm/"
           
-          # 2. Configuramos el .npmrc usando tu secreto PACK_TOKEN
           echo "//${REGISTRY}:_authToken=${{ secrets.PACK_TOKEN }}" > ~/.npmrc
           
-          # 3. Publicamos
           npm publish --registry "https://${REGISTRY}" --userconfig ~/.npmrc
