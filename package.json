@@ -8,19 +8,20 @@
     "email": "sigpro@natxocc.com",
     "url": "https://sigpro.natxocc.com"
   },
-  "main": "./dist/sigpro.min.js",
-  "module": "./dist/sigpro.min.js",
-  "unpkg": "./dist/sigpro.min.js",
-  "jsdelivr": "./dist/sigpro.min.js",
+  "main": "./dist/sigpro.js",
+  "module": "./dist/sigpro.js",
+  "unpkg": "./dist/sigpro.js",
+  "jsdelivr": "./dist/sigpro.js",
   "types": "./sigpro.d.ts",
   "exports": {
     ".": {
       "types": "./sigpro.d.ts",
-      "import": "./dist/sigpro.min.js",
-      "default": "./dist/sigpro.min.js"
+      "import": "./dist/sigpro.js",
+      "default": "./dist/sigpro.js"
     },
     "./utils": "./dist/sigpro.utils.js",
-    "./vite": "./dist/sigpro.vite.js"
+    "./vite": "./dist/sigpro.vite.js",
+    "./ui": "./dist/sigpro.ui.js"
   },
   "files": [
     "dist/",
@@ -41,15 +42,35 @@
     "del": "bun pm cache rm && rm -f bun.lockb && rm -f bun.lock",
     "clean": "rm -rf dist",
     "prebuild": "npm run clean",
-    "build:core": "bun build ./src/sigpro.js --bundle --outfile=./dist/sigpro.min.js --format=esm --minify",
-    "build:utils": "bun build ./src/sigpro.utils.js --bundle --outfile=./dist/sigpro.utils.js --format=esm --external ./src/sigpro.js",
-    "build:vite": "bun build ./src/sigpro.vite.js --bundle --outfile=./dist/sigpro.vite.js --format=esm --external fs --external path",
-    "build:convert": "bun build ./src/convert.js --bundle --outfile=./docs/convert.js --format=esm --external ./src/sigpro.js",
-    "build:copy": "cp ./dist/sigpro.min.js ./docs/sigpro.min.js",
-    "build": "bun run build:core && bun run build:utils && bun run build:vite && bun run build:convert && bun run build:copy",
+    "build:core": "bun build ./src/sigpro.js --bundle --outfile=./dist/sigpro.js --format=esm --minify",
+    "build:utils": "bun build ./src/sigpro.utils.js --bundle --outfile=./dist/sigpro.utils.js --format=esm --external ./src/sigpro.js --minify",
+    "build:ui": "bun build ./src/sigpro.ui.js --bundle --outfile=./dist/sigpro.ui.js --format=esm --external ./src/sigpro.js --minify",
+    "build:vite": "bun build ./src/sigpro.vite.js --bundle --outfile=./dist/sigpro.vite.js --format=esm --external fs --external path  --minify",
+    "build:css": "tailwindcss -i ./src/sigpro.ui.css -o ./dist/sigpro.ui.css --minify --content './src/tailwind' && du -h ./dist/sigpro.ui.css",
+    "build:convert": "bun build ./src/sigpro.convert.js --bundle --outfile=./docs/sigpro.convert.js --format=esm --external ./src/sigpro.js --minify",
+    "build": "bun run build:core && bun run build:utils && bun run build:ui && bun run build:vite && bun run build:css && bun run build:convert && cp ./dist/* ./docs",
     "docs": "bun x serve docs"
   },
+  "devDependencies": {
+    "@iconify/json": "^2.2.471",
+    "@iconify/tailwind4": "^1.2.3",
+    "@tailwindcss/cli": "^4.3.0",
+    "daisyui": "^5.5.19",
+    "tailwindcss": "^4.3.0"
+  },
   "keywords": [
-    "signals", "reactivity", "reactive", "pure", "vanilla", "js", "ui", "dom", "state", "frontend", "spa", "lightweight", "sigpro"
+    "signals",
+    "reactivity",
+    "reactive",
+    "pure",
+    "vanilla",
+    "js",
+    "ui",
+    "dom",
+    "state",
+    "frontend",
+    "spa",
+    "lightweight",
+    "sigpro"
   ]
 }

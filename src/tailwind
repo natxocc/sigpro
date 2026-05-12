@@ -1,0 +1,117 @@
+const layout = [
+  'join', 'join-vertical', 'lg:join-horizontal',
+  'divider', 'divider-horizontal',
+  'validator', 'validator-hint',
+  'glass'
+]
+
+const icons = [
+  'icon-[lucide--calendar]', 'icon-[lucide--chevrons-left]',
+  'icon-[lucide--chevron-left]', 'icon-[lucide--chevron-right]',
+  'icon-[lucide--chevrons-right]', 'icon-[lucide--info]',
+  'icon-[lucide--check-circle]', 'icon-[lucide--alert-triangle]',
+  'icon-[lucide--alert-circle]', 'icon-[lucide--heart]',
+  'icon-[lucide--upload]', 'icon-[lucide--x]', 'icon-[lucide--text]',
+  'icon-[lucide--lock]', 'icon-[lucide--hash]', 'icon-[lucide--mail]',
+  'icon-[lucide--search]', 'icon-[lucide--phone]', 'icon-[lucide--link]',
+  'icon-[lucide--eye-off]', 'icon-[lucide--eye]'
+]
+
+const inputs = [
+  'input', 'input-bordered', 'input-ghost',
+  'input-primary', 'input-secondary', 'input-accent',
+  'input-info', 'input-success', 'input-warning', 'input-error',
+  'input-xs', 'input-sm', 'input-md', 'input-lg',
+  'floating-label'
+]
+
+const alerts = [
+  'alert', 'alert-info', 'alert-success', 'alert-warning', 'alert-error',
+  'alert-soft', 'alert-outline', 'alert-dash'
+]
+
+const avatars = [
+  'avatar', 'avatar-group', 'avatar-online', 'avatar-offline', 'avatar-placeholder'
+]
+
+const badges = [
+  'badge', 'badge-primary', 'badge-secondary', 'badge-accent',
+  'badge-info', 'badge-success', 'badge-warning', 'badge-error',
+  'badge-outline', 'badge-soft', 'badge-dash',
+  'badge-xs', 'badge-sm', 'badge-md', 'badge-lg'
+]
+
+const buttons = [
+  'btn', 'btn-primary', 'btn-secondary', 'btn-accent',
+  'btn-ghost', 'btn-info', 'btn-success', 'btn-warning',
+  'btn-error', 'btn-neutral',
+  'btn-xs', 'btn-sm', 'btn-md', 'btn-lg', 'btn-xl',
+  'btn-outline', 'btn-soft', 'btn-dash', 'btn-link',
+  'btn-circle', 'btn-square', 'btn-wide', 'btn-block',
+  'btn-active', 'btn-disabled'
+]
+
+const checkboxes = [
+  'checkbox', 'checkbox-primary', 'checkbox-secondary', 'checkbox-accent',
+  'checkbox-info', 'checkbox-success', 'checkbox-warning', 'checkbox-error',
+  'checkbox-xs', 'checkbox-sm', 'checkbox-md', 'checkbox-lg'
+]
+
+const toggles = [
+  'toggle', 'toggle-primary', 'toggle-secondary', 'toggle-accent',
+  'toggle-xs', 'toggle-sm', 'toggle-md', 'toggle-lg'
+]
+
+const chats = [
+  'chat', 'chat-end', 'chat-start', 'chat-image', 
+  'chat-header', 'chat-footer', 'chat-bubble'
+]
+
+const drawers = [
+  'drawer', 'drawer-end', 'drawer-toggle', 'drawer-content', 
+  'drawer-side', 'drawer-overlay'
+]
+
+const dropdowns = [
+  'dropdown', 'dropdown-content', 'dropdown-end',
+  'dropdown-top', 'dropdown-bottom', 'dropdown-left', 'dropdown-right'
+]
+
+const misc = [
+  'breadcrumbs', 'fab', 'fieldset', 'fieldset-legend',
+  'indicator', 'indicator-item', 'menu', 'menu-dropdown', 'menu-dropdown-show',
+  'kbd', 'kbd-xs', 'kbd-sm', 'kbd-md', 'kbd-lg', 'kbd-xl',
+  'list', 'list-row', 'list-bullet', 'list-image', 'list-none',
+  'mask', 'mask-star', 'mask-star-2', 'mask-heart', 'mask-circle',
+  'modal', 'modal-box', 'modal-action', 'modal-backdrop',
+  'modal-open', 'modal-middle', 'modal-top', 'modal-bottom',
+  'navbar', 'navbar-start', 'navbar-center', 'navbar-end',
+  'progress', 'progress-neutral', 'progress-primary', 'progress-secondary',
+  'progress-accent', 'progress-info', 'progress-success',
+  'progress-warning', 'progress-error', 'radial-progress',
+  'radio', 'radio-primary', 'radio-secondary', 'radio-accent',
+  'radio-info', 'radio-success', 'radio-warning', 'radio-error',
+  'radio-xs', 'radio-sm', 'radio-md', 'radio-lg',
+  'range', 'range-primary', 'range-secondary', 'range-accent',
+  'range-info', 'range-success', 'range-warning', 'range-error',
+  'range-xs', 'range-sm', 'range-md', 'range-lg',
+  'rating', 'rating-half', 'rating-hidden',
+  'select', 'select-bordered', 'select-primary', 'select-secondary',
+  'select-accent', 'select-info', 'select-success',
+  'select-warning', 'select-error',
+  'select-xs', 'select-sm', 'select-md', 'select-lg',
+  'stack', 'stack-top', 'stack-bottom', 'stack-start', 'stack-end',
+  'stat', 'stat-figure', 'stat-title', 'stat-value', 'stat-desc',
+  'swap', 'swap-on', 'swap-off', 'swap-active',
+  'swap-rotate', 'swap-flip', 'swap-indeterminate',
+  'table', 'table-zebra', 'table-pin-rows', 'table-pin-cols',
+  'table-xs', 'table-sm', 'table-md', 'table-lg',
+  'tabs', 'tabs-box', 'tabs-lift', 'tabs-border', 'tab', 'tab-content',
+  'timeline', 'timeline-vertical', 'timeline-horizontal',
+  'timeline-compact', 'timeline-start', 'timeline-middle',
+  'timeline-end', 'timeline-box',
+  'tooltip', 'tooltip-top', 'tooltip-bottom', 'tooltip-left', 'tooltip-right',
+  'tooltip-primary', 'tooltip-secondary', 'tooltip-accent',
+  'tooltip-info', 'tooltip-success', 'tooltip-warning', 'tooltip-error',
+  'tooltip-open'
+]

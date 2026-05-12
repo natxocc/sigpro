@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-theme="splight">
   <head>
     <meta charset="UTF-8" />
     <title>SigPro Docs</title>
@@ -10,12 +10,12 @@
       rel="stylesheet"
       href="//cdn.jsdelivr.net/npm/docsify/lib/themes/vue.css"
     />
-
-    <link
+    <link href="./sigpro.ui.css" rel="stylesheet" type="text/css" />
+    <!-- <link
       href="https://cdn.jsdelivr.net/npm/daisyui@5"
       rel="stylesheet"
       type="text/css"
-    />
+    /> -->
 
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   </head>
@@ -65,12 +65,17 @@
     </script>
     <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/search.min.js"></script>
     <script type="module">
-      import * as SigPro from "./sigpro.min.js";
+      import * as SigPro from "./sigpro.js";
       Object.assign(window, SigPro);
-      import("./convert.js").then(() => {
+      import "./sigpro.tags.js";
+      import "./sigpro.ui.js";
+
+      import("./sigpro.convert.js").then(() => {
         console.log("SigPro y Convert cargados correctamente.");
       });
+      // document.documentElement.setAttribute("data-theme", "splight");
     </script>
+    <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/search.min.js"></script>
     <script src="//cdn.jsdelivr.net/npm/docsify/lib/docsify.min.js"></script>
     <script src="//cdn.jsdelivr.net/npm/docsify-copy-code/dist/docsify-copy-code.min.js"></script>
   </body>
