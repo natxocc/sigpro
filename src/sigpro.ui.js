@@ -3,7 +3,6 @@ const { $, h, mount, val, isF, isO } = window.SigPro;
 export const hide = () => document.activeElement?.blur();
 
 export const ui = {
-  _label: (p, c) => h("label", { class: "floating-label" }, [h("span", {}, p.label ?? null), c]),
   accordion: (p, c) => h("div", { ...p, class: `collapse ${p.class || ''}` }, [h("input", { type: "radio", name: p.name, checked: p.checked }), c]),
   accordionTitle: (p, c) => h("div", { ...p, class: `collapse-title ${p.class || ''}` }, c),
   accordionContent: (p, c) => h("div", { ...p, class: `collapse-content ${p.class || ''}` }, c),
@@ -48,7 +47,8 @@ export const ui = {
   chatBubble: (p, c) => h("div", { ...p, class: `chat-bubble ${p.class || ''}` }, c),
   chatFooter: (p, c) => h("div", { ...p, class: `chat-footer ${p.class || ''}` }, c),
   checkbox: (p) => h("input", { ...p, type: "checkbox", class: `checkbox ${p.class || ''}` }),
-  colorpicker: (p) => ui.combo({ ...p, style: ()=>`background:${val(p.value) || '#000'}`, custom: () => h("span", {
+  colorpicker: (p) => ui.combo({
+    ...p, custom: () => h("span", {
       class: "w-4 h-4 rounded border border-base-300",
       style: `background:${val(p.value) || '#000'}`
     })
@@ -57,12 +57,12 @@ export const ui = {
   ),
   combo: (p, c) => {
     const { placeholder = "", class: cls = "" } = p;
-    const query = $("");
+    const query = isF(p.value) ? p.value : $(p.value ?? "");
     let inputEl, open = $(false);
 
-    return ui._label({ label: p.label }, [
-      h("div", { class: `dropdown ${cls} ${val(open) ? "dropdown-open" : ""}` }, [
-        h("label", { class: "input" }, [
+    return ui.float({ label: p.label }, [
+      h("div", { class: `dropdown w-full ${cls} ${val(open) ? "dropdown-open" : ""}` }, [
+        h("label", { class: "input w-full" }, [
           h("span", { class: p.icon ?? "icon-[lucide--search]" }),
           p.custom ?? null,
           h("input", {
@@ -73,7 +73,7 @@ export const ui = {
           })
         ]),
         h("div", {
-          class: "dropdown-content bg-base-100 rounded-box z-50 w-full p-2 shadow-sm",
+          class: "dropdown-content bg-base-100 rounded-box z-50 max-w-80 shadow-sm",
           onmousedown: e => e.preventDefault()
         }, () => val(open) && typeof c === "function"
           ? c({ query, open, close: () => { open(false); inputEl?.blur(); }, setValue: v => query(v) })
@@ -82,21 +82,30 @@ export const ui = {
       ])
     ]);
   },
-  datepicker: (p) => ui.combo(p, ({ close, setValue }) => {
-    const range = p.range;
-    return h("div", { class: "w-80" }, [
-      calendar({
-        ...p,
-        class: "w-full",
-        onChange: (v) => {
-          if (isF(p.value)) p.value(v);
-          if (!range) { setValue(v); close(); }
-          else if (v.start && v.end) { setValue(`${v.start} → ${v.end}`); close(); }
-          else if (v.start) setValue(`${v.start} → ...`);
-        }
-      })
+  datepicker: (p) => {
+    const range = isF(p.range) ? p.range() : p.range;
+    if (!range) return ui.combo({ value: (isF(p.value) ? p.value() : p.value) || '', ...p },
+      ({ close, setValue }) => h("div", { class: "w-80" },
+        calendar({ ...p, class: "w-full", onChange: v => { setValue(v); close(); if (isF(p.value)) p.value(v) } })
+      )
+    );
+    const v = $(isF(p.value) ? p.value() : p.value || { start: null, end: null });
+    const start = $((v() || {}).start || ''), end = $((v() || {}).end || '');
+    const sync = () => { v({ start: start(), end: end() }); if (isF(p.value)) p.value(v()); };
+    const cal = (key, sig, ph, dis) => ui.combo({ value: sig, placeholder: ph, class: "flex-1", disabled: dis },
+      ({ close, setValue }) => h("div", { class: "w-72" },
+        calendar({
+          ...p, class: "w-full", value: v, range: true, onChange: r => {
+            v(r); start(r?.start || ''); end(r?.end || ''); setValue(r?.[key] || ''); if (r?.end) close(); if (isF(p.value)) p.value(r)
+          }
+        })
+      )
+    );
+    return h("div", { class: `flex gap-1 ${p.class || ''}`, onchange: sync }, [
+      cal('start', start, p.fromPlaceholder || "Inicio"),
+      cal('end', end, p.toPlaceholder || "Fin", () => !v()?.start)
     ]);
-  }),
+  },
   divider: (p) => h("div", { ...p, class: `divider ${p.class || ''}` }),
   drawer: (p, c) => h("div", { ...p, class: `drawer ${p.class || ''}` }, c),
   drawerToggle: (p) => h("input", { ...p, type: "checkbox", class: `drawer-toggle ${p.class || ''}` }),
@@ -129,20 +138,16 @@ export const ui = {
     )
   ),
   fileError: (p) => h("div", { class: `text-[10px] text-error mt-1 px-1 ${p.class || ''}` }, p.message),
+  float: (p, c) => h("label", { class: "floating-label" }, [h("span", {}, p.label ?? null), c]),
   icon: (p) => h("span", { class: p || '' }),
   indicator: (p, c) => h("div", { ...p, class: `indicator ${p.class || ''}` }, [p.value && h("span", { class: `indicator-item badge ${p.badgeClass || ''}` }, p.value), c]),
-  input: (p) => h("input", { ...p, class: `input ${p.class || ''}` }),
-  inputPass: (p) => {
-    const show = $(false);
-    return [
-      ui.input({ ...p, type: () => val(show) ? "text" : "password" }),
-      ui.swap({ class: "ml-2 swap-rotate" }, [
-        ui.checkbox({ checked: show }),
-        ui.swapOn({}, ui.icon("icon-[lucide--eye]")),
-        ui.swapOff({}, ui.icon("icon-[lucide--eye-off]"))
-      ])
-    ];
-  },
+  input: (p) => ui.float({ label: p.label }, [
+    h("label", { class: "input w-full" }, [
+      ui.icon(p.icon ?? ""),
+      h("input", { ...p, class: `w-full ${p.class || ''}` }),
+      p.right || null
+    ])
+  ]),
   kbd: (p, c) => h("kbd", { ...p, class: `kbd ${p.class || ''}` }, c),
   label: (p, c) => h("span", { ...p, class: `label ${p.class || ''}` }, c),
   loading: (p) => h("span", { ...p, class: `loading loading-spinner ${p.class || ''}` }),
@@ -163,6 +168,20 @@ export const ui = {
   modalAction: (p, c) => h("div", { ...p, class: `modal-action ${p.class || ''}` }, c),
   navbar: (p, c) => h("div", { ...p, class: `navbar ${p.class || ''}` }, c),
   option: (p, c) => h("option", { ...p }, c),
+  password: (p) => {
+    const show = $(false);
+    const { right, ...rest } = p;
+    return ui.input({
+      ...rest,
+      type: () => val(show) ? "text" : "password",
+      icon: "icon-[lucide--lock]",
+      right: ui.swap({ class: "swap swap-rotate" }, [
+        h('input', { type: "checkbox", checked: show }),
+        ui.swapOn({}, ui.icon("icon-[lucide--eye]")),
+        ui.swapOff({}, ui.icon("icon-[lucide--eye-off]"))
+      ])
+    });
+  },
   progress: (p) => h("progress", { ...p, class: `progress ${p.class || ''}` }),
   radial: (p) => h("div", { ...p, class: `radial-progress ${p.class || ''}`, style: `--value:${val(p.value) ?? 0}`, role: "progressbar" }, p.value ?? ""),
   radio: (p) => h("input", { ...p, type: "radio", class: `radio ${p.class || ''}` }),
@@ -231,7 +250,7 @@ export const ui = {
 
 export const calendar = p => {
   let [d, hv, sh, eh] = [$(new Date()), $(0), $(0), $(0)], now = new Date(),
-    F = v => v?.toISOString().slice(0, 10),
+    F = v => v ? `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}` : '',
     P = n => (n < 10 ? '0' : '') + n,
     M = (m, y = 0) => d(new Date(d().getFullYear() + y, d().getMonth() + m, 1)),
     V = () => typeof p.value == 'function' ? p.value() : p.value,
@@ -248,7 +267,7 @@ export const calendar = p => {
       h('span', { class: 'text-sm font-mono' }, () => P(v()) + ':00')
     ]);
 
-  return h('div', { class: `p-4 bg-base-100 border shadow-2xl rounded-box w-80 select-none ${p.class || ''}` }, [
+  return h('div', { class: `p-4 bg-base-100 rounded-box w-80 select-none ${p.class || ''}` }, [
     h('div', { class: 'flex justify-between items-center mb-4' }, [
       h('div', { class: 'flex' }, [['-1y', -1, 1], ['-1m', -1, 0]].map(([_, m, y]) => h('button', { class: 'btn btn-ghost btn-xs', onclick: () => M(m, y) }, h('span', { class: `icon-[lucide--chevron${y ? 's' : ''}-left]` })))),
       h('span', { class: 'font-bold uppercase' }, () => d().toLocaleString('es', { month: 'short', year: 'numeric' })),
