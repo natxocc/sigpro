@@ -1,4 +1,5 @@
-// src/sigpro.convert.js - Conversor HTML a SigPro con preview
+/// <reference path="../sigpro.d.ts" />
+
 var { $ } = window.SigPro;
 
 function html2sigpro(h, mode = "tags") {

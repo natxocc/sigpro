@@ -1,3 +1,5 @@
+/// <reference path="../sigpro.d.ts" />
+
 const { h, watch, onUnmount } = window.SigPro
 
 import {

@@ -23,7 +23,11 @@
     "./grid": "./dist/sigpro.grid.js",
     "./editor": "./dist/sigpro.editor.js",
     "./vite": "./dist/sigpro.vite.js",
-    "./ui": "./dist/sigpro.ui.js"
+    "./ui": {
+      "types": "./sigpro.ui.d.ts",
+      "import": "./dist/sigpro.ui.js",
+      "default": "./dist/sigpro.ui.js"
+    }
   },
   "files": [
     "dist/",

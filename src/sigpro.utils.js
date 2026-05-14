@@ -1,3 +1,5 @@
+/// <reference path="../sigpro.d.ts" />
+
 const { $, h, watch, render, isF } = window.SigPro;
 
 // router

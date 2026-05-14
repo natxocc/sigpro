@@ -1,3 +1,5 @@
+/// <reference path="../sigpro.d.ts" />
+
 const { $, isF } = window.SigPro
 
 export const Editor = p => {
