@@ -237,7 +237,10 @@ export const ui = {
   },
   textarea: (p) => h("textarea", { ...p, class: `textarea ${p.class || ''}` }),
   textrotate: (p, c) => h("span", { ...p, class: `text-rotate ${p.class || ''}` }, h("span", {}, c)),
-  theme: (p) => ui.toggle({ value: p?.value || "spdark", class: "theme-controller" }),
+  theme: (p) => ui.swap({ class: `text-xl ${p.class || ''}`, value: p.value }, [
+    ui.swap_on({}, span({ class: "icon-[lucide--moon]" })),
+    ui.swap_off({}, span({ class: "icon-[lucide--sun]" }))
+  ]),
   timeline: (p, c) => h("ul", { ...p, class: `timeline ${p.class || ''}` }, c),
   timeline_start: (p, c) => h("div", { ...p, class: `timeline-start ${p.class || ''}` }, c),
   timeline_middle: (p, c) => h("div", { ...p, class: `timeline-middle ${p.class || ''}` }, c),
