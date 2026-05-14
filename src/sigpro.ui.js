@@ -112,36 +112,37 @@ export const ui = {
     const pos = $(p.pos || { x: 100, y: 100 });
     const show = $(p.show || false);
     const anim = $(false);
-
+    
     watch(show, s => s ? setTimeout(() => anim(true), 10) : anim(false));
-
-    return h("div", {
-      class: () => `fixed z-50 transition-all duration-300 ${show() ? (anim() ? 'opacity-100 scale-100' : 'opacity-0 scale-95') : 'opacity-0 scale-95 pointer-events-none'
+    
+    return h("div", { 
+        class: () => `fixed z-50 transition-opacity duration-300 ${
+            show() ? (anim() ? 'opacity-100 scale-100' : 'opacity-0 scale-95') : 'opacity-0 scale-95 pointer-events-none'
         }`,
-      style: () => `left: ${pos().x}px; top: ${pos().y}px;`
+        style: () => `left: ${pos().x}px; top: ${pos().y}px; transition: left 50ms, top 50ms;`
     }, [
-      h("div", {
-        class: `bg-base-100 rounded-box shadow-2xl border border-base-300 ${p.class || ''}`,
-        onclick: e => e.stopPropagation()
-      }, [
-        p.title ? h("div", {
-          class: "flex justify-between items-center cursor-move p-2 border-b select-none bg-base-200 rounded-t-box",
-          onmousedown: e => {
-            const sx = e.clientX - pos().x, sy = e.clientY - pos().y;
-            const mv = ev => pos({ x: ev.clientX - sx, y: ev.clientY - sy });
-            const up = () => { document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); };
-            document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
-            e.preventDefault();
-          }
+        h("div", { 
+            class: `bg-base-100 rounded-box shadow-2xl border border-base-300 ${p.class || ''}`,
+            onclick: e => e.stopPropagation()
         }, [
-          h("span", { class: "font-bold" }, p.title),
-          h("button", { class: "btn btn-sm btn-circle btn-ghost", onclick: () => show(false) }, "✕")
-        ]) : null,
-        h("div", { class: "p-4" }, c),
-        p.footer ? h("div", { class: "p-2 border-t flex justify-end gap-2" }, p.footer) : null
-      ])
+            p.title ? h("div", { 
+                class: "flex justify-between items-center cursor-move p-2 border-b select-none bg-base-200 rounded-t-box",
+                onmousedown: e => {
+                    const sx = e.clientX - pos().x, sy = e.clientY - pos().y;
+                    const mv = ev => pos({ x: ev.clientX - sx, y: ev.clientY - sy });
+                    const up = () => { document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); };
+                    document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+                    e.preventDefault();
+                }
+            }, [
+                h("span", { class: "font-bold" }, p.title),
+                h("button", { class: "btn btn-sm btn-circle btn-ghost", onclick: () => show(false) }, "✕")
+            ]) : null,
+            h("div", { class: "p-4" }, c),
+            p.footer ? h("div", { class: "p-2 border-t flex justify-end gap-2" }, p.footer) : null
+        ])
     ]);
-  },
+},
   divider: (p) => h("div", { ...p, class: `divider ${p.class || ''}` }),
   drawer: (p, c) => h("div", { ...p, class: `drawer ${p.class || ''}` }, c),
   drawer_toggle: (p) => h("input", { ...p, type: "checkbox", class: `drawer-toggle ${p.class || ''}` }),
