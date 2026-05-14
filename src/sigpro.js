@@ -204,7 +204,7 @@ export const render = rFn => {
   return { _rt: 1, _cnt: cnt, destroy: () => { clr(c); clnNd(cnt); cnt.remove(); } };
 };
 
-const when = (c, Y, N = null) => {
+export const when = (c, Y, N = null) => {
   let anc = txt(""), rt = h("div", { style: "display:contents" }, [anc]), v;
   watch(() => !!val(c), s => {
     if (v) { v.destroy(); v = null; }

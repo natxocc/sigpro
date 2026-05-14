@@ -25,19 +25,12 @@ bun add sigpro
 
 ```html
 <script type="module">
-  // Import the core
-  import {
-    $,
-    h,
-    mount,
-  } from "https://cdn.jsdelivr.net/npm/sigpro@latest/dist/sigpro.esm.min.js";
 
-  // For full import and assign to window
-  // import * as SigPro from "./sigpro.js";
-  // Object.assign(window, SigPro);
+  import { $, h, mount } from "https://cdn.jsdelivr.net/npm/sigpro@latest/dist/sigpro.esm.min.js";
 
   const count = $(0);
   mount(() => h("h1", {}, () => `Count: ${count()}`), "#app");
+
 </script>
 ```
 
@@ -51,7 +44,7 @@ bun add sigpro
 SigPro uses **lowercase** Tag Helpers (e.g., `div`, `button`) to keep the syntax close to raw HTML, while still being pure JavaScript functions.
 
 <div class="tabs tabs-box w-full mt-8 mb-12 bg-base-200/50 p-2 rounded-xl border border-base-300">
-  <input type="radio" name="quick_start_tabs" class="tab !rounded-lg" aria-label="Bundlers (ESM)" checked />
+  <input type="radio" name="quick_start_tabs" class="tab !rounded-lg" aria-label="ESM" checked />
   <div class="tab-content bg-base-100 border-base-300 rounded-lg p-6 mt-2">
 
 ```javascript
@@ -74,7 +67,7 @@ mount(App, "#app");
 
   </div>
 
-  <input type="radio" name="quick_start_tabs" class="tab !rounded-lg" aria-label="Classic (Direct CDN)" />
+  <input type="radio" name="quick_start_tabs" class="tab !rounded-lg" aria-label="CDN" />
   <div class="tab-content bg-base-100 border-base-300 rounded-lg p-6 mt-2">
 
 ```html
@@ -83,7 +76,6 @@ mount(App, "#app");
   <body>
     <div id="app"></div>
 
-    <!-- CDN full bundle – everything ready to use -->
     <script type="module">
       // Import the core
       import { $, h, mount } from "https://cdn.jsdelivr.net/npm/sigpro@latest/dist/sigpro.esm.min.js";
