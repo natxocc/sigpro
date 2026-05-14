@@ -154,19 +154,12 @@ export const ui = {
   loading: (p) => h("span", { ...p, class: `loading loading-spinner ${p.class || ''}` }),
   menu: (p, c) => h("ul", { ...p, class: `menu ${p.class || ''}` }, c),
   menu_title: (p, c) => h('li', { ...p, class: "menu-title" }, c),
-  menu_items: function _menu_items(p) {
-    return (p.items || []).map((i) => {
-      if (i.items) {
-        return h('li', {}, [
-          h('details', { open: i.open || false }, [
-            h('summary', {}, i.label),
-            h('ul', { class: i.submenuClass || '' }, _menu_items({ items: i.items }))
-          ])
-        ]);
-      }
-      return h('li', {}, i.href ? h('a', { href: i.href }, i.label) : i.label);
-    });
-  },
+  menu_item: (p) =>
+    p.items
+      ? h('li', {}, [h('details', { open: p.open || false }, [h('summary', {}, p.label), h('ul', { class: p.submenuClass || '' }, p.items.map(i => ui.menu_item(i)))])])
+      : h('li', {}, p.href || p.onclick
+        ? h('a', { ...(p.href ? { href: p.href } : {}), onclick: p.onclick }, p.label)
+        : p.label),
   modal: (p, c) => h("dialog", { ...p, class: `modal ${p.class || ''}` }, [c, h("form", { method: "dialog", class: "modal-backdrop" }, h("button", {}, "close"))]),
   modal_box: (p, c) => h("div", { ...p, class: `modal-box ${p.class || ''}` }, [h("form", { method: "dialog" }, h("button", { class: "btn btn-sm btn-circle btn-ghost absolute right-2 top-2" }, "✕")), c]),
   modal_action: (p, c) => h("div", { ...p, class: `modal-action ${p.class || ''}` }, c),
