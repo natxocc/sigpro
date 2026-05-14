@@ -4,8 +4,8 @@ export const hide = () => document.activeElement?.blur();
 
 export const ui = {
   accordion: (p, c) => h("div", { ...p, class: `collapse ${p.class || ''}` }, [h("input", { type: "radio", name: p.name, checked: p.checked }), c]),
-  accordionTitle: (p, c) => h("div", { ...p, class: `collapse-title ${p.class || ''}` }, c),
-  accordionContent: (p, c) => h("div", { ...p, class: `collapse-content ${p.class || ''}` }, c),
+  accordion_title: (p, c) => h("div", { ...p, class: `collapse-title ${p.class || ''}` }, c),
+  accordion_content: (p, c) => h("div", { ...p, class: `collapse-content ${p.class || ''}` }, c),
   alert: (p, c) => h("div", { ...p, class: `alert ${p.class || ''}` }, c),
   autocomplete: (p) => ui.combo(p, ({ query, close, setValue }) =>
     h("ul", { class: "menu bg-base-100 w-full" }, () => {
@@ -31,21 +31,21 @@ export const ui = {
     })
   ),
   avatar: (p, c) => h("div", { ...p, class: `avatar ${p.class || ''}` }, h("div", { class: p.innerClass || '' }, c)),
-  avatarGroup: (p, c) => h("div", { ...p, class: `avatar-group -space-x-6 ${p.class || ''}` }, c),
+  avatar_group: (p, c) => h("div", { ...p, class: `avatar-group -space-x-6 ${p.class || ''}` }, c),
   badge: (p, c) => h("span", { ...p, class: `badge ${p.class || ''}` }, c),
   breadcrumbs: (p, c) => h("div", { ...p, class: `breadcrumbs ${p.class || ''}` }, c),
   button: (p, c) => h("button", { ...p, class: `btn ${p.class || ''}` }, c),
   card: (p, c) => h("div", { ...p, class: `card ${p.class || ''}` }, c),
-  cardTitle: (p, c) => h("div", { ...p, class: `card-title ${p.class || ''}` }, c),
-  cardBody: (p, c) => h("div", { ...p, class: `card-body ${p.class || ''}` }, c),
-  cardActions: (p, c) => h("div", { ...p, class: `card-actions ${p.class || ''}` }, c),
+  card_title: (p, c) => h("div", { ...p, class: `card-title ${p.class || ''}` }, c),
+  card_body: (p, c) => h("div", { ...p, class: `card-body ${p.class || ''}` }, c),
+  card_actions: (p, c) => h("div", { ...p, class: `card-actions ${p.class || ''}` }, c),
   carousel: (p, c) => h("div", { ...p, class: `carousel ${p.class || ''}` }, c),
-  carouselItem: (p, c) => h("div", { ...p, class: `carousel-item ${p.class || ''}` }, c),
+  carousel_item: (p, c) => h("div", { ...p, class: `carousel-item ${p.class || ''}` }, c),
   chat: (p, c) => h("div", { ...p, class: `chat ${p.class || ''}` }, c),
-  chatImage: (p, c) => h("div", { ...p, class: `chat-image avatar ${p.class || ''}` }, c),
-  chatHeader: (p, c) => h("div", { ...p, class: `chat-header ${p.class || ''}` }, c),
-  chatBubble: (p, c) => h("div", { ...p, class: `chat-bubble ${p.class || ''}` }, c),
-  chatFooter: (p, c) => h("div", { ...p, class: `chat-footer ${p.class || ''}` }, c),
+  chat_image: (p, c) => h("div", { ...p, class: `chat-image avatar ${p.class || ''}` }, c),
+  chat_header: (p, c) => h("div", { ...p, class: `chat-header ${p.class || ''}` }, c),
+  chat_bubble: (p, c) => h("div", { ...p, class: `chat-bubble ${p.class || ''}` }, c),
+  chat_footer: (p, c) => h("div", { ...p, class: `chat-footer ${p.class || ''}` }, c),
   checkbox: (p) => h("input", { ...p, type: "checkbox", class: `checkbox ${p.class || ''}` }),
   colorpicker: (p) => ui.combo({
     ...p, custom: () => h("span", {
@@ -108,24 +108,24 @@ export const ui = {
   },
   divider: (p) => h("div", { ...p, class: `divider ${p.class || ''}` }),
   drawer: (p, c) => h("div", { ...p, class: `drawer ${p.class || ''}` }, c),
-  drawerToggle: (p) => h("input", { ...p, type: "checkbox", class: `drawer-toggle ${p.class || ''}` }),
-  drawerContent: (p, c) => h("div", { ...p, class: `drawer-content ${p.class || ''}` }, c),
-  drawerSide: (p, c) => h("div", { ...p, class: `drawer-side ${p.class || ''}` }, c),
-  drawerOverlay: (p) => h("label", { ...p, class: `drawer-overlay ${p.class || ''}` }),
+  drawer_toggle: (p) => h("input", { ...p, type: "checkbox", class: `drawer-toggle ${p.class || ''}` }),
+  drawer_content: (p, c) => h("div", { ...p, class: `drawer-content ${p.class || ''}` }, c),
+  drawer_side: (p, c) => h("div", { ...p, class: `drawer-side ${p.class || ''}` }, c),
+  drawer_overlay: (p) => h("label", { ...p, class: `drawer-overlay ${p.class || ''}` }),
   dropdown: (p, c) => h("div", { ...p, class: `dropdown ${p.class || ''}` }, c),
-  dropdownButton: (p, c) => h("div", { ...p, tabindex: "0", role: "button", class: `btn ${p.class || ''}` }, c),
-  dropdownContent: (p, c) => h("div", { ...p, tabindex: "0", class: `dropdown-content ${p.class || ''}` }, c),
+  dropdown_button: (p, c) => h("div", { ...p, tabindex: "0", role: "button", class: `btn ${p.class || ''}` }, c),
+  dropdown_content: (p, c) => h("div", { ...p, tabindex: "0", class: `dropdown-content ${p.class || ''}` }, c),
   fab: (p, c) => h("div", { ...p, class: `fab ${p.class || ''}` }, c),
-  fabButton: (p, c) => h("div", { ...p, tabindex: "0", role: "button", class: `btn ${p.class || ''}` }, c),
+  fab_button: (p, c) => h("div", { ...p, tabindex: "0", role: "button", class: `btn ${p.class || ''}` }, c),
   fieldset: (p, c) => h("fieldset", { class: `fieldset ${p.class || ''}` }, [h("legend", { class: "fieldset-legend" }, p.label), c]),
-  fileInput: (p) => h("input", { ...p, type: "file", class: `file-input ${p.class || ''}` }),
-  fileDrag: (p, c) => h("label", {
+  file: (p) => h("input", { ...p, type: "file", class: `file-input ${p.class || ''}` }),
+  file_drag: (p, c) => h("label", {
     class: () => `relative flex items-center justify-between h-12 px-4 border-2 border-dashed rounded-lg cursor-pointer transition-all ${p.drag ? 'border-primary bg-primary/10' : 'border-base-content/20 bg-base-100'} ${p.class || ''}`,
     ondragover: (e) => { e.preventDefault(); p.ondrag?.(true); },
     ondragleave: () => p.ondrag?.(false),
     ondrop: (e) => { e.preventDefault(); p.ondrag?.(false); p.ondrop?.(e.dataTransfer.files); }
   }, c),
-  filePreview: (p) => h("ul", { class: `mt-2 space-y-1 ${p.class || ''}` },
+  file_preview: (p) => h("ul", { class: `mt-2 space-y-1 ${p.class || ''}` },
     (p.files || []).map((f, i) =>
       h("li", { class: "flex items-center justify-between p-1.5 pl-3 text-xs bg-base-200/50 rounded-md border" }, [
         h("div", { class: "flex items-center gap-2 truncate opacity-70" }, [
@@ -137,13 +137,12 @@ export const ui = {
       ])
     )
   ),
-  fileError: (p) => h("div", { class: `text-[10px] text-error mt-1 px-1 ${p.class || ''}` }, p.message),
+  file_error: (p) => h("div", { class: `text-[10px] text-error mt-1 px-1 ${p.class || ''}` }, p.message),
   float: (p, c) => h("label", { class: "floating-label" }, [h("span", {}, p.label ?? null), c]),
-  icon: (p) => h("span", { class: p || '' }),
   indicator: (p, c) => h("div", { ...p, class: `indicator ${p.class || ''}` }, [p.value && h("span", { class: `indicator-item badge ${p.badgeClass || ''}` }, p.value), c]),
   input: (p) => ui.float({ label: p.label }, [
     h("label", { class: "input w-full" }, [
-      ui.icon(p.icon ?? ""),
+      span({ class: `${p.icon ?? ''}` }),
       h("input", { ...p, class: `w-full ${p.class || ''}` }),
       p.right || null
     ])
@@ -152,20 +151,22 @@ export const ui = {
   label: (p, c) => h("span", { ...p, class: `label ${p.class || ''}` }, c),
   loading: (p) => h("span", { ...p, class: `loading loading-spinner ${p.class || ''}` }),
   menu: (p, c) => h("ul", { ...p, class: `menu ${p.class || ''}` }, c),
-  menuItems: (p) => (p.items || []).map((i) => {
-    if (i.items) {
-      return h('li', {}, [
-        h('details', { open: i.open || false }, [
-          h('summary', {}, i.label),
-          h('ul', { class: i.submenuClass || '' }, menuItems({ items: i.items }))
-        ])
-      ]);
-    }
-    return h('li', {}, i.href ? h('a', { href: i.href }, i.label) : i.label);
-  }),
+  menu_items: function _menu_items(p) {
+    return (p.items || []).map((i) => {
+      if (i.items) {
+        return h('li', {}, [
+          h('details', { open: i.open || false }, [
+            h('summary', {}, i.label),
+            h('ul', { class: i.submenuClass || '' }, _menu_items({ items: i.items }))
+          ])
+        ]);
+      }
+      return h('li', {}, i.href ? h('a', { href: i.href }, i.label) : i.label);
+    });
+  },
   modal: (p, c) => h("dialog", { ...p, class: `modal ${p.class || ''}` }, [c, h("form", { method: "dialog", class: "modal-backdrop" }, h("button", {}, "close"))]),
-  modalBox: (p, c) => h("div", { ...p, class: `modal-box ${p.class || ''}` }, [h("form", { method: "dialog" }, h("button", { class: "btn btn-sm btn-circle btn-ghost absolute right-2 top-2" }, "✕")), c]),
-  modalAction: (p, c) => h("div", { ...p, class: `modal-action ${p.class || ''}` }, c),
+  modal_box: (p, c) => h("div", { ...p, class: `modal-box ${p.class || ''}` }, [h("form", { method: "dialog" }, h("button", { class: "btn btn-sm btn-circle btn-ghost absolute right-2 top-2" }, "✕")), c]),
+  modal_action: (p, c) => h("div", { ...p, class: `modal-action ${p.class || ''}` }, c),
   navbar: (p, c) => h("div", { ...p, class: `navbar ${p.class || ''}` }, c),
   option: (p, c) => h("option", { ...p }, c),
   password: (p) => {
@@ -175,10 +176,9 @@ export const ui = {
       ...rest,
       type: () => val(show) ? "text" : "password",
       icon: "icon-[lucide--lock]",
-      right: ui.swap({ class: "swap swap-rotate" }, [
-        h('input', { type: "checkbox", checked: show }),
-        ui.swapOn({}, ui.icon("icon-[lucide--eye]")),
-        ui.swapOff({}, ui.icon("icon-[lucide--eye-off]"))
+      right: ui.swap({ value: show, class: "swap-rotate" }, [
+        ui.swap_on({}, span({ class: "icon-[lucide--eye]" })),
+        ui.swap_off({}, span({ class: "icon-[lucide--eye-off]" }))
       ])
     });
   },
@@ -197,26 +197,26 @@ export const ui = {
       })
     )
   ),
-  search: (p) => ui.text({ ...p, type: "search", icon: p.icon ?? "icon-[lucide--search]" }),
+  search: (p) => ui.input({ ...p, type: "search", icon: p.icon ?? "icon-[lucide--search]" }),
   select: (p, c) => h("select", { ...p, class: `select ${p.class || ''}` }, c),
   stack: (p, c) => h("div", { ...p, class: `stack ${p.class || ''}` }, c),
   stat: (p, c) => h("div", { ...p, class: `stat ${p.class || ''}` }, c),
-  statFigure: (p, c) => h("div", { ...p, class: `stat-figure ${p.class || ''}` }, c),
-  statTitle: (p, c) => h("div", { ...p, class: `stat-title ${p.class || ''}` }, c),
-  statValue: (p, c) => h("div", { ...p, class: `stat-value ${p.class || ''}` }, c),
-  statDesc: (p, c) => h("div", { ...p, class: `stat-desc ${p.class || ''}` }, c),
+  stat_figure: (p, c) => h("div", { ...p, class: `stat-figure ${p.class || ''}` }, c),
+  stat_title: (p, c) => h("div", { ...p, class: `stat-title ${p.class || ''}` }, c),
+  stat_value: (p, c) => h("div", { ...p, class: `stat-value ${p.class || ''}` }, c),
+  stat_desc: (p, c) => h("div", { ...p, class: `stat-desc ${p.class || ''}` }, c),
   steps: (p, c) => h("ul", { ...p, class: `steps ${p.class || ''}` }, c),
   step: (p, c) => h("li", { ...p, class: `step ${p.class || ''}`, "data-content": p.dataContent }, c),
-  swap: (p, c) => h("label", { ...p, class: `swap ${p.class || ''}` }, c),
-  swapOn: (p, c) => h("div", { ...p, class: `swap-on ${p.class || ''}` }, c),
-  swapOff: (p, c) => h("div", { ...p, class: `swap-off ${p.class || ''}` }, c),
+  swap: (p, c) => h("label", { class: `swap ${p.class || ''}` }, [h("input", { type: "checkbox", checked: p.value }), ...(isA(c) ? c : [c])]),
+  swap_on: (p, c) => h("div", { ...p, class: `swap-on ${p.class || ''}` }, c),
+  swap_off: (p, c) => h("div", { ...p, class: `swap-off ${p.class || ''}` }, c),
   table: (p, c) => h("table", { ...p, class: `table ${p.class || ''}` }, c),
-  tableHead: (p, c) => h("thead", { ...p, class: p.class || '' }, c),
-  tableBody: (p, c) => h("tbody", { ...p, class: p.class || '' }, c),
-  tableFoot: (p, c) => h("tfoot", { ...p, class: p.class || '' }, c),
-  tableRow: (p, c) => h("tr", { ...p, class: p.class || '' }, c),
-  tableTh: (p, c) => h("th", { ...p, class: p.class || '' }, c),
-  tableTd: (p, c) => h("td", { ...p, class: p.class || '' }, c),
+  table_head: (p, c) => h("thead", { ...p, class: p.class || '' }, c),
+  table_body: (p, c) => h("tbody", { ...p, class: p.class || '' }, c),
+  table_foot: (p, c) => h("tfoot", { ...p, class: p.class || '' }, c),
+  table_row: (p, c) => h("tr", { ...p, class: p.class || '' }, c),
+  table_th: (p, c) => h("th", { ...p, class: p.class || '' }, c),
+  table_td: (p, c) => h("td", { ...p, class: p.class || '' }, c),
   tabs: (p, c) => div({ ...p, class: `tabs ${p.class || ''}` }, c),
   tab: (p) => {
     const close = () => p.tabs?.(p.tabs().filter((_, idx) => idx !== p.index))
@@ -236,9 +236,9 @@ export const ui = {
   textrotate: (p, c) => h("span", { ...p, class: `text-rotate ${p.class || ''}` }, h("span", {}, c)),
   theme: (p) => ui.toggle({ value: p?.value || "spdark", class: "theme-controller" }),
   timeline: (p, c) => h("ul", { ...p, class: `timeline ${p.class || ''}` }, c),
-  timelineStart: (p, c) => h("div", { ...p, class: `timeline-start ${p.class || ''}` }, c),
-  timelineMiddle: (p, c) => h("div", { ...p, class: `timeline-middle ${p.class || ''}` }, c),
-  timelineEnd: (p, c) => h("div", { ...p, class: `timeline-end ${p.class || ''}` }, c),
+  timeline_start: (p, c) => h("div", { ...p, class: `timeline-start ${p.class || ''}` }, c),
+  timeline_middle: (p, c) => h("div", { ...p, class: `timeline-middle ${p.class || ''}` }, c),
+  timeline_end: (p, c) => h("div", { ...p, class: `timeline-end ${p.class || ''}` }, c),
   toggle: (p) => h("input", { ...p, type: "checkbox", class: `toggle ${p.class || ''}` }),
   tooltip: (p, c) => h('div', { class: `tooltip ${p.class || ''}`, "data-tip": p.tip }, c),
   validator: (p, c) => h("div", { ...p, class: `validator-hint ${p.class || ''}` }, c),

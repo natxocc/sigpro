@@ -1,5 +1,6 @@
 <div id="ui"></div>
 <div id="tab"></div>
+<div id="file"></div>
 <div id="demo-toast"></div>
 
 ```js
@@ -261,7 +262,7 @@ mount(
       ]),
     ]) : null,
   ]),
-  "#ui",
+  "#file",
 );
 
 
