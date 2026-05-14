@@ -153,6 +153,7 @@ export const ui = {
   label: (p, c) => h("span", { ...p, class: `label ${p.class || ''}` }, c),
   loading: (p) => h("span", { ...p, class: `loading loading-spinner ${p.class || ''}` }),
   menu: (p, c) => h("ul", { ...p, class: `menu ${p.class || ''}` }, c),
+  menu_title: (p, c) => h('li', { ...p, class: "menu-title" }, c),
   menu_items: function _menu_items(p) {
     return (p.items || []).map((i) => {
       if (i.items) {
