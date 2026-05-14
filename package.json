@@ -20,6 +20,8 @@
       "default": "./dist/sigpro.js"
     },
     "./utils": "./dist/sigpro.utils.js",
+    "./grid": "./dist/sigpro.grid.js",
+    "./editor": "./dist/sigpro.editor.js",
     "./vite": "./dist/sigpro.vite.js",
     "./ui": "./dist/sigpro.ui.js"
   },
@@ -45,18 +47,21 @@
     "build:core": "bun build ./src/sigpro.js --bundle --outfile=./dist/sigpro.js --format=esm --minify",
     "build:utils": "bun build ./src/sigpro.utils.js --bundle --outfile=./dist/sigpro.utils.js --format=esm --external ./src/sigpro.js --minify",
     "build:ui": "bun build ./src/sigpro.ui.js --bundle --outfile=./dist/sigpro.ui.js --format=esm --external ./src/sigpro.js --minify",
+    "build:grid": "bun build ./src/sigpro.grid.js --bundle --external sigpro --outfile=./dist/sigpro.grid.js --format=esm --minify",
+    "build:editor": "bun build ./src/sigpro.editor.js --bundle --external sigpro --outfile=./dist/sigpro.editor.js --format=esm --minify",
     "build:vite": "bun build ./src/sigpro.vite.js --bundle --outfile=./dist/sigpro.vite.js --format=esm --external fs --external path  --minify",
     "build:css": "tailwindcss -i ./src/sigpro.ui.css -o ./dist/sigpro.ui.css --minify --content './src/tailwind' && du -h ./dist/sigpro.ui.css",
     "build:convert": "bun build ./src/sigpro.convert.js --bundle --outfile=./docs/sigpro.convert.js --format=esm --external ./src/sigpro.js --minify",
-    "build": "bun run build:core && bun run build:utils && bun run build:ui && bun run build:vite && bun run build:css && bun run build:convert && cp ./dist/* ./docs",
+    "build": "bun run build:core && bun run build:utils && bun run build:ui && bun run build:grid && bun run build:editor && bun run build:vite && bun run build:css && bun run build:convert && cp ./dist/* ./docs",
     "docs": "bun x serve docs"
   },
   "devDependencies": {
-    "@iconify/json": "^2.2.471",
+    "@iconify/json": "^2.2.473",
     "@iconify/tailwind4": "^1.2.3",
     "@tailwindcss/cli": "^4.3.0",
     "daisyui": "^5.5.19",
-    "tailwindcss": "^4.3.0"
+    "tailwindcss": "^4.3.0",
+    "ag-grid-community": "^35.3.0"
   },
   "keywords": [
     "signals",
