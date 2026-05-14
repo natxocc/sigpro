@@ -1,6 +1,6 @@
 /// <reference path="../sigpro.d.ts" />
 
-const { $, h, mount, val, isF, isO } = window.SigPro;
+const { $, h, mount, val, isF, isA, isO } = window.SigPro;
 
 export const hide = () => document.activeElement?.blur();
 
