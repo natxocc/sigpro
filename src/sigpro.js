@@ -173,7 +173,7 @@ export const h = (tag, prp = {}, ch = []) => {
       let anc = txt(""), cur = []; el.appendChild(anc);
       let e = createEffect(() => {
         let r = c(), nxt = (isA(r) ? r : [r]).map(toNd), ref = anc;
-        cur.forEach(n => { n._rt ? n._del() : clnNd(n); if (n.parentNode) n.remove(); });
+        cur.forEach(n => { n._rt ? n.destroy() : clnNd(n); if (n.parentNode) n.remove(); });
         for (let i = nxt.length - 1; i >= 0; i--) {
           let nd = nxt[i];
           if (nd.parentNode !== ref.parentNode) ref.parentNode?.insertBefore(nd, ref);
@@ -196,22 +196,22 @@ export const render = rFn => {
   aOwn = { _c: c }; aEff = null;
   const pRes = r => {
     if (!r) return;
-    if (r._rt) { c.add(r._del); cnt.appendChild(r._cnt); }
+    if (r._rt) { c.add(r.destroy); cnt.appendChild(r._cnt); }
     else if (isA(r)) r.forEach(pRes);
     else cnt.appendChild(r instanceof Node ? r : txt(r));
   };
   try { pRes(rFn({ onCleanup: f => c.add(f) })); } finally { aOwn = pO; aEff = pE; }
-  return { _rt: 1, _cnt: cnt, _del: () => { clr(c); clnNd(cnt); cnt.remove(); } };
+  return { _rt: 1, _cnt: cnt, destroy: () => { clr(c); clnNd(cnt); cnt.remove(); } };
 };
 
 const when = (c, Y, N = null) => {
   let anc = txt(""), rt = h("div", { style: "display:contents" }, [anc]), v;
   watch(() => !!val(c), s => {
-    if (v) { v._del(); v = null; }
+    if (v) { v.destroy(); v = null; }
     let ct = s ? Y : N;
     if (ct) { v = render(() => val(ct)); rt.insertBefore(v._cnt, anc); }
   });
-  onUnmount(() => v?._del()); return rt;
+  onUnmount(() => v?.destroy()); return rt;
 };
 
 export const each = (s, fn, kF) => {
@@ -223,7 +223,7 @@ export const each = (s, fn, kF) => {
       if (!v) v = render(() => fn(t, i)); else cch.delete(k);
       nCc.set(k, v); nOd.push(v);
     }
-    cch.forEach(v => v._del());
+    cch.forEach(v => v.destroy());
     let ref = anc;
     for (let i = nOd.length - 1; i >= 0; i--) {
       let nd = nOd[i]._cnt;
@@ -237,7 +237,7 @@ export const each = (s, fn, kF) => {
 export const mount = (c, tgt) => {
   let t = typeof tgt == "string" ? doc.querySelector(tgt) : tgt;
   if (!t) return;
-  if (MOUNTED.has(t)) MOUNTED.get(t)._del();
+  if (MOUNTED.has(t)) MOUNTED.get(t).destroy();
   let i = render(isF(c) ? c : () => c);
   t.replaceChildren(i._cnt); MOUNTED.set(t, i); return i;
 };

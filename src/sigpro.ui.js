@@ -321,7 +321,7 @@ export const toast = (m, t = "alert-success", d = 3500) => {
 
   const i = mount(() => {
     let v = $(0), l = $(0);
-    E = () => l() || (l(1), clearTimeout(T), setTimeout(() => (i._del(), w.remove(), C.firstChild || C.remove()), 300));
+    E = () => l() || (l(1), clearTimeout(T), setTimeout(() => (i.destroy(), w.remove(), C.firstChild || C.remove()), 300));
     setTimeout(() => v(1));
     return h("div", {
       class: () => `alert alert-soft ${t} shadow-lg transition-all duration-300 inline-flex w-auto pointer-events-auto ${l() ? 'translate-x-full opacity-0' : v() ? 'translate-x-0 opacity-100' : 'translate-x-10 opacity-0'}`
