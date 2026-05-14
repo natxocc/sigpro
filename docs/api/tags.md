@@ -10,39 +10,13 @@ SigPro creates a wrapper function for each standard HTML tag.
 
 > **Note:** All tag helpers are **lowercase** (e.g., `div`, `span`, `button`) and can be used directly once globally enabled.
 
----
-
-## 2. Activating the Tag Helpers
-
-Depending on how you load SigPro, the activation varies:
-
-### A. Classic IIFE – Automatic Global Helpers  
-When you use the **IIFE bundle** (`sigpro.js` or `sigpro.min.js`) with a traditional `<script>` tag (no `type="module"`), **all tag helpers, signals, and XSS protection are automatically installed on `window`**. No extra steps needed.
-
-```html
-<script src="https://cdn.jsdelivr.net/npm/sigpro@latest/dist/sigpro.min.js"></script>
-<script>
-  // div, span, button, $, h, mount, router... are already global
-  const App = () => div({ class: "card" }, "Hello");
-  mount(App, '#app');
-</script>
-```
-
-### B. ESM (Modern JavaScript) – Explicit Activation  
-**ES module** (`import { ... } from 'sigpro'`).
-
-```js
-import { ... } from 'sigpro';
-
-// Now you can use helpers globally
-const App = () => div({ class: "app" }, "Ready!");
-```
-
 > If you prefer to avoid globals, you can always use `h('div', ...)` directly—it’s perfectly fine.
 
+> **Auto‑cleanup:** All tag helpers and `h` automatically dispose effects, event listeners, and nested components when removed from the DOM.
+
 ---
 
-## 3. The Complete List of Tag Helpers
+## 2. The Complete List of Tag Helpers
 
 All helpers are **lowercase** and follow HTML5 tag names.
 
@@ -59,7 +33,7 @@ Full list: `a`, `abbr`, `article`, `aside`, `audio`, `b`, `blockquote`, `br`, `b
 
 ---
 
-## 4. Usage Patterns
+## 3. Usage Patterns
 
 ### A. Attributes + Children
 
@@ -83,54 +57,7 @@ section([
 
 ---
 
-## 5. Reactive Power
-
-These helpers are natively wired into SigPro's reactivity system.
-
-### Reactive Attributes (One‑Way)
-
-Pass a **function** that returns the value. SigPro creates an internal effect to keep the DOM in sync.
-
-```javascript
-const theme = $("light");
-
-div({ 
-  class: () => `app-box ${theme()}` 
-}, "Themeable Box");
-```
-
-### Two‑Way Binding (Automatic)
-
-Assign a **signal** directly to `value` or `checked` on form inputs – SigPro automatically bridges the signal and the input element bidirectionally.
-
-```javascript
-const search = $("");
-
-input({ 
-  type: "text", 
-  placeholder: "Search...",
-  value: search 
-});
-```
-
-> **Pro Tip:** To make an input **read‑only** but still reactive, wrap the signal in a function: `value: () => search()` – this prevents backward synchronization.
-
-### Dynamic Children
-
-You can pass a **function as a child** – it will be re‑executed whenever any signal inside changes, and the DOM will be patched surgically.
-
-```javascript
-const count = $(0);
-
-div([
-  p(() => `Count is ${count()}`),
-  button({ onClick: () => count(count() + 1) }, "Increment")
-]);
-```
-
----
-
-## 6. Custom Components with `h()` or Tag Helpers
+## 4. Custom Components with `h()` or Tag Helpers
 
 While the tag helpers cover all standard HTML tags, you can create reusable components using them directly.
 
@@ -171,57 +98,3 @@ const Timer = () => {
   return el;
 };
 ```
-
----
-
-## 7. Comparison with `h()`
-
-| Use case | Recommendation |
-| :--- | :--- |
-| Standard tags (`div`, `span`, `button`) | Use tag helpers: `div()`, `span()`, `button()` |
-| Dynamic tag names (unknown at write time) | Use `h(tagName, props, children)` |
-| Components returning a single node | Any function that returns a node (using helpers or `h`) |
-
-> **Auto‑cleanup:** All tag helpers and `h` automatically dispose effects, event listeners, and nested components when removed from the DOM.
-
----
-
-## 8. Complete Example
-
-### ESM (modern projects)
-
-```javascript
-import { $, mount } from 'sigpro';
-
-const nameSignal = $('');
-
-const App = () =>
-  div({ class: "app" }, [
-    h1("Welcome"),
-    input({ 
-      placeholder: "Your name", 
-      value: nameSignal
-    }),
-    p(() => `Hello, ${nameSignal() || "stranger"}!`),
-    button({ onClick: () => alert("Clicked") }, "Click me")
-  ]);
-
-mount(App, '#app');
-```
-
-### Classic IIFE (auto‑global)
-
-```html
-<script src="https://cdn.jsdelivr.net/npm/sigpro@1.2.23/dist/sigpro.min.js"></script>
-<script>
-  const nameSignal = $('');
-  const App = () => div({ class: "app" }, [
-    h1("Welcome"),
-    input({ placeholder: "Your name", value: nameSignal }),
-    p(() => `Hello, ${nameSignal() || "stranger"}!`),
-    button({ onClick: () => alert("Clicked") }, "Click me")
-  ]);
-  mount(App, '#app');
-</script>
-```
-

@@ -12,67 +12,32 @@ Choose the method that best fits your workflow:
 
 ```bash
 npm install sigpro
-```
 
-  </div>
+or
 
-  <input type="radio" name="install_method" class="tab border-base-300" aria-label="pnpm" />
-  <div class="tab-content bg-base-100 border-base-300 rounded-box p-6">
-
-```bash
-pnpm add sigpro
-```
-
-  </div>
-
-  <input type="radio" name="install_method" class="tab border-base-300" aria-label="yarn" />
-  <div class="tab-content bg-base-100 border-base-300 rounded-box p-6">
-
-```bash
-yarn add sigpro
-```
-
-  </div>
-
-  <input type="radio" name="install_method" class="tab border-base-300" aria-label="bun" />
-  <div class="tab-content bg-base-100 border-base-300 rounded-box p-6">
-
-```bash
 bun add sigpro
 ```
 
   </div>
 
-  <input type="radio" name="install_method" class="tab border-base-300 whitespace-nowrap" aria-label="CDN (ESM)" />
+  <input type="radio" name="install_method" class="tab border-base-300 whitespace-nowrap" aria-label="CDN" />
   <div class="tab-content bg-base-100 border-base-300 rounded-box p-6">
 
 ```html
 <script type="module">
   // Import the core
-  import { $, h, mount } from 'https://cdn.jsdelivr.net/npm/sigpro@latest/dist/sigpro.esm.min.js';
+  import {
+    $,
+    h,
+    mount,
+  } from "https://cdn.jsdelivr.net/npm/sigpro@latest/dist/sigpro.esm.min.js";
 
-  // Option A: use named imports (no globals, recommended)
+  // For full import and assign to window
+  // import * as SigPro from "./sigpro.js";
+  // Object.assign(window, SigPro);
+
   const count = $(0);
-  mount(() => h('h1', {}, () => `Count: ${count()}`), '#app');
-</script>
-```
-
-  </div>
-
-  <input type="radio" name="install_method" class="tab border-base-300 whitespace-nowrap" aria-label="CDN (IIFE)" />
-  <div class="tab-content bg-base-100 border-base-300 rounded-box p-6">
-
-```html
-<!-- Classic script: full kit (core, router, tags, XSS) auto‑installed -->
-<script src="https://cdn.jsdelivr.net/npm/sigpro@latest/dist/sigpro.min.js"></script>
-<script>
-  // $, h, div, button, router, etc. are already global
-  const count = $(0);
-  const App = () => div({ class: "card" }, [
-    h1(() => `Count: ${count()}`),
-    button({ onclick: () => count(count() + 1) }, "Increment")
-  ]);
-  mount(App, '#app');
+  mount(() => h("h1", {}, () => `Count: ${count()}`), "#app");
 </script>
 ```
 
@@ -91,7 +56,7 @@ SigPro uses **lowercase** Tag Helpers (e.g., `div`, `button`) to keep the syntax
 
 ```javascript
 // App.js – Use named imports for the core, activate helpers if needed
-import { $, mount } from 'sigpro';
+import { $, mount } from "sigpro";
 
 const App = () => {
   const count = $(0);
@@ -99,12 +64,12 @@ const App = () => {
     h1(() => `Count is: ${count()}`),
     button(
       { class: "btn btn-primary", onclick: () => count(count() + 1) },
-      "Increment"
+      "Increment",
     ),
   ]);
 };
 
-mount(App, '#app');
+mount(App, "#app");
 ```
 
   </div>
@@ -118,20 +83,22 @@ mount(App, '#app');
   <body>
     <div id="app"></div>
 
-    <!-- IIFE full bundle – everything ready to use -->
-    <script src="https://cdn.jsdelivr.net/npm/sigpro@1.2.23/dist/sigpro.min.js"></script>
-    <script>
-      const name = $('Developer');
-      const App = () => section({ class: "container" }, [
-        h2(() => `Welcome, ${name()}`),
-        input({
-          type: "text",
-          class: "input input-bordered",
-          value: name,
-          placeholder: "Type your name...",
-        }),
-      ]);
-      mount(App, '#app');
+    <!-- CDN full bundle – everything ready to use -->
+    <script type="module">
+      // Import the core
+      import { $, h, mount } from "https://cdn.jsdelivr.net/npm/sigpro@latest/dist/sigpro.esm.min.js";
+      const name = $("Developer");
+      const App = () =>
+        section({ class: "container" }, [
+          h2(() => `Welcome, ${name()}`),
+          input({
+            type: "text",
+            class: "input input-bordered",
+            value: name,
+            placeholder: "Type your name...",
+          }),
+        ]);
+      mount(App, "#app");
     </script>
   </body>
 </html>
@@ -142,56 +109,14 @@ mount(App, '#app');
 
 ---
 
-## 3. Global by Design (Two Modes)
+## 3. Why no build step?
 
-SigPro gives you full control over global pollution.
-
-### Mode A: Classic (IIFE) – Full Auto‑injection
-When you load the **IIFE full bundle** (`sigpro.min.js`) with a traditional `<script>` tag (no `type="module"`), the library automatically provides **everything**:
-- Core functions (`$`, `$$`, `watch`, `h`, `when`, `each`, `router`, `mount`, `batch`) directly on `window` (also available as `SigPro.*`).
-- Lowercase tag helpers (`div`, `span`, `button`, …) become global functions.
-- Built‑in XSS protection activated.
-
-✅ Zero configuration – just drop the script and start coding.
-
-### Mode B: ESM (Modern) – Explicit Activation
-When you import the **ESM core** (`import { ... } from 'sigpro'`), **only the reactive core and router are available**. Tags and security are opt‑in:
-
-**Named imports** (for the core):
-   ```javascript
-   import { $, h, mount, router } from 'sigpro';
-   ```
-   No global pollution – perfect for bundlers and large projects.
-
-### Why two modes?
-- **Legacy / no‑build**: Use the IIFE full script and get everything automatically.
-- **Modern ESM**: Keep your global namespace clean, only activate helpers/security when needed, and benefit from tree‑shaking.
-
----
-
-## 4. Why no build step?
-
-Because SigPro uses **native ES Modules** and standard JavaScript functions to generate the DOM, you don't actually *need* a compiler like Babel or a transformer for JSX.
+Because SigPro uses **native ES Modules** and standard JavaScript functions to generate the DOM, you don't actually _need_ a compiler like Babel or a transformer for JSX.
 
 - **Development:** Just save and refresh. Pure JS, no "transpilation" required.
 - **Performance:** Extremely lightweight. Use any modern bundler (Vite, esbuild) only when you are ready to minify and tree-shake for production.
 
-## 5. Why SigPro? (The Competitive Edge)
-
-SigPro stands out by removing the "Build Step" tax and the "Virtual DOM" overhead. It is the closest you can get to writing raw HTML/JS while maintaining modern reactivity.
-
-| Feature            | **SigPro**       | **SolidJS**  | **Svelte**   | **React**   | **Vue**     |
-| :----------------- | :--------------- | :----------- | :----------- | :---------- | :---------- |
-| **Bundle Size**    | **<3KB**         | ~7KB         | ~4KB         | ~40KB+      | ~30KB       |
-| **DOM Strategy**   | **Direct DOM**   | Direct DOM   | Compiled DOM | Virtual DOM | Virtual DOM |
-| **Reactivity**     | **Fine-grained** | Fine-grained | Compiled     | Re-renders  | Proxies     |
-| **Build Step**     | **Optional**     | Required     | Required     | Required    | Optional    |
-| **Learning Curve** | **Minimal**      | Medium       | Low          | High        | Medium      |
-| **Initialization** | **Ultra-Fast**   | Very Fast    | Fast         | Slow        | Medium      |
-
----
-
-## 6. Key Advantages
+## 4. Key Advantages
 
 - **Extreme Performance**: No Virtual DOM reconciliation. SigPro updates the specific node or attribute instantly when a signal changes.
 - **Fine-Grained Reactivity**: State changes only trigger updates where the data is actually used, not on the entire component.
@@ -201,7 +126,7 @@ SigPro stands out by removing the "Build Step" tax and the "Virtual DOM" overhea
 
 ---
 
-## 7. Summary
+## 5. Summary
 
 SigPro isn't just another framework; it's a bridge to the native web. By using standard ES Modules and functional DOM generation, you get the benefits of a modern reactive library with the weight of a utility script.
 

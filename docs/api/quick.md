@@ -26,24 +26,6 @@ count(5) // triggers log: count=5, double=10
 
 ---
 
-### `$$(object)` – Deep Reactive Proxy
-
-Makes a plain object (and all nested objects) deeply reactive. Any property access is tracked, any mutation triggers updates.
-
-```javascript
-const state = $$({ user: { name: 'Alice', age: 30 }, items: [1,2,3] })
-
-watch(() => {
-  console.log(state.user.name) // tracks `user.name`
-})
-
-state.user.name = 'Bob' // triggers the effect
-```
-
-> **Note**: `$$` caches proxies per original object, so calling `$$` multiple times on the same object returns the same proxy.
-
----
-
 ### `watch(source, callback?)` – Reactive Effect
 
 Two modes:
@@ -99,18 +81,6 @@ h('div', {}, [
 
 Tag helpers **are exported** from the core.
 
-```javascript
-import "sigpro"
-
-// You can now write:
-div({ class: 'container' }, [
-  h1({}, 'Title'),
-  button({ onClick: () => alert('hi') }, 'Click me')
-])
-```
-
-In the **IIFE bundle** (`sigpro.min.js`), the helpers are already injected globally – no import needed.
-
 Available tags: `a`, `abbr`, `article`, `aside`, `audio`, `b`, `blockquote`, `br`, `button`, `canvas`, `caption`, `cite`, `code`, `col`, `colgroup`, `datalist`, `dd`, `del`, `details`, `dfn`, `dialog`, `div`, `dl`, `dt`, `em`, `embed`, `fieldset`, `figcaption`, `figure`, `footer`, `form`, `h1`…`h6`, `header`, `hr`, `i`, `iframe`, `img`, `input`, `ins`, `kbd`, `label`, `legend`, `li`, `main`, `mark`, `meter`, `nav`, `object`, `ol`, `optgroup`, `option`, `output`, `p`, `picture`, `pre`, `progress`, `section`, `select`, `slot`, `small`, `source`, `span`, `strong`, `sub`, `summary`, `sup`, `svg`, `table`, `tbody`, `td`, `template`, `textarea`, `tfoot`, `th`, `thead`, `time`, `tr`, `u`, `ul`, `video`.
 
 ---
@@ -161,39 +131,6 @@ batch(() => {
   // effects run only once after the batch ends
 })
 ```
-
----
-
-## Router – `router(routes)`
-
-Hash‑based SPA router. Returns a DOM node that renders the current route.
-
-```javascript
-import { router } from 'sigpro/router' // import router
-
-const routes = [
-  { path: '/', component: () => div({}, 'Home') },
-  { path: '/user/:id', component: (params) => div({}, `User ${params.id}`) },
-  { path: '*', component: () => div({}, '404') }
-]
-
-const App = () => div({}, [
-  a({ href: '#/' }, 'Home'),
-  a({ href: '#/user/42' }, 'User 42'),
-  router(routes)
-])
-```
-
-**API**
-
-| Method | Description |
-|--------|-------------|
-| `router.params()` | Returns a reactive signal of current route params (e.g., `{ id: '42' }`). |
-| `router.to(path)` | Navigate to a new hash (e.g., `router.to('/user/5')`). Prepend `#` automatically. |
-| `router.back()` | Go back in history. |
-| `router.path()` | Returns current hash path without `#` (e.g., `/user/42`). |
-
----
 
 ## Mounting – `mount(component, target)`
 
