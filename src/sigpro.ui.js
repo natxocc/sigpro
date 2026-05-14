@@ -108,30 +108,39 @@ export const ui = {
       cal('end', end, p.toPlaceholder || "Fin", () => !v()?.start)
     ]);
   },
-  dialog: (p, c) => h("dialog", {
-    open: p.show,
-    class: `modal ${p.class || ''}`,
-    onmousedown: e => e.target.dataset.drag && (p._d = { x: e.clientX - (p._p?.x || 0), y: e.clientY - (p._p?.y || 0) }),
-    onmousemove: e => p._d && (p._p = { x: e.clientX - p._d.x, y: e.clientY - p._d.y }),
-    onmouseup: () => p._d = null
-  }, [
-    h("div", {
-      class: `modal-box ${p.boxClass || ''}`,
-      style: () => `transform: translate(${p._p?.x || 0}px, ${p._p?.y || 0}px)`,
-      onclick: e => e.stopPropagation()
-    }, [
-      p.title ? h("div", { "data-drag": "true", class: "flex justify-between items-center cursor-move p-2 border-b" }, [
-        h("span", { class: "font-bold" }, p.title),
-        h("button", { class: "btn btn-sm btn-circle btn-ghost", onclick: () => p.show?.(false) }, "✕")
-      ]) : null,
-      !p.title ? h("form", { method: "dialog" },
-        h("button", { class: "btn btn-sm btn-circle btn-ghost absolute right-2 top-2", onclick: () => p.show?.(false) }, "✕")
-      ) : null,
-      h("div", { class: `p-4 ${p.contentClass || ''}` }, c),
-      p.footer ? h("div", { class: `modal-action p-2 border-t ${p.footerClass || ''}` }, p.footer) : null
-    ]),
-    h("form", { method: "dialog", class: "modal-backdrop", onclick: () => p.show?.(false) })
-  ]),
+  dialog: (p, c) => {
+    const pos = $(p.pos || { x: 0, y: 0 });
+    
+    return h("dialog", { open: p.show, class: `modal ${p.class || ''}` }, [
+        h("div", { 
+            class: "modal-box", 
+            style: () => `transform: translate(${pos().x}px, ${pos().y}px)`,
+            onclick: e => e.stopPropagation()
+        }, [
+            p.title ? h("div", { 
+                class: "flex justify-between items-center cursor-move p-2 border-b select-none",
+                onmousedown: e => {
+                    const startX = e.clientX - pos().x;
+                    const startY = e.clientY - pos().y;
+                    const onMove = ev => pos({ x: ev.clientX - startX, y: ev.clientY - startY });
+                    const onUp = () => {
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onUp);
+                    };
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onUp);
+                    e.preventDefault();
+                }
+            }, [
+                h("span", { class: "font-bold" }, p.title),
+                h("button", { class: "btn btn-sm btn-circle btn-ghost", onclick: () => p.show(false) }, "✕")
+            ]) : null,
+            h("div", { class: "p-4" }, c),
+            p.footer ? h("div", { class: "modal-action p-2 border-t" }, p.footer) : null
+        ]),
+        h("form", { method: "dialog", class: "modal-backdrop", onclick: () => p.show(false) })
+    ]);
+},
   divider: (p) => h("div", { ...p, class: `divider ${p.class || ''}` }),
   drawer: (p, c) => h("div", { ...p, class: `drawer ${p.class || ''}` }, c),
   drawer_toggle: (p) => h("input", { ...p, type: "checkbox", class: `drawer-toggle ${p.class || ''}` }),
