@@ -1,5 +1,4 @@
-// plus
-import { h, watch, $, render, isF } from './sigpro.js';
+const { $, h, watch, render, isF } = window.SigPro;
 
 // router
 export const router = routes => {

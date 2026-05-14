@@ -217,25 +217,21 @@ export const ui = {
   tableRow: (p, c) => h("tr", { ...p, class: p.class || '' }, c),
   tableTh: (p, c) => h("th", { ...p, class: p.class || '' }, c),
   tableTd: (p, c) => h("td", { ...p, class: p.class || '' }, c),
-  tabs: (p) => h("div", { style: "display:contents" },
-    h("div", { class: `tabs ${p.class || ''}` },
-      (p.items || []).map((item, i) => [
-        h("input", {
-          type: "radio",
-          name: p.name,
-          class: `tab ${item.class || ''}`,
-          "aria-label": item.label,
-          checked: () => val(p.value) === i,
-          onclick: () => isF(p.value) ? p.value(i) : p.onChange?.(i)
-        }),
-        item.closable && h("span", {
-          class: "cursor-pointer text-xs",
-          onclick: (e) => { e.stopPropagation(); isF(p.items) && p.items(p.items().filter((_, idx) => idx !== i)); }
-        }, " ✕")
-      ])
-    ),
-    h("div", { class: `tab-content ${p.contentClass || ''}` }, p.items[val(p.value)]?.content)
-  ),
+  tabs: (p, c) => div({ ...p, class: `tabs ${p.class || ''}` }, c),
+  tab: (p) => {
+    const close = () => p.tabs?.(p.tabs().filter((_, idx) => idx !== p.index))
+    return [
+      h('label', { class: `tab ${p.class || ''}` }, [
+        h('input', { type: 'radio', name: p.name, checked: p.checked || undefined }),
+        p.label,
+        p.closable ? h('span', {
+          class: 'ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-base-300 text-base-content/60 hover:text-base-content cursor-pointer',
+          onclick: (e) => { e.stopPropagation(); close() }
+        }, h('span', { class: 'icon-[lucide--x] w-3 h-3' })) : null,
+      ]),
+      div({ class: `tab-content ${p?.classContent || ''}` }, p.content),
+    ]
+  },
   textarea: (p) => h("textarea", { ...p, class: `textarea ${p.class || ''}` }),
   textrotate: (p, c) => h("span", { ...p, class: `text-rotate ${p.class || ''}` }, h("span", {}, c)),
   theme: (p) => ui.toggle({ value: p?.value || "spdark", class: "theme-controller" }),
@@ -269,9 +265,15 @@ export const calendar = p => {
 
   return h('div', { class: `p-4 bg-base-100 rounded-box w-80 select-none ${p.class || ''}` }, [
     h('div', { class: 'flex justify-between items-center mb-4' }, [
-      h('div', { class: 'flex' }, [['-1y', -1, 1], ['-1m', -1, 0]].map(([_, m, y]) => h('button', { class: 'btn btn-ghost btn-xs', onclick: () => M(m, y) }, h('span', { class: `icon-[lucide--chevron${y ? 's' : ''}-left]` })))),
+      h('div', { class: 'flex gap-1' }, [
+        h('button', { class: 'btn btn-ghost btn-xs', onclick: () => M(0, -1) }, h('span', { class: 'icon-[lucide--chevrons-left]' })),
+        h('button', { class: 'btn btn-ghost btn-xs', onclick: () => M(-1, 0) }, h('span', { class: 'icon-[lucide--chevron-left]' }))
+      ]),
       h('span', { class: 'font-bold uppercase' }, () => d().toLocaleString('es', { month: 'short', year: 'numeric' })),
-      h('div', { class: 'flex' }, [[1, 0], [1, 1]].map(([m, y]) => h('button', { class: 'btn btn-ghost btn-xs', onclick: () => M(m, y) }, h('span', { class: `icon-[lucide--chevron${y ? 's' : ''}-right]` }))))
+      h('div', { class: 'flex gap-1' }, [
+        h('button', { class: 'btn btn-ghost btn-xs', onclick: () => M(1, 0) }, h('span', { class: 'icon-[lucide--chevron-right]' })),
+        h('button', { class: 'btn btn-ghost btn-xs', onclick: () => M(0, 1) }, h('span', { class: 'icon-[lucide--chevrons-right]' }))
+      ])
     ]),
     h('div', { class: 'grid grid-cols-7 gap-1', onmouseleave: () => hv(null) }, [
       ...'LMXJVSD'.split('').map(l => h('div', { class: 'text-[10px] opacity-40 font-bold text-center' }, l)),
@@ -319,7 +321,7 @@ export const toast = (m, t = "alert-success", d = 3500) => {
 
   const i = mount(() => {
     let v = $(0), l = $(0);
-    E = () => l() || (l(1), clearTimeout(T), setTimeout(() => (i.destroy(), w.remove(), C.firstChild || C.remove()), 300));
+    E = () => l() || (l(1), clearTimeout(T), setTimeout(() => (i._del(), w.remove(), C.firstChild || C.remove()), 300));
     setTimeout(() => v(1));
     return h("div", {
       class: () => `alert alert-soft ${t} shadow-lg transition-all duration-300 inline-flex w-auto pointer-events-auto ${l() ? 'translate-x-full opacity-0' : v() ? 'translate-x-0 opacity-100' : 'translate-x-10 opacity-0'}`
