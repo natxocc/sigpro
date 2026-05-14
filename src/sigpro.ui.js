@@ -108,6 +108,30 @@ export const ui = {
       cal('end', end, p.toPlaceholder || "Fin", () => !v()?.start)
     ]);
   },
+  dialog: (p, c) => h("dialog", {
+    open: p.show,
+    class: `modal ${p.class || ''}`,
+    onmousedown: e => e.target.dataset.drag && (p._d = { x: e.clientX - (p._p?.x || 0), y: e.clientY - (p._p?.y || 0) }),
+    onmousemove: e => p._d && (p._p = { x: e.clientX - p._d.x, y: e.clientY - p._d.y }),
+    onmouseup: () => p._d = null
+  }, [
+    h("div", {
+      class: `modal-box ${p.boxClass || ''}`,
+      style: () => `transform: translate(${p._p?.x || 0}px, ${p._p?.y || 0}px)`,
+      onclick: e => e.stopPropagation()
+    }, [
+      p.title ? h("div", { "data-drag": "true", class: "flex justify-between items-center cursor-move p-2 border-b" }, [
+        h("span", { class: "font-bold" }, p.title),
+        h("button", { class: "btn btn-sm btn-circle btn-ghost", onclick: () => p.show?.(false) }, "✕")
+      ]) : null,
+      !p.title ? h("form", { method: "dialog" },
+        h("button", { class: "btn btn-sm btn-circle btn-ghost absolute right-2 top-2", onclick: () => p.show?.(false) }, "✕")
+      ) : null,
+      h("div", { class: `p-4 ${p.contentClass || ''}` }, c),
+      p.footer ? h("div", { class: `modal-action p-2 border-t ${p.footerClass || ''}` }, p.footer) : null
+    ]),
+    h("form", { method: "dialog", class: "modal-backdrop", onclick: () => p.show?.(false) })
+  ]),
   divider: (p) => h("div", { ...p, class: `divider ${p.class || ''}` }),
   drawer: (p, c) => h("div", { ...p, class: `drawer ${p.class || ''}` }, c),
   drawer_toggle: (p) => h("input", { ...p, type: "checkbox", class: `drawer-toggle ${p.class || ''}` }),
@@ -207,12 +231,12 @@ export const ui = {
   swap_on: (p, c) => h("div", { ...p, class: `swap-on ${p.class || ''}` }, c),
   swap_off: (p, c) => h("div", { ...p, class: `swap-off ${p.class || ''}` }, c),
   table: (p, c) => h("table", { ...p, class: `table ${p.class || ''}` }, c),
-  table_head: (p, c) => h("thead", { ...p, class: p.class || '' }, c),
-  table_body: (p, c) => h("tbody", { ...p, class: p.class || '' }, c),
-  table_foot: (p, c) => h("tfoot", { ...p, class: p.class || '' }, c),
-  table_row: (p, c) => h("tr", { ...p, class: p.class || '' }, c),
-  table_th: (p, c) => h("th", { ...p, class: p.class || '' }, c),
-  table_td: (p, c) => h("td", { ...p, class: p.class || '' }, c),
+  thead: (p, c) => h("thead", { ...p, class: p.class || '' }, c),
+  tbody: (p, c) => h("tbody", { ...p, class: p.class || '' }, c),
+  tfoot: (p, c) => h("tfoot", { ...p, class: p.class || '' }, c),
+  tr: (p, c) => h("tr", { ...p, class: p.class || '' }, c),
+  th: (p, c) => h("th", { ...p, class: p.class || '' }, c),
+  td: (p, c) => h("td", { ...p, class: p.class || '' }, c),
   tabs: (p, c) => div({ ...p, class: `tabs ${p.class || ''}` }, c),
   tab: (p) => {
     const close = () => p.tabs?.(p.tabs().filter((_, idx) => idx !== p.index))

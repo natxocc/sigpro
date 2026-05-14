@@ -4,7 +4,7 @@ export const isA = Array.isArray;
 const doc = typeof document < "u" ? document : null;
 const txt = s => doc.createTextNode(s == null ? "" : String(s));
 const toNd = n => n?._rt ? n._cnt : (n instanceof Node ? n : txt(n));
-export const Fragment = p => p.children;
+export const fragment = p => p.children;
 export const val = v => isF(v) ? v() : v;
 
 let aEff = null, aOwn = null, isFlushing = 0, bDepth = 0;
@@ -244,7 +244,7 @@ export const mount = (c, tgt) => {
 
 const htmlTags = "a abbr article aside audio b blockquote br button canvas caption cite code col colgroup datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 header hr i iframe img input ins kbd label legend li main mark meter nav object ol optgroup option output p picture pre progress section select slot small source span strong sub summary sup svg table tbody td template textarea tfoot th thead time tr u ul video";
 
-export const SigPro = { $, watch, batch, h, Fragment, render, mount, when, each, onUnmount, val, isA, isF, isO };
+export const SigPro = { $, watch, batch, h, fragment, render, mount, when, each, onUnmount, val, isA, isF, isO };
 
 if (typeof window !== "undefined") {
   window.SigPro = SigPro;
