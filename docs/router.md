@@ -17,7 +17,7 @@ router(routes: Route[]): HTMLElement
 
 **Returns:** A `div` element (with class `"router-hook"`) that acts as the router outlet. The router automatically destroys the previous view and mounts the matched component when the hash changes.
 
-> **Availability:** `router` and its helper methods (`router.to`, `router.back`, `router.path`, `router.params`) are exported from the SigPro module. In **ESM** you must import them (`import { router } from 'sigpro/utils'`). In the **IIFE** classic script, they are automatically available on `window`. The examples below assume the functions are already in scope.
+> You must import them (`import { router } from 'sigpro/router'`). The examples below assume the functions are already in scope.
 
 ---
 
@@ -28,6 +28,9 @@ router(routes: Route[]): HTMLElement
 Place the `router` element where you want the page content to appear. Inside the routes array, define your routes.
 
 ```javascript
+// remember import router
+import { router } from 'sigpro/router'
+
 const Home = () => h1("Home Page");
 const UserProfile = (params) => h1(`User ID: ${params.id}`);
 const NotFound = () => h1("404 – Page not found");
@@ -187,6 +190,10 @@ mount(App, "#app");
 | `router.back()` | Goes back in history. |
 | `router.path()` | Returns the current path without `#`. |
 | `router.params()` | Reactive signal of the current route parameters. |
+
+
+
+---
 
 
 # Vite Plugin: File-based Routing

@@ -1,0 +1,1 @@
+var o=async(e,n={},t=null)=>{if(t)t(!0);try{let r=await fetch(e,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(n),credentials:"include"});if(!r.ok){let s=await r.text();throw Error(`Error ${r.status}: ${s}`)}return await r.json()}finally{if(t)t(!1)}};export{o as db};

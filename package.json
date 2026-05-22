@@ -19,10 +19,33 @@
       "import": "./dist/sigpro.js",
       "default": "./dist/sigpro.js"
     },
-    "./utils": "./dist/sigpro.utils.js",
-    "./grid": "./dist/sigpro.grid.js",
-    "./editor": "./dist/sigpro.editor.js",
-    "./vite": "./dist/sigpro.vite.js",
+    "./db": {
+      "types": "./sigpro.d.ts",
+      "import": "./dist/sigpro.db.js",
+      "default": "./dist/sigpro.db.js"
+    },
+    "./router": {
+      "types": "./sigpro.d.ts",
+      "import": "./dist/sigpro.router.js",
+      "default": "./dist/sigpro.router.js"
+    },
+    "./locale": {
+      "types": "./sigpro.d.ts",
+      "import": "./dist/sigpro.locale.js",
+      "default": "./dist/sigpro.locale.js"
+    },
+    "./grid": {
+      "import": "./dist/sigpro.grid.js",
+      "default": "./dist/sigpro.grid.js"
+    },
+    "./editor": {
+      "import": "./dist/sigpro.editor.js",
+      "default": "./dist/sigpro.editor.js"
+    },
+    "./vite": {
+      "import": "./dist/sigpro.vite.js",
+      "default": "./dist/sigpro.vite.js"
+    },
     "./css": "./dist/sigpro.ui.css",
     "./ui": {
       "types": "./sigpro.ui.d.ts",
@@ -34,7 +57,8 @@
     "dist/",
     "README.md",
     "LICENSE",
-    "sigpro.d.ts"
+    "sigpro.d.ts",
+    "sigpro.ui.d.ts"
   ],
   "homepage": "https://sigpro.natxocc.com/#/",
   "repository": {
@@ -50,14 +74,16 @@
     "clean": "rm -rf dist",
     "prebuild": "npm run clean",
     "build:core": "bun build ./src/sigpro.js --bundle --outfile=./dist/sigpro.js --format=esm --minify",
-    "build:utils": "bun build ./src/sigpro.utils.js --bundle --outfile=./dist/sigpro.utils.js --format=esm --external ./src/sigpro.js --minify",
+    "build:db": "bun build ./src/sigpro.db.js --bundle --outfile=./dist/sigpro.db.js --format=esm --minify",
+    "build:router": "bun build ./src/sigpro.router.js --bundle --outfile=./dist/sigpro.router.js --format=esm --external ./src/sigpro.js --minify",
+    "build:locale": "bun build ./src/sigpro.locale.js --bundle --outfile=./dist/sigpro.locale.js --format=esm --external ./src/sigpro.js --minify",
     "build:ui": "bun build ./src/sigpro.ui.js --bundle --outfile=./dist/sigpro.ui.js --format=esm --external ./src/sigpro.js --minify",
     "build:grid": "bun build ./src/sigpro.grid.js --bundle --external sigpro --outfile=./dist/sigpro.grid.js --format=esm --minify",
     "build:editor": "bun build ./src/sigpro.editor.js --bundle --external sigpro --outfile=./dist/sigpro.editor.js --format=esm --minify",
-    "build:vite": "bun build ./src/sigpro.vite.js --bundle --outfile=./dist/sigpro.vite.js --format=esm --external fs --external path  --minify",
+    "build:vite": "bun build ./src/sigpro.vite.js --bundle --outfile=./dist/sigpro.vite.js --format=esm --external fs --external path --minify",
     "build:css": "tailwindcss -i ./src/sigpro.ui.css -o ./dist/sigpro.ui.css --minify --content './src/tailwind' && du -h ./dist/sigpro.ui.css",
     "build:convert": "bun build ./src/sigpro.convert.js --bundle --outfile=./docs/sigpro.convert.js --format=esm --external ./src/sigpro.js --minify",
-    "build": "bun run build:core && bun run build:utils && bun run build:ui && bun run build:grid && bun run build:editor && bun run build:vite && bun run build:css && bun run build:convert && cp ./dist/* ./docs",
+    "build": "bun run build:core && bun run build:db && bun run build:router && bun run build:locale && bun run build:ui && bun run build:grid && bun run build:editor && bun run build:vite && bun run build:css && bun run build:convert && cp ./dist/* ./docs",
     "docs": "bun x serve docs"
   },
   "devDependencies": {

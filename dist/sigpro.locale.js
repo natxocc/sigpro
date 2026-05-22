@@ -1,0 +1,1 @@
+var{$:c}=window.SigPro,s=c("en"),n={},e=(t)=>{for(let o of Object.keys(t)){if(!n[o])n[o]={};Object.assign(n[o],t[o])}},r=(t)=>{if(t&&n[t])s(t)},a=(t)=>{return()=>n[s()]?.[t]??t};export{a as t,r as setLocale,e as addLang};
