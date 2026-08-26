@@ -1,4 +1,4 @@
-const { $, h, watch, render, isF } = window.SigPro;
+const { $, h, watch, render, isF, onUnmount } = window.SigPro;
 
 const getHash = () => window.location.hash.slice(1) || "/";
 const currentPath = $(getHash());
@@ -10,8 +10,9 @@ export const routerParams = $({});
 export const router = routes => {
   const hook = h("div", { class: "router-hook" });
   let currentView = null;
-  
-  watch([currentPath], () => {
+  let stopWatch = null;
+
+  stopWatch = watch([currentPath], () => {
     const cur = currentPath();
     
     const route = routes.find(r => {
@@ -32,14 +33,20 @@ export const router = routes => {
       
       currentView = render(() => isF(route.component) ? route.component(params) : route.component);
       
-      hook.replaceChildren(currentView.container);
+      hook.replaceChildren(currentView._cnt);
     }
   });
-  
+
   hook.destroy = () => {
     currentView?.destroy();
+    if (stopWatch) {
+      stopWatch();
+      stopWatch = null;
+    }
   };
-  
+
+  onUnmount(() => hook.destroy());
+
   return hook;
 };
 
