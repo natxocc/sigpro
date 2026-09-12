@@ -1,6 +1,6 @@
 const { $ } = window.SigPro;
 
-const currentLocale = $("en");
+const currentLocale = $("es");
 const translations = {};
 
 export const addLang = obj => {
@@ -16,6 +16,20 @@ export const setLocale = locale => {
   }
 };
 
-export const t = key => {
-  return () => translations[currentLocale()]?.[key] ?? key;
+export const getLocale = () => currentLocale();
+
+export const t = (key, params = {}) => {
+  return () => {
+    const lang = currentLocale();
+    let str = translations[lang]?.[key] ?? key;
+
+    if (typeof str === "string" && Object.keys(params).length) {
+      for (const [k, v] of Object.entries(params)) {
+        const val = typeof v === "function" ? v() : v;
+        str = str.replace(new RegExp(`\\{${k}\\}`, "g"), val);
+      }
+    }
+    
+    return str;
+  };
 };
