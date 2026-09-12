@@ -1,53 +1,34 @@
-const { $, h, watch, render, isF, onUnmount } = window.SigPro;
+const { $, div, isF } = window.SigPro;
 
 const getHash = () => window.location.hash.slice(1) || "/";
-const currentPath = $(getHash());
+export const currentPath = $(getHash());
+export const routerParams = $({});
 
 window.addEventListener("hashchange", () => currentPath(getHash()));
 
-export const routerParams = $({});
-
 export const router = routes => {
-  const hook = h("div", { class: "router-hook" });
-  let currentView = null;
-  let stopWatch = null;
-
-  stopWatch = watch([currentPath], () => {
-    const cur = currentPath();
-    
-    const route = routes.find(r => {
-      const p1 = r.path.split("/").filter(Boolean);
+  return div({ class: "router-hook" }, [
+    () => {
+      const cur = currentPath();
       const p2 = cur.split("/").filter(Boolean);
-      return p1.length === p2.length && p1.every((p, i) => p[0] === ":" || p === p2[i]);
-    }) || routes.find(r => r.path === "*");
-    
-    if (route) {
-      currentView?.destroy();
-      
+
+      const route = routes.find(r => {
+        const p1 = r.path.split("/").filter(Boolean);
+        return p1.length === p2.length && p1.every((p, i) => p[0] === ":" || p === p2[i]);
+      }) || routes.find(r => r.path === "*");
+
+      if (!route) return null;
+
       const params = {};
       route.path.split("/").filter(Boolean).forEach((p, i) => {
-        if (p[0] === ":") params[p.slice(1)] = cur.split("/").filter(Boolean)[i];
+        if (p[0] === ":") params[p.slice(1)] = p2[i];
       });
-      
+
       routerParams(params);
-      
-      currentView = render(() => isF(route.component) ? route.component(params) : route.component);
-      
-      hook.replaceChildren(currentView._cnt);
+
+      return isF(route.component) ? route.component(params) : route.component;
     }
-  });
-
-  hook.destroy = () => {
-    currentView?.destroy();
-    if (stopWatch) {
-      stopWatch();
-      stopWatch = null;
-    }
-  };
-
-  onUnmount(() => hook.destroy());
-
-  return hook;
+  ]);
 };
 
 router.params = routerParams;
