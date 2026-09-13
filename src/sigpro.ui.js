@@ -108,30 +108,114 @@ export const ui = {
       cal('end', end, p.toPlaceholder || "Fin", () => !v()?.start)
     ]);
   },
-  dialog: (p, c) => {
-  const pos = $(p.pos || { x: 100, y: 100 });
-  const show = $(p.show || false);
+dialog: (p, c) => {
+    window._dialogOffset = (window._dialogOffset || 0) + 1;
+    const defaultPos = p.pos || { 
+      x: 120 + (window._dialogOffset % 10) * 24, 
+      y: 120 + (window._dialogOffset % 10) * 24 
+    };
 
-  return h("div", {
-    class: () => `fixed z-50 transition-all duration-300 ${show() ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-95 pointer-events-none'}`,
-    style: () => `left: ${pos().x}px; top: ${pos().y}px;`
-  }, [
-    h("div", { class: `bg-base-100 rounded-box shadow-2xl border ${p.class || ''}` }, [
-      p.title && h("div", {
-        class: "flex justify-between items-center cursor-move p-2 border-b select-none bg-base-200 rounded-t-box",
-        onmousedown: e => {
-          const s = { x: e.clientX - pos().x, y: e.clientY - pos().y };
-          const m = ev => pos({ x: ev.clientX - s.x, y: ev.clientY - s.y });
-          const u = () => { document.removeEventListener('mousemove', m); document.removeEventListener('mouseup', u); };
-          document.addEventListener('mousemove', m); document.addEventListener('mouseup', u);
-          e.preventDefault();
+    const pos = $(defaultPos);
+    const show = $(p.show || false);
+    const zIndex = $(p.zIndex || 50);
+    const size = $(p.size || { w: 450, h: 320 });
+
+    const initResize = (e, direction) => {
+      e.stopPropagation();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startW = size().w;
+      const startH = size().h;
+      const startPosX = pos().x;
+      const startPosY = pos().y;
+
+      const onMouseMove = ev => {
+        let dx = ev.clientX - startX;
+        let dy = ev.clientY - startY;
+        let newW = startW;
+        let newH = startH;
+        let newX = startPosX;
+        let newY = startPosY;
+
+        if (direction.includes('r')) newW = Math.max(280, startW + dx);
+        if (direction.includes('l')) {
+          let candidateW = startW - dx;
+          if (candidateW >= 280) {
+            newW = candidateW;
+            newX = startPosX + dx;
+          }
         }
-      }, [h("span", { class: "font-bold" }, p.title), h("button", { class: "btn btn-sm btn-circle btn-ghost", onclick: () => show(false) }, "✕")]),
-      h("div", { class: "p-4" }, c),
-      p.footer && h("div", { class: "p-2 border-t flex justify-end gap-2" }, p.footer)
-    ])
-  ]);
-},
+
+        if (direction.includes('b')) newH = Math.max(180, startH + dy);
+        if (direction.includes('t')) {
+          let candidateH = startH - dy;
+          if (candidateH >= 180) {
+            newH = candidateH;
+            newY = startPosY + dy;
+          }
+        }
+
+        size({ w: newW, h: newH });
+        pos({ x: newX, y: newY });
+      };
+
+      const onMouseUp = () => {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      };
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+      e.preventDefault();
+    };
+
+    return h("div", {
+      class: () => `fixed transition-all duration-75 ${show() ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-95 pointer-events-none'}`,
+      style: () => `left: ${pos().x}px; top: ${pos().y}px; width: ${size().w}px; height: ${size().h}px; z-index: ${zIndex()};`,
+      onmousedown: () => zIndex(Date.now())
+    }, [
+      h("div", { class: `bg-base-100 shadow-2xl rounded-xl border border-base-content/10 w-full h-full flex flex-col overflow-hidden relative shadow-black/10 ${p.class || ''}` }, [
+        
+        h("div", {
+          class: "flex justify-between items-center px-4 py-3 bg-base-200/70 backdrop-blur border-b border-base-content/5 cursor-grab active:cursor-grabbing select-none shrink-0",
+          onmousedown: e => {
+            e.stopPropagation();
+            const startOffset = { x: e.clientX - pos().x, y: e.clientY - pos().y };
+            const onMouseMove = ev => pos({ x: ev.clientX - startOffset.x, y: ev.clientY - startOffset.y });
+            const onMouseUp = () => { document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp); };
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+            e.preventDefault();
+          }
+        }, [
+          h("div", { class: "flex items-center gap-2.5 font-medium text-xs tracking-wide opacity-80 truncate" }, [
+            p.icon ? h("span", { class: `${p.icon} text-base` }) : null,
+            span({}, p.title || "Window")
+          ]),
+          h("button", { 
+            class: "btn btn-xs btn-circle btn-ghost opacity-60 hover:opacity-100", 
+            onclick: () => show(false) 
+          }, h("span", { class: "icon-[lucide--x] w-3.5 h-3.5" }))
+        ]),
+
+        h("div", { class: "p-5 flex-1 overflow-y-auto text-sm" }, c),
+        p.footer ? h("div", { class: "px-4 py-3 bg-base-200/40 border-t border-base-content/5 flex justify-end gap-2 shrink-0" }, p.footer) : null,
+
+        h("div", { class: "absolute top-0 left-2 right-2 h-1 cursor-ns-resize", onmousedown: e => initResize(e, 't') }),
+        h("div", { class: "absolute bottom-0 left-2 right-2 h-1 cursor-ns-resize", onmousedown: e => initResize(e, 'b') }),
+        h("div", { class: "absolute left-0 top-2 bottom-2 w-1 cursor-ew-resize", onmousedown: e => initResize(e, 'l') }),
+        h("div", { class: "absolute right-0 top-2 bottom-2 w-1 cursor-ew-resize", onmousedown: e => initResize(e, 'r') }),
+        h("div", { class: "absolute top-0 left-0 w-3 h-3 cursor-nwse-resize", onmousedown: e => initResize(e, 'tl') }),
+        h("div", { class: "absolute top-0 right-0 w-3 h-3 cursor-nesw-resize", onmousedown: e => initResize(e, 'tr') }),
+        h("div", { class: "absolute bottom-0 left-0 w-3 h-3 cursor-nesw-resize", onmousedown: e => initResize(e, 'bl') }),
+        h("div", {
+          class: "absolute bottom-0 right-0 w-4 h-4 cursor-se-resize flex items-end justify-end p-1 opacity-30 hover:opacity-100 select-none",
+          onmousedown: e => initResize(e, 'br')
+        }, h("span", { class: "icon-[lucide--grip-vertical] rotate-45 text-[10px]" }))
+        
+      ])
+    ]);
+  },
   divider: (p) => h("div", { ...p, class: `divider ${p.class || ''}` }),
   drawer: (p, c) => h("div", { ...p, class: `drawer ${p.class || ''}` }, c),
   drawer_toggle: (p) => h("input", { ...p, type: "checkbox", class: `drawer-toggle ${p.class || ''}` }),
