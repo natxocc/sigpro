@@ -258,8 +258,8 @@ export const when = (cond, onTrue, onFalse = null) => {
 };
 
 export const each = (src, mapFn, keyFn) => {
-  let anchor = txt(""), root = h("div", { style: "display:contents" }, [anchor]),
-    cache = new Map();
+  let anchor = doc.createComment("each");
+  let cache = new Map();
   const stopWatch = watch(() => val(src) || [], items => {
     let newCache = new Map(), order = [];
     for (let i = 0; i < items.length; i++) {
@@ -268,16 +268,24 @@ export const each = (src, mapFn, keyFn) => {
       newCache.set(k, v); order.push(v);
     }
     cache.forEach(v => v.destroy());
-    let ref = anchor;
-    for (let i = order.length - 1; i >= 0; i--) {
-      let nd = order[i]._cnt;
-      if (nd.nextSibling !== ref) root.insertBefore(nd, ref);
-      ref = nd;
+    if (anchor.parentNode) {
+      let ref = anchor;
+      for (let i = order.length - 1; i >= 0; i--) {
+        let nd = order[i]._cnt;
+        if (nd.nextSibling !== ref) {
+          anchor.parentNode.insertBefore(nd, ref);
+        }
+        ref = nd;
+      }
     }
     cache = newCache;
   });
-  onUnmount(stopWatch);
-  return root;
+  onUnmount(() => {
+    stopWatch();
+    cache.forEach(v => v.destroy());
+    anchor.remove();
+  });
+  return anchor;
 };
 
 export const mount = (component, target) => {
