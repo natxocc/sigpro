@@ -352,58 +352,101 @@ dialog: (p, c) => {
 };
 
 export const calendar = p => {
-  let [d, hv, sh, eh] = [$(new Date()), $(0), $(0), $(0)], now = new Date(),
-    F = v => v ? `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}` : '',
-    P = n => (n < 10 ? '0' : '') + n,
-    M = (m, y = 0) => d(new Date(d().getFullYear() + y, d().getMonth() + m, 1)),
-    V = () => typeof p.value == 'function' ? p.value() : p.value,
-    G = () => typeof p.range == 'function' ? p.range() : p.range,
-    L = dt => {
-      let s = F(dt), v = V(), r = G();
-      if (!r) return p.onChange?.(p.hour ? `${s}T${P(sh())}:00:00` : s);
-      if (!v?.start || v.end) return p.onChange?.({ start: s, end: null, ...(p.hour && { startHour: sh() }) });
-      let nv = s < v.start ? { start: s, end: v.start } : { start: v.start, end: s };
-      p.onChange?.({ ...nv, ...(p.hour && { startHour: v.startHour ?? sh(), endHour: eh() }) });
-    },
-    I = ({ v, on }) => h('div', { class: 'flex-1 flex gap-2 items-center' }, [
-      h('input', { type: 'range', min: 0, max: 23, value: v, class: 'range range-xs', oninput: e => on(+e.target.value) }),
-      h('span', { class: 'text-sm font-mono' }, () => P(v()) + ':00')
-    ]);
+  let [selectedDate, hoverDate, startHour, endHour] = [$(new Date()), $(0), $(0), $(0)];
+  const today = new Date();
+
+  const formatDate = date => date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : '';
+  const padZero = n => (n < 10 ? '0' : '') + n;
+  
+  const changeMonth = (monthOffset, yearOffset = 0) => selectedDate(new Date(selectedDate().getFullYear() + yearOffset, selectedDate().getMonth() + monthOffset, 1));
+  const getCurrentValue = () => typeof p.value == 'function' ? p.value() : p.value;
+  const getIsRange = () => typeof p.range == 'function' ? p.range() : p.range;
+
+  const handleDateClick = clickedDate => {
+    let formattedDate = formatDate(clickedDate);
+    let currentValue = getCurrentValue();
+    let isRange = getIsRange();
+
+    if (!isRange) return p.onChange?.(p.hour ? `${formattedDate}T${padZero(startHour())}:00:00` : formattedDate);
+    if (!currentValue?.start || currentValue.end) return p.onChange?.({ start: formattedDate, end: null, ...(p.hour && { startHour: startHour() }) });
+    
+    let newValues = formattedDate < currentValue.start ? { start: formattedDate, end: currentValue.start } : { start: currentValue.start, end: formattedDate };
+    p.onChange?.({ ...newValues, ...(p.hour && { startHour: currentValue.startHour ?? startHour(), endHour: endHour() }) });
+  };
+
+  const HourSlider = ({ value, onInput }) => h('div', { class: 'flex-1 flex gap-2 items-center' }, [
+    h('input', { type: 'range', min: 0, max: 23, value: value, class: 'range range-xs', oninput: e => onInput(+e.target.value) }),
+    h('span', { class: 'text-sm font-mono' }, () => padZero(value()) + ':00')
+  ]);
 
   return h('div', { class: `p-4 bg-base-100 rounded-box w-80 select-none ${p.class || ''}` }, [
     h('div', { class: 'flex justify-between items-center mb-4' }, [
       h('div', { class: 'flex gap-1' }, [
-        h('button', { class: 'btn btn-ghost btn-xs', onclick: () => M(0, -1) }, h('span', { class: 'icon-[lucide--chevrons-left]' })),
-        h('button', { class: 'btn btn-ghost btn-xs', onclick: () => M(-1, 0) }, h('span', { class: 'icon-[lucide--chevron-left]' }))
+        h('button', { class: 'btn btn-ghost btn-xs', onclick: () => changeMonth(0, -1) }, h('span', { class: 'icon-[lucide--chevrons-left]' })),
+        h('button', { class: 'btn btn-ghost btn-xs', onclick: () => changeMonth(-1, 0) }, h('span', { class: 'icon-[lucide--chevron-left]' }))
       ]),
-      h('span', { class: 'font-bold uppercase' }, () => d().toLocaleString('es', { month: 'short', year: 'numeric' })),
+      h('span', { class: 'font-bold uppercase' }, () => selectedDate().toLocaleString('es', { month: 'short', year: 'numeric' })),
       h('div', { class: 'flex gap-1' }, [
-        h('button', { class: 'btn btn-ghost btn-xs', onclick: () => M(1, 0) }, h('span', { class: 'icon-[lucide--chevron-right]' })),
-        h('button', { class: 'btn btn-ghost btn-xs', onclick: () => M(0, 1) }, h('span', { class: 'icon-[lucide--chevrons-right]' }))
+        h('button', { class: 'btn btn-ghost btn-xs', onclick: () => changeMonth(1, 0) }, h('span', { class: 'icon-[lucide--chevron-right]' })),
+        h('button', { class: 'btn btn-ghost btn-xs', onclick: () => changeMonth(0, 1) }, h('span', { class: 'icon-[lucide--chevrons-right]' }))
       ])
     ]),
-    h('div', { class: 'grid grid-cols-7 gap-1', onmouseleave: () => hv(null) }, [
-      ...'LMXJVSD'.split('').map(l => h('div', { class: 'text-[10px] opacity-40 font-bold text-center' }, l)),
+    h('div', { class: 'grid grid-cols-7 gap-1', onmouseleave: () => hoverDate(null) }, [
+      ...'LMXJVSD'.split('').map(label => h('div', { class: 'text-[10px] opacity-40 font-bold text-center' }, label)),
       () => {
-        let y = d().getFullYear(), m = d().getMonth(), first = (new Date(y, m, 1).getDay() + 6) % 7;
-        return [...Array(first).fill(h('div')), ...Array(new Date(y, m + 1, 0).getDate()).keys()].map(i => {
-          if (typeof i != 'number') return i;
-          let day = i + 1, ds = F(new Date(y, m, day)), today = F(now) == ds;
+        let year = selectedDate().getFullYear();
+        let month = selectedDate().getMonth();
+        let firstDayIndex = (new Date(year, month, 1).getDay() + 6) % 7;
+        let daysInMonth = new Date(year, month + 1, 0).getDate();
+        let daysInPrevMonth = new Date(year, month, 0).getDate();
+
+        let gridDays = [];
+
+        for (let i = firstDayIndex - 1; i >= 0; i--) {
+          let dayNum = daysInPrevMonth - i;
+          let prevDate = new Date(year, month - 1, dayNum);
+          gridDays.push({ date: prevDate, ds: formatDate(prevDate), isCurrentMonth: false });
+        }
+
+        for (let i = 1; i <= daysInMonth; i++) {
+          let currDate = new Date(year, month, i);
+          gridDays.push({ date: currDate, ds: formatDate(currDate), isCurrentMonth: true });
+        }
+
+        let totalCells = Math.ceil(gridDays.length / 7) * 7;
+        let nextMonthDay = 1;
+        for (let i = gridDays.length; i < totalCells; i++) {
+          let nextDate = new Date(year, month + 1, nextMonthDay);
+          gridDays.push({ date: nextDate, ds: formatDate(nextDate), isCurrentMonth: false });
+          nextMonthDay++;
+        }
+
+        return gridDays.map(({ date, ds, isCurrentMonth }) => {
+          let isToday = formatDate(today) == ds;
           return h('button', {
-            type: 'button', onclick: () => L(new Date(y, m, day)), onmouseenter: () => G() && hv(ds),
+            type: 'button', 
+            onclick: () => handleDateClick(date), 
+            onmouseenter: () => getIsRange() && hoverDate(ds),
             class: () => {
-              let v = V(), hov = hv(), s = v?.start || (typeof v == 'string' ? v.slice(0, 10) : 0),
-                isE = v?.end == ds, isS = s == ds,
-                inR = G() && v?.start && (v.end ? (ds > v.start && ds < v.end) : (hov && ((ds > s && ds <= hov) || (ds < s && ds >= hov))));
-              return `btn btn-xs p-0 aspect-square min-h-0 h-auto font-normal relative ${isS || isE ? 'btn-primary z-10' : inR ? 'bg-primary/20 border-none rounded-none' : 'btn-ghost'} ${today ? 'ring-1 ring-primary font-black' : ''}`
+              let currentValue = getCurrentValue();
+              let currentHover = hoverDate();
+              let startDate = currentValue?.start || (typeof currentValue == 'string' ? currentValue.slice(0, 10) : 0);
+              
+              let isEnd = currentValue?.end == ds;
+              let isStart = startDate == ds;
+              let isInRange = getIsRange() && currentValue?.start && (currentValue.end ? (ds > currentValue.start && ds < currentValue.end) : (currentHover && ((ds > startDate && ds <= currentHover) || (ds < startDate && ds >= currentHover))));
+              
+              let baseOpacity = isCurrentMonth ? 'font-normal' : 'opacity-30 font-light';
+              
+              return `btn btn-xs p-0 aspect-square min-h-0 h-auto ${baseOpacity} relative ${isStart || isEnd ? 'btn-primary z-10' : isInRange ? 'bg-primary/20 border-none rounded-none' : 'btn-ghost'} ${isToday ? 'ring-1 ring-primary font-black' : ''}`
             }
-          }, day)
+          }, date.getDate())
         })
       }
     ]),
-    p.hour && h('div', { class: 'mt-3 pt-2 border-t flex gap-4' }, G() ? [I({ v: sh, on: sh }), I({ v: eh, on: eh })] : [I({ v: sh, on: sh })])
+    p.hour && h('div', { class: 'mt-3 pt-2 border-t flex gap-4' }, getIsRange() ? [HourSlider({ value: startHour, onInput: startHour }), HourSlider({ value: endHour, onInput: endHour })] : [HourSlider({ value: startHour, onInput: startHour })])
   ])
-}
+};
 
 export const pallete = p => {
   let L = s => (s || '').toLowerCase(),
