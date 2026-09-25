@@ -126,6 +126,20 @@ let cycle = 0, runDepth = 0, batchDepth = 0, notifyIndex = 0, queuedLength = 0;
 let activeSub;
 const queued = [];
 
+const contextStack = [];
+
+export function provide(key, value) {
+  const ctx = contextStack[contextStack.length - 1];
+  if (ctx) ctx.set(key, value);
+}
+
+export function inject(key, fallback) {
+  for (let i = contextStack.length - 1; i >= 0; i--) {
+    if (contextStack[i].has(key)) return contextStack[i].get(key);
+  }
+  return fallback;
+}
+
 const { link, unlink, propagate, checkDirty, shallowPropagate } = createReactiveSystem({
   update(node) {
     if ('getter' in node) return updateComputed(node);
@@ -186,9 +200,11 @@ export function effect(fn) {
   const prevSub = activeSub;
   activeSub = e;
   if (prevSub !== undefined) { link(e, prevSub, 0); prevSub.flags |= HasChildEffect; }
-  try { ++runDepth; e.cleanup = e.fn(); }
+  contextStack.push(new Map());
+  try { ++runDepth; const r = e.fn(); e.cleanup = typeof r === 'function' ? r : undefined; }
   finally {
     --runDepth; activeSub = prevSub;
+    contextStack.pop();
     e.flags &= ~RecursedCheck;
   }
   return effectOper.bind(e);
@@ -202,8 +218,12 @@ export function effectScope(fn) {
   const prevSub = activeSub;
   activeSub = e;
   if (prevSub !== undefined) { link(e, prevSub, 0); prevSub.flags |= HasChildEffect; }
+  contextStack.push(new Map());
   try { fn(); }
-  finally { activeSub = prevSub; }
+  finally {
+    contextStack.pop();
+    activeSub = prevSub;
+  }
   return effectScopeOper.bind(e);
 }
 
@@ -258,9 +278,15 @@ function run(e) {
     e.flags = Watching | RecursedCheck;
     const prevSub = activeSub;
     activeSub = e;
-    try { ++cycle; ++runDepth; e.cleanup = e.fn(); }
+    contextStack.push(new Map());
+    try {
+      ++cycle; ++runDepth;
+      const r = e.fn();
+      e.cleanup = typeof r === 'function' ? r : undefined;
+    }
     finally {
       --runDepth; activeSub = prevSub;
+      contextStack.pop();
       e.flags &= ~RecursedCheck;
       purgeDeps(e);
     }
@@ -415,6 +441,54 @@ export function local(key, initial) {
 
 const DOC = typeof document !== 'undefined' ? document : null;
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const SVG_TAGS = new Set(
+  ('svg path circle rect line polyline polygon g defs text textPath tspan use symbol image marker ellipse ' +
+   'foreignObject clipPath mask linearGradient radialGradient pattern filter stop ' +
+   'animate animateMotion animateTransform view desc metadata title switch ' +
+   'feGaussianBlur feOffset feBlend feColorMatrix feComponentTransfer feComposite feConvolveMatrix ' +
+   'feDiffuseLighting feDisplacementMap feDistantLight feFlood feFuncA feFuncB feFuncG feFuncR ' +
+   'feImage feMerge feMergeNode feMorphology fePointLight feSpecularLighting feSpotLight feTile feTurbulence'
+  ).split(' ')
+);
+
+function setAttr(el, key, res, isSVG) {
+  if (key === 'class' || key === 'className') {
+    if (isSVG) {
+      if (res == null || res === false) el.removeAttribute('class');
+      else el.setAttribute('class', res === true ? '' : res);
+    } else {
+      el.className = res ?? '';
+    }
+    return;
+  }
+  if (res == null || res === false) {
+    el.removeAttribute(key);
+    return;
+  }
+  if (key === 'style' && typeof res === 'string') {
+    el.setAttribute('style', res);
+    return;
+  }
+  if (isSVG) {
+    el.setAttribute(key, res === true ? '' : res);
+    return;
+  }
+  if (key in el && typeof el[key] !== 'function') el[key] = res;
+  else el.setAttribute(key, res === true ? '' : res);
+}
+
+// Limpieza recursiva de un nodo (scopes + listeners)
+function cleanupNode(n) {
+  const stack = [n];
+  while (stack.length) {
+    const node = stack.pop();
+    if (node._stopScope) { node._stopScope(); node._stopScope = null; }
+    if (node._cln) { for (const f of node._cln) f(); node._cln = null; }
+    for (let i = 0; i < node.childNodes.length; i++) stack.push(node.childNodes[i]);
+  }
+}
+
 export function h(tag, props = {}, ...children) {
   if (typeof tag === 'function') {
     let element;
@@ -437,57 +511,84 @@ export function h(tag, props = {}, ...children) {
     props = {};
   }
 
-  const el = DOC.createElement(tag);
+  const isSVG = SVG_TAGS.has(tag);
+  const el = isSVG ? DOC.createElementNS(SVG_NS, tag) : DOC.createElement(tag);
+
+  let deferredSelectValue;
+  let hasHTML = false;
 
   for (const key in props) {
     const val = props[key];
+
+    if (key === 'ref') {
+      if (typeof val === 'function') val(el);
+      else if (val != null && typeof val === 'object') val.current = el;
+      continue;
+    }
+
+    if (tag === 'select' && key === 'value') {
+      deferredSelectValue = val;
+      continue;
+    }
+
+    if (key === 'html') {
+      hasHTML = true;
+      if (typeof val === 'function') effect(() => { el.innerHTML = val() ?? ''; });
+      else el.innerHTML = val ?? '';
+      continue;
+    }
+
     if (key.startsWith('on') && typeof val === 'function') {
-      el.addEventListener(key.slice(2).toLowerCase(), val);
+      const ev = key.slice(2).toLowerCase();
+      el.addEventListener(ev, val);
+      (el._cln || (el._cln = [])).push(() => el.removeEventListener(ev, val));
     } else if (typeof val === 'function') {
-      effect(() => {
-        const res = val();
-        if (key === 'class' || key === 'className') el.className = res ?? '';
-        else if (res == null || res === false) el.removeAttribute(key);
-        else if (key in el && typeof el[key] !== 'function') el[key] = res;
-        else el.setAttribute(key, res === true ? '' : res);
-      });
+      effect(() => setAttr(el, key, val(), isSVG));
     } else {
-      if (key === 'class' || key === 'className') el.className = val ?? '';
-      else if (val == null || val === false) {}
-      else if (key in el && typeof el[key] !== 'function') el[key] = val;
-      else el.setAttribute(key, val === true ? '' : val);
+      setAttr(el, key, val, isSVG);
     }
   }
 
-  const append = (c) => {
-    if (Array.isArray(c)) { for (const x of c) append(x); return; }
-    if (c == null || c === false || c === true) return;
+  if (!hasHTML) {
+    const append = (c) => {
+      if (Array.isArray(c)) { for (const x of c) append(x); return; }
+      if (c == null || c === false || c === true) return;
 
-    if (typeof c === 'function') {
-      const anchor = DOC.createComment('');
-      el.appendChild(anchor);
-      effect(() => {
-        const res = c();
-        const list = Array.isArray(res) ? res : [res];
-        const nodes = [];
-        for (const item of list) {
-          if (item == null || item === false || item === true) continue;
-          nodes.push(item instanceof Node ? item : DOC.createTextNode(String(item)));
-        }
-        for (const n of nodes) el.insertBefore(n, anchor);
-        return () => {
-          for (const n of nodes) {
-            if (n._stopScope) { n._stopScope(); n._stopScope = null; }
-            n.remove();
+      if (typeof c === 'function') {
+        const anchor = DOC.createComment('');
+        el.appendChild(anchor);
+        effect(() => {
+          const res = c();
+          const list = Array.isArray(res) ? res : [res];
+          const nodes = [];
+          for (const item of list) {
+            if (item == null || item === false || item === true) continue;
+            nodes.push(item instanceof Node ? item : DOC.createTextNode(String(item)));
           }
-        };
-      });
-      return;
-    }
+          for (const n of nodes) el.insertBefore(n, anchor);
+          return () => {
+            for (const n of nodes) {
+              cleanupNode(n);
+              n.remove();
+            }
+          };
+        });
+        return;
+      }
 
-    el.appendChild(c instanceof Node ? c : DOC.createTextNode(String(c)));
-  };
-  append(children);
+      el.appendChild(c instanceof Node ? c : DOC.createTextNode(String(c)));
+    };
+    append(children);
+  }
+
+  // select.value diferido hasta que existan los <option>
+  if (deferredSelectValue !== undefined) {
+    if (typeof deferredSelectValue === 'function') {
+      effect(() => setAttr(el, 'value', deferredSelectValue(), isSVG));
+    } else {
+      setAttr(el, 'value', deferredSelectValue, isSVG);
+    }
+  }
 
   return el;
 }
@@ -512,12 +613,7 @@ export function mount(component, target) {
 
 export function unmount(node) {
   if (!(node instanceof Node)) return;
-  const stack = [node];
-  while (stack.length) {
-    const n = stack.pop();
-    if (n._stopScope) { n._stopScope(); n._stopScope = null; }
-    for (let i = 0; i < n.childNodes.length; i++) stack.push(n.childNodes[i]);
-  }
+  cleanupNode(node);
   if (node.parentNode) node.parentNode.removeChild(node);
 }
 
@@ -633,6 +729,7 @@ export const db = async (url, data = null, loading = null, signal = null) => {
 export const SigPro = {
   signal, computed, effect, effectScope, batch,
   untrack, watch, local,
+  provide, inject,
   h, bind, mount, unmount, exposeTags,
   router, currentPath, routerParams,
   currentLocale, addLang, setLocale, t, tt,
