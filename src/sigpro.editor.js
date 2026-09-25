@@ -1,4 +1,4 @@
-import { signal, exposeTags } from "../sigpro";
+import { signal, exposeTags } from "sigpro";
 
 exposeTags();
 
