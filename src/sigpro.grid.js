@@ -1,6 +1,4 @@
-/// <reference path="../sigpro.d.ts" />
-
-const { h, watch, onUnmount } = window.SigPro
+import { h, effect, untrack } from './sigpro.js';
 
 import {
   ModuleRegistry,
@@ -17,6 +15,7 @@ import {
   TextFilterModule,
   DateFilterModule
 } from "ag-grid-community";
+
 import {
   MultiFilterModule,
   SetFilterModule,
@@ -33,44 +32,25 @@ import {
 } from "./grid-e";
 
 ModuleRegistry.registerModules([
-  ValidationModule,
-  ColumnAutoSizeModule,
-  CellStyleModule,
-  QuickFilterModule,
-  RowSelectionModule,
-  TextEditorModule,
-  ClientSideRowModelModule,
-  MultiFilterModule,
-  CellSelectionModule,
-  PivotModule,
-  MasterDetailModule,
-  SideBarModule,
-  ColumnsToolPanelModule,
-  ColumnMenuModule,
-  StatusBarModule,
-  ExcelExportModule,
-  ClipboardModule,
-  NumberFilterModule,
-  TextFilterModule,
-  SetFilterModule,
-  DateFilterModule,
-  ContextMenuModule
+  ValidationModule, ColumnAutoSizeModule, CellStyleModule, QuickFilterModule,
+  RowSelectionModule, TextEditorModule, ClientSideRowModelModule, MultiFilterModule,
+  CellSelectionModule, PivotModule, MasterDetailModule, SideBarModule,
+  ColumnsToolPanelModule, ColumnMenuModule, StatusBarModule, ExcelExportModule,
+  ClipboardModule, NumberFilterModule, TextFilterModule, SetFilterModule,
+  DateFilterModule, ContextMenuModule
 ]);
 
-const Grid = (props) => {
+export const Grid = (props) => {
   const { data, options, api, on, class: className, style = "height: 100%; width: 100%", dark } = props;
-  let gridApi = null;
-  let cleanupFn = null;
 
   const getDark = () =>
     dark !== undefined
       ? (typeof dark === 'function' ? dark() : dark)
       : document.documentElement.getAttribute('data-theme') === 'dark' ||
-      window.matchMedia('(prefers-color-scheme: dark)').matches;
+        window.matchMedia('(prefers-color-scheme: dark)').matches;
 
   const getTheme = () => {
     const isDark = getDark();
-
     if (isDark) {
       return themeQuartz.withParams({
         headerFontSize: 14,
@@ -85,7 +65,6 @@ const Grid = (props) => {
         browserColorScheme: "dark"
       });
     }
-
     return themeQuartz.withParams({
       browserColorScheme: "light",
       headerFontSize: 14,
@@ -95,105 +74,80 @@ const Grid = (props) => {
   };
 
   const initGrid = (container) => {
-    if (cleanupFn) {
-      cleanupFn();
-      cleanupFn = null;
-    }
-    if (gridApi && !gridApi.isDestroyed()) {
-      gridApi.destroy();
-      if (api) api.current = null;
-      gridApi = null;
-    }
+    effect(() => {
+      const initialData = untrack(() => typeof data === "function" ? data() : data);
+      const initialOptions = untrack(() => typeof options === "function" ? options() : options);
+      const initialTheme = untrack(() => getTheme());
 
-    if (!container) return;
+      const commonEvents = [
+        'onFilterChanged', 'onModelUpdated', 'onGridSizeChanged',
+        'onFirstDataRendered', 'onRowValueChanged', 'onSelectionChanged',
+        'onCellClicked', 'onCellDoubleClicked', 'onCellValueChanged',
+        'onRowClicked', 'onSortChanged', 'onContextMenu',
+        'onColumnResized', 'onColumnMoved', 'onRowDataUpdated',
+        'onCellEditingStarted', 'onCellEditingStopped',
+        'onPaginationChanged', 'onBodyScroll'
+      ];
 
-    const initialData = typeof data === "function" ? data() : data;
-    const initialOptions = typeof options === "function" ? options() : options;
-
-    const commonEvents = [
-      'onFilterChanged', 'onModelUpdated', 'onGridSizeChanged',
-      'onFirstDataRendered', 'onRowValueChanged', 'onSelectionChanged',
-      'onCellClicked', 'onCellDoubleClicked', 'onCellValueChanged',
-      'onRowClicked', 'onSortChanged', 'onContextMenu',
-      'onColumnResized', 'onColumnMoved', 'onRowDataUpdated',
-      'onCellEditingStarted', 'onCellEditingStopped',
-      'onPaginationChanged', 'onBodyScroll'
-    ];
-
-    const eventHandlers = {};
-    commonEvents.forEach(eventName => {
-      if (on?.[eventName]) {
-        eventHandlers[eventName] = (params) => on[eventName](params);
-      }
-    });
-
-    const gridOptions = {
-      ...initialOptions,
-      theme: getTheme(),
-      rowData: initialData || [],
-      onGridReady: (params) => {
-        gridApi = params.api;
-        if (api) api.current = gridApi;
-        if (on?.onGridReady) on.onGridReady(params);
-
-        if (initialOptions?.autoSizeColumns) {
-          params.api.autoSizeAllColumns();
+      const eventHandlers = {};
+      commonEvents.forEach(eventName => {
+        if (on?.[eventName]) {
+          eventHandlers[eventName] = (params) => on[eventName](params);
         }
-      },
-      ...eventHandlers
-    };
+      });
 
-    gridApi = createGrid(container, gridOptions);
+      const gridOptions = {
+        ...initialOptions,
+        theme: initialTheme,
+        rowData: initialData || [],
+        onGridReady: (params) => {
+          if (api) api.current = params.api;
+          if (on?.onGridReady) on.onGridReady(params);
+          if (initialOptions?.autoSizeColumns) {
+            params.api.autoSizeAllColumns();
+          }
+        },
+        ...eventHandlers
+      };
 
-    const stopData = watch(() => {
-      if (!gridApi || gridApi.isDestroyed()) return;
-      const newData = typeof data === "function" ? data() : data;
-      if (Array.isArray(newData)) {
-        const currentData = gridApi.getGridOption("rowData");
-        if (newData !== currentData) {
-          gridApi.setGridOption("rowData", newData);
+      const gridApi = createGrid(container, gridOptions);
+      if (api) api.current = gridApi;
+
+      effect(() => {
+        const newData = typeof data === "function" ? data() : data;
+        if (Array.isArray(newData)) {
+          const currentData = gridApi.getGridOption("rowData");
+          if (newData !== currentData) {
+            gridApi.setGridOption("rowData", newData);
+          }
         }
-      }
-    });
+      });
 
-    const stopTheme = watch(() => {
-      if (!gridApi || gridApi.isDestroyed()) return;
-      getDark();
-      const newTheme = getTheme();
-      const currentTheme = gridApi.getGridOption("theme");
-      if (JSON.stringify(newTheme) !== JSON.stringify(currentTheme)) {
-        gridApi.setGridOption("theme", newTheme);
-      }
-    });
+      effect(() => {
+        getDark();
+        const newTheme = getTheme();
+        const currentTheme = gridApi.getGridOption("theme");
+        if (JSON.stringify(newTheme) !== JSON.stringify(currentTheme)) {
+          gridApi.setGridOption("theme", newTheme);
+        }
+      });
 
-    const stopOptions = watch(() => {
-      if (!gridApi || gridApi.isDestroyed() || !options) return;
-      const newOptions = typeof options === "function" ? options() : options;
-      if (newOptions) {
-        Object.entries(newOptions).forEach(([key, val]) => {
-          try {
-            gridApi.setGridOption(key, val);
-          } catch (e) { }
-        });
-      }
-    });
+      effect(() => {
+        if (!options) return;
+        const newOptions = typeof options === "function" ? options() : options;
+        if (newOptions) {
+          Object.entries(newOptions).forEach(([key, val]) => {
+            try {
+              gridApi.setGridOption(key, val);
+            } catch (e) {}
+          });
+        }
+      });
 
-    cleanupFn = () => {
-      stopData();
-      stopTheme();
-      stopOptions();
-      if (gridApi && !gridApi.isDestroyed()) {
-        gridApi.destroy();
+      return () => {
+        if (gridApi && !gridApi.isDestroyed()) gridApi.destroy();
         if (api) api.current = null;
-        gridApi = null;
-      }
-    };
-
-    onUnmount(() => {
-      if (cleanupFn) {
-        cleanupFn();
-        cleanupFn = null;
-      }
+      };
     });
   };
 
@@ -203,5 +157,3 @@ const Grid = (props) => {
     ref: initGrid
   });
 };
-
-export { Grid };

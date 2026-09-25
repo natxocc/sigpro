@@ -1,302 +1,640 @@
-export const isF = f => typeof f == "function";
-export const isO = o => o && typeof o == "object";
-export const isA = Array.isArray;
-const doc = typeof document < "u" ? document : null;
-const txt = s => doc.createTextNode(s == null ? "" : String(s));
-const toNd = n => n?._rt ? n._cnt : (n instanceof Node ? n : txt(n));
-export const fragment = p => p.children;
-export const val = v => isF(v) ? v() : v;
+const None = 0, Mutable = 1, Watching = 2, RecursedCheck = 4,
+      Recursed = 8, Dirty = 16, Pending = 32, HasChildEffect = 64;
 
-let curEffect = null, curOwner = null, flushing = 0, batchDepth = 0;
-const effectQueue = new Set(), MOUNTED = new WeakMap();
+function createReactiveSystem({ update, notify, unwatched }) {
+  return { link, unlink, propagate, checkDirty, shallowPropagate };
 
-const SVG_NS = "http://www.w3.org/2000/svg", XLINK = "http://www.w3.org/1999/xlink";
-const SVG_TAGS = new Set("svg,path,circle,rect,line,polyline,polygon,g,defs,text,textPath,tspan,use,symbol,image,marker,ellipse".split(","));
-const DANG_ATTR = new Set(["src", "href", "formaction", "action", "background", "code", "archive"]);
-
-const clr = s => { if (s) { s.forEach(f => f()); s.clear(); } };
-const dispose = e => {
-  if (!e || e._dead) return;
-  e._dead = 1;
-  let stack = [e], c;
-  while ((c = stack.pop())) {
-    clr(c._cln);
-    if (c._kids) { c._kids.forEach(x => stack.push(x)); c._kids.clear(); }
-    if (c._deps) { c._deps.forEach(d => d.delete(c)); c._deps.clear(); }
-  }
-};
-
-export const onUnmount = f => curOwner && ((curOwner._cln ||= new Set()).add(f));
-const untrack = f => { let p = curEffect; curEffect = null; try { return f() } finally { curEffect = p } };
-
-const createEffect = (fn, isComputed = 0) => {
-  const eff = () => {
-    if (eff._dead) return;
-    eff._deps?.forEach(s => s.delete(eff));
-    clr(eff._cln);
-    let pE = curEffect, pO = curOwner;
-    curEffect = curOwner = eff;
-    try { return eff._res = fn(); }
-    catch (err) { console.error("[SigPro]", err); }
-    finally { curEffect = pE; curOwner = pO; }
-  };
-  eff._deps = eff._cln = eff._kids = null;
-  eff._dead = 0; eff._comp = isComputed;
-  eff._depth = curEffect ? curEffect._depth + 1 : 0;
-  eff._mnt = []; eff._parent = curOwner;
-  if (curOwner) (curOwner._kids ||= new Set()).add(eff);
-  return eff;
-};
-
-const flush = () => {
-  if (flushing) return;
-  flushing = 1;
-  let q = [...effectQueue].sort((a, b) => a._depth - b._depth);
-  effectQueue.clear();
-  for (let e of q) if (!e._dead) e();
-  flushing = 0;
-};
-
-export const batch = f => {
-  batchDepth++;
-  try { return f() } finally { if (!--batchDepth && effectQueue.size && !flushing) flush() }
-};
-
-const track = (signal, trigger = 0) => {
-  if (!trigger && curEffect && !curEffect._dead) {
-    signal.add(curEffect);
-    (curEffect._deps ||= new Set()).add(signal);
-  } else if (trigger && signal.size) {
-    let q = 0;
-    for (let e of signal) {
-      if (e === curEffect || e._dead) continue;
-      if (e._comp) { e._stale = 1; e._sub && track(e._sub, 1); }
-      else { effectQueue.add(e); q = 1; }
+  function link(dep, sub, version) {
+    const prevDep = sub.depsTail;
+    if (prevDep !== undefined && prevDep.dep === dep) return;
+    const nextDep = prevDep !== undefined ? prevDep.nextDep : sub.deps;
+    if (nextDep !== undefined && nextDep.dep === dep) {
+      nextDep.version = version; sub.depsTail = nextDep; return;
     }
-    if (q && !flushing && !batchDepth) queueMicrotask(flush);
-  }
-};
-
-export const $ = (val, key = null) => {
-  const subs = new Set();
-  if (isF(val)) {
-    let cached, deps = new Set();
-    const get = () => {
-      if (get._stale) {
-        for (let dep of deps) dep.delete(get);
-        deps.clear();
-
-        let p = curEffect; curEffect = get;
-        try {
-          let n = val();
-          if (!Object.is(cached, n)) {
-            cached = n;
-            track(subs, 1);
-          }
-        } finally { curEffect = p; }
-        get._stale = 0;
-      }
-      track(subs);
-      return cached;
+    const prevSub = dep.subsTail;
+    if (prevSub !== undefined && prevSub.version === version && prevSub.sub === sub) return;
+    const newLink = sub.depsTail = dep.subsTail = {
+      version, dep, sub, prevDep, nextDep, prevSub, nextSub: undefined,
     };
-    get._comp = get._stale = 1;
-    get._sub = subs;
-    get._deps = deps;
-    get._dead = 0;
-    return get;
-  }
-  if (key) try { val = JSON.parse(localStorage.getItem(key)) ?? val } catch { }
-  return (...args) => {
-    if (args.length) {
-      let n = isF(args[0]) ? args[0](val) : args[0];
-      if (!Object.is(val, n)) {
-        val = n;
-        if (key) localStorage.setItem(key, JSON.stringify(val));
-        track(subs, 1);
-      }
-    }
-    track(subs);
-    return val;
-  };
-};
-
-export const watch = (src, cb) => {
-  let eff = createEffect(cb ? () => { let v = isA(src) ? src.map(s => s()) : src(); untrack(() => cb(v)); } : src);
-  eff();
-  return () => dispose(eff);
-};
-
-const cleanNode = (n) => {
-  if (!n) return;
-  const stack = [n];
-  while (stack.length) {
-    const node = stack.pop();
-    clr(node._cln);
-    if (node._ownEff) dispose(node._ownEff);
-    if (node.childNodes) {
-      for (let i = 0; i < node.childNodes.length; i++) {
-        stack.push(node.childNodes[i]);
-      }
-    }
-  }
-};
-const safeAttr = (k, v) =>
-  v == null || v === false ? null :
-    (DANG_ATTR.has(k) || k.startsWith("on")) && /^\s*(javascript|data|vbscript):/i.test(String(v)) ? '#' : v;
-
-export const h = (tag, props = {}, children = []) => {
-  if (props instanceof Node || isA(props) || !isO(props)) { children = props; props = {}; }
-
-  if (isF(tag)) {
-    let eff = createEffect(() => eff._res = tag(props, { children, emit: (ev, ...a) => props[`on${ev[0].toUpperCase()}${ev.slice(1)}`]?.(...a) }));
-    eff();
-    if (eff._res == null) return null;
-    let node = eff._res instanceof Node || (isA(eff._res) && eff._res.every(n => n instanceof Node)) ? eff._res : txt(eff._res);
-    const runMount = n => {
-      if (n && n._mnt) {
-        n._mnt.forEach(f => f());
-        n._mnt = null;
-      }
-    };
-    if (isA(node)) node.forEach(runMount); else runMount(node);
-    const mark = n => { if (isO(n) && !n._rt) { n._mnt = eff._mnt || []; n._cln = eff._cln || new Set(); n._ownEff = eff; } };
-    isA(node) ? node.forEach(mark) : mark(node);
-    return node;
+    if (nextDep !== undefined) nextDep.prevDep = newLink;
+    if (prevDep !== undefined) prevDep.nextDep = newLink; else sub.deps = newLink;
+    if (prevSub !== undefined) prevSub.nextSub = newLink; else dep.subs = newLink;
   }
 
-  let isSVG = SVG_TAGS.has(tag),
-    el = isSVG ? doc.createElementNS(SVG_NS, tag) : doc.createElement(tag);
-  el._cln = new Set();
-
-  for (let k in props) {
-    let v = props[k];
-    if (k === "ref") { isF(v) ? v(el) : (v.current = el); continue; }
-    if (isSVG && k.startsWith("xlink:")) {
-      let cv = safeAttr(k.slice(6), v);
-      cv == null ? el.removeAttributeNS(XLINK, k.slice(6)) : el.setAttributeNS(XLINK, k.slice(6), cv);
-      continue;
-    }
-    if (k.startsWith("on")) {
-      let ev = k.slice(2).toLowerCase(); el.addEventListener(ev, v);
-      let off = () => el.removeEventListener(ev, v);
-      el._cln.add(off);
-    } else if (isF(v)) {
-      let eff = createEffect(() => {
-        let r = safeAttr(k, v());
-        if (k === "class") el.className = r || "";
-        else if (r == null) el.removeAttribute(k);
-        else if (k === "style" && typeof r == "string") el.setAttribute("style", r);
-        else if (k in el && !isSVG) el[k] = r;
-        else el.setAttribute(k, r === true ? "" : r);
-      });
-      eff();
-      el._cln.add(() => dispose(eff));
-      if (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && (k === "value" || k === "checked")) {
-        const eventType = k === "checked" ? "change" : "input";
-        const handler = ev => v(ev.target[k]);
-        el.addEventListener(eventType, handler);
-        el._cln.add(() => el.removeEventListener(eventType, handler));
-      }
-    } else {
-      let r = safeAttr(k, v);
-      if (r != null) {
-        if (k === "style" && typeof r == "string") el.setAttribute("style", r);
-        else if (k in el && !isSVG) el[k] = r;
-        else el.setAttribute(k, r === true ? "" : r);
-      }
-    }
+  function unlink(link, sub = link.sub) {
+    const { dep, prevDep, nextDep, nextSub, prevSub } = link;
+    if (nextDep !== undefined) nextDep.prevDep = prevDep; else sub.depsTail = prevDep;
+    if (prevDep !== undefined) prevDep.nextDep = nextDep; else sub.deps = nextDep;
+    if (nextSub !== undefined) nextSub.prevSub = prevSub; else dep.subsTail = prevSub;
+    if (prevSub !== undefined) prevSub.nextSub = nextSub;
+    else if ((dep.subs = nextSub) === undefined) unwatched(dep);
+    return nextDep;
   }
 
-  const append = c => {
-    if (isA(c)) return c.forEach(append);
-    if (isF(c)) {
-      let anchor = txt(""), cur = []; el.appendChild(anchor);
-      let eff = createEffect(() => {
-        let res = c(), next = (isA(res) ? res : [res]).map(toNd), ref = anchor;
-        cur.forEach(n => { n._rt ? n.destroy() : cleanNode(n); n.parentNode && n.remove(); });
-        for (let i = next.length - 1; i >= 0; i--) {
-          let nd = next[i];
-          if (nd.parentNode !== ref.parentNode) ref.parentNode?.insertBefore(nd, ref);
-          nd._mnt && nd._mnt.forEach(f => f());
-          ref = nd;
+  function propagate(link, innerWrite) {
+    let next = link.nextSub, stack;
+    top: do {
+      const sub = link.sub;
+      let flags = sub.flags;
+      if (!(flags & (RecursedCheck | Recursed | Dirty | Pending))) {
+        sub.flags = flags | Pending;
+        if (innerWrite) sub.flags |= Recursed;
+      } else if (!(flags & (RecursedCheck | Recursed))) {
+        flags = None;
+      } else if (!(flags & RecursedCheck)) {
+        sub.flags = (flags & ~Recursed) | Pending;
+      } else if (!(flags & (Dirty | Pending)) && isValidLink(link, sub)) {
+        sub.flags = flags | Recursed | Pending;
+        flags &= Mutable;
+      } else flags = None;
+      if (flags & Watching) notify(sub);
+      if (flags & Mutable) {
+        const subSubs = sub.subs;
+        if (subSubs !== undefined) {
+          const nextSub = (link = subSubs).nextSub;
+          if (nextSub !== undefined) { stack = { value: next, prev: stack }; next = nextSub; }
+          continue;
         }
-        cur = next;
-      });
-      eff(); el._cln.add(() => dispose(eff));
+      }
+      if ((link = next) !== undefined) { next = link.nextSub; continue; }
+      while (stack !== undefined) {
+        link = stack.value; stack = stack.prev;
+        if (link !== undefined) { next = link.nextSub; continue top; }
+      }
+      break;
+    } while (true);
+  }
+
+  function checkDirty(link, sub) {
+    let stack, checkDepth = 0, dirty = false;
+    top: do {
+      const dep = link.dep, flags = dep.flags;
+      if (sub.flags & Dirty) dirty = true;
+      else if ((flags & (Mutable | Dirty)) === (Mutable | Dirty)) {
+        const subs = dep.subs;
+        if (update(dep)) {
+          if (subs.nextSub !== undefined) shallowPropagate(subs);
+          dirty = true;
+        }
+      } else if ((flags & (Mutable | Pending)) === (Mutable | Pending)) {
+        stack = { value: link, prev: stack };
+        link = dep.deps; sub = dep; ++checkDepth; continue;
+      }
+      if (!dirty) {
+        const nextDep = link.nextDep;
+        if (nextDep !== undefined) { link = nextDep; continue; }
+      }
+      while (checkDepth--) {
+        link = stack.value; stack = stack.prev;
+        if (dirty) {
+          const subs = sub.subs;
+          if (update(sub)) {
+            if (subs.nextSub !== undefined) shallowPropagate(subs);
+            sub = link.sub; continue;
+          }
+          dirty = false;
+        } else sub.flags &= ~Pending;
+        sub = link.sub;
+        const nextDep = link.nextDep;
+        if (nextDep !== undefined) { link = nextDep; continue top; }
+      }
+      return dirty && !!sub.flags;
+    } while (true);
+  }
+
+  function shallowPropagate(link) {
+    do {
+      const sub = link.sub, flags = sub.flags;
+      if ((flags & (Pending | Dirty)) === Pending) {
+        sub.flags = flags | Dirty;
+        if ((flags & (Watching | RecursedCheck)) === Watching) notify(sub);
+      }
+    } while ((link = link.nextSub) !== undefined);
+  }
+
+  function isValidLink(checkLink, sub) {
+    let link = sub.depsTail;
+    while (link !== undefined) {
+      if (link === checkLink) return true;
+      link = link.prevDep;
+    }
+    return false;
+  }
+}
+
+let cycle = 0, runDepth = 0, batchDepth = 0, notifyIndex = 0, queuedLength = 0;
+let activeSub;
+const queued = [];
+
+const { link, unlink, propagate, checkDirty, shallowPropagate } = createReactiveSystem({
+  update(node) {
+    if ('getter' in node) return updateComputed(node);
+    if ('currentValue' in node) return updateSignal(node);
+    node.flags = Mutable; return true;
+  },
+  notify(effect) {
+    let insertIndex = queuedLength, firstInsertedIndex = insertIndex;
+    do {
+      queued[insertIndex++] = effect;
+      effect.flags &= ~Watching;
+      effect = effect.subs?.sub;
+      if (effect === undefined || !(effect.flags & Watching)) break;
+    } while (true);
+    queuedLength = insertIndex;
+    while (firstInsertedIndex < --insertIndex) {
+      const left = queued[firstInsertedIndex];
+      queued[firstInsertedIndex++] = queued[insertIndex];
+      queued[insertIndex] = left;
+    }
+  },
+  unwatched(node) {
+    if ('getter' in node) {
+      if (node.depsTail !== undefined) {
+        node.flags = Mutable | Dirty;
+        disposeAllDepsInReverse(node);
+      }
+    } else if ('currentValue' in node) {
+    } else if ('fn' in node) {
+      effectOper.call(node);
     } else {
-      let nd = toNd(c); el.appendChild(nd);
-      nd._mnt && nd._mnt.forEach(f => f());
+      effectScopeOper.call(node);
     }
-  };
-  append(children);
-  return el;
-};
+  },
+});
 
-export const render = fn => {
-  let cln = new Set(), pO = curOwner, pE = curEffect,
-    cnt = doc.createElement("div");
-  cnt.style.display = "contents"; cnt.setAttribute("role", "presentation");
-  curOwner = { _cln: cln }; curEffect = null;
-  const place = r => {
-    if (!r) return;
-    if (r._rt) { cln.add(r.destroy); cnt.appendChild(r._cnt); }
-    else if (isA(r)) r.forEach(place);
-    else cnt.appendChild(r instanceof Node ? r : txt(r));
-  };
-  try { place(fn({ onCleanup: f => cln.add(f) })); } finally { curOwner = pO; curEffect = pE; }
-  return { _rt: 1, _cnt: cnt, destroy: () => { clr(cln); cleanNode(cnt); cnt.remove(); } };
-};
-export const when = (cond, onTrue, onFalse = null) => {
-  let anchor = txt(""), root = h("div", { style: "display:contents" }, [anchor]), current;
-  const stopWatch = watch(() => !!val(cond), v => {
-    current?.destroy(); current = null;
-    let template = v ? onTrue : onFalse;
-    if (template) { current = render(() => val(template)); root.insertBefore(current._cnt, anchor); }
-  });
-  onUnmount(() => { stopWatch(); current?.destroy(); });
-  return root;
-};
-
-export const each = (src, mapFn, keyFn) => {
-  let anchor = txt(""), root = h("div", { style: "display:contents" }, [anchor]),
-    cache = new Map();
-  const stopWatch = watch(() => val(src) || [], items => {
-    let newCache = new Map(), order = [];
-    for (let i = 0; i < items.length; i++) {
-      let item = items[i], k = keyFn ? (item?.[keyFn] ?? i) : (item?.id ?? i), v = cache.get(k);
-      if (!v) v = render(() => mapFn(item, i)); else cache.delete(k);
-      newCache.set(k, v); order.push(v);
-    }
-    cache.forEach(v => v.destroy());
-    let ref = anchor;
-    for (let i = order.length - 1; i >= 0; i--) {
-      let nd = order[i]._cnt;
-      if (nd.nextSibling !== ref) root.insertBefore(nd, ref);
-      ref = nd;
-    }
-    cache = newCache;
-  });
-  onUnmount(stopWatch);
-  return root;
-};
-
-export const mount = (component, target) => {
-  let el = typeof target === "string" ? doc.querySelector(target) : target;
-  if (!el) return;
-  if (MOUNTED.has(el)) MOUNTED.get(el).destroy();
-  let instance = render(isF(component) ? component : () => component);
-  el.replaceChildren(instance._cnt);
-  MOUNTED.set(el, instance);
-  return instance;
-};
-
-const htmlTags = "a abbr article aside audio b blockquote br button canvas caption cite code col colgroup datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 header hr i iframe img input ins kbd label legend li main mark meter nav object ol optgroup option output p picture pre progress section select slot small source span strong sub summary sup svg table tbody td template textarea tfoot th thead time tr u ul video";
-
-export const SigPro = { $, watch, batch, h, fragment, render, mount, when, each, onUnmount, val, isA, isF, isO };
-
-if (typeof window !== "undefined") {
-  window.SigPro = SigPro;
-  htmlTags.split(" ").forEach(tag => {
-    window[tag] = (props, children) => h(tag, props, children);
+export function signal(initialValue) {
+  return signalOper.bind({
+    currentValue: initialValue, pendingValue: initialValue,
+    subs: undefined, subsTail: undefined, flags: Mutable,
   });
 }
+
+export function computed(getter) {
+  return computedOper.bind({
+    value: undefined, subs: undefined, subsTail: undefined,
+    deps: undefined, depsTail: undefined, flags: None, getter,
+  });
+}
+
+export function effect(fn) {
+  const e = {
+    fn, cleanup: undefined,
+    subs: undefined, subsTail: undefined,
+    deps: undefined, depsTail: undefined,
+    flags: Watching | RecursedCheck,
+  };
+  const prevSub = activeSub;
+  activeSub = e;
+  if (prevSub !== undefined) { link(e, prevSub, 0); prevSub.flags |= HasChildEffect; }
+  try { ++runDepth; e.cleanup = e.fn(); }
+  finally {
+    --runDepth; activeSub = prevSub;
+    e.flags &= ~RecursedCheck;
+  }
+  return effectOper.bind(e);
+}
+
+export function effectScope(fn) {
+  const e = {
+    deps: undefined, depsTail: undefined,
+    subs: undefined, subsTail: undefined, flags: Mutable,
+  };
+  const prevSub = activeSub;
+  activeSub = e;
+  if (prevSub !== undefined) { link(e, prevSub, 0); prevSub.flags |= HasChildEffect; }
+  try { fn(); }
+  finally { activeSub = prevSub; }
+  return effectScopeOper.bind(e);
+}
+
+export function batch(fn) {
+  ++batchDepth;
+  try { return fn(); }
+  finally { if (!--batchDepth) flush(); }
+}
+
+function updateComputed(c) {
+  if (c.flags & HasChildEffect) {
+    let link = c.depsTail;
+    while (link !== undefined) {
+      const prev = link.prevDep, dep = link.dep;
+      if (!('getter' in dep) && !('currentValue' in dep)) unlink(link, c);
+      link = prev;
+    }
+  }
+  c.depsTail = undefined;
+  c.flags = Mutable | RecursedCheck;
+  const prevSub = activeSub;
+  activeSub = c;
+  try {
+    ++cycle;
+    const oldValue = c.value;
+    return oldValue !== (c.value = c.getter(oldValue));
+  } finally {
+    activeSub = prevSub;
+    c.flags &= ~RecursedCheck;
+    purgeDeps(c);
+  }
+}
+
+function updateSignal(s) {
+  s.flags = Mutable;
+  return s.currentValue !== (s.currentValue = s.pendingValue);
+}
+
+function run(e) {
+  const flags = e.flags;
+  if (flags & Dirty || (flags & Pending && checkDirty(e.deps, e))) {
+    if (flags & HasChildEffect) {
+      let link = e.depsTail;
+      while (link !== undefined) {
+        const prev = link.prevDep, dep = link.dep;
+        if (!('getter' in dep) && !('currentValue' in dep)) unlink(link, e);
+        link = prev;
+      }
+    }
+    if (e.cleanup) { runCleanup(e); if (!e.flags) return; }
+    e.depsTail = undefined;
+    e.flags = Watching | RecursedCheck;
+    const prevSub = activeSub;
+    activeSub = e;
+    try { ++cycle; ++runDepth; e.cleanup = e.fn(); }
+    finally {
+      --runDepth; activeSub = prevSub;
+      e.flags &= ~RecursedCheck;
+      purgeDeps(e);
+    }
+  } else if (e.deps !== undefined) {
+    e.flags = Watching | (flags & HasChildEffect);
+  }
+}
+
+function flush() {
+  try {
+    while (notifyIndex < queuedLength) {
+      const effect = queued[notifyIndex];
+      queued[notifyIndex++] = undefined;
+      run(effect);
+    }
+  } finally {
+    while (notifyIndex < queuedLength) {
+      const effect = queued[notifyIndex];
+      queued[notifyIndex++] = undefined;
+      effect.flags |= Watching | Recursed;
+    }
+    notifyIndex = 0;
+    queuedLength = 0;
+  }
+}
+
+function computedOper() {
+  const flags = this.flags;
+  if (flags & Dirty || (flags & Pending && (checkDirty(this.deps, this) || (this.flags = flags & ~Pending, false)))) {
+    if (updateComputed(this)) {
+      const subs = this.subs;
+      if (subs !== undefined) shallowPropagate(subs);
+    }
+  } else if (!flags) {
+    this.flags = Mutable | RecursedCheck;
+    const prevSub = activeSub;
+    activeSub = this;
+    try { this.value = this.getter(); }
+    finally { activeSub = prevSub; this.flags &= ~RecursedCheck; }
+  }
+  const sub = activeSub;
+  if (sub !== undefined) link(this, sub, cycle);
+  return this.value;
+}
+
+function signalOper(...value) {
+  if (value.length) {
+    if (this.pendingValue !== (this.pendingValue = value[0])) {
+      this.flags = Mutable | Dirty;
+      const subs = this.subs;
+      if (subs !== undefined) {
+        propagate(subs, !!runDepth);
+        if (!batchDepth) flush();
+      }
+    }
+  } else {
+    if (this.flags & Dirty) {
+      if (updateSignal(this)) {
+        const subs = this.subs;
+        if (subs !== undefined) shallowPropagate(subs);
+      }
+    }
+    const sub = activeSub;
+    if (sub !== undefined) link(this, sub, cycle);
+    return this.currentValue;
+  }
+}
+
+function runCleanup(e) {
+  const cleanup = e.cleanup;
+  e.cleanup = undefined;
+  const prevSub = activeSub;
+  activeSub = undefined;
+  try { cleanup(); }
+  finally { activeSub = prevSub; }
+}
+
+function effectOper() {
+  effectScopeOper.call(this);
+  if (this.cleanup) runCleanup(this);
+}
+
+function effectScopeOper() {
+  this.flags = None;
+  disposeAllDepsInReverse(this);
+  const sub = this.subs;
+  if (sub !== undefined) unlink(sub);
+}
+
+function disposeAllDepsInReverse(sub) {
+  let link = sub.depsTail;
+  while (link !== undefined) {
+    const prev = link.prevDep;
+    unlink(link, sub);
+    link = prev;
+  }
+}
+
+function purgeDeps(sub) {
+  const depsTail = sub.depsTail;
+  let dep = depsTail !== undefined ? depsTail.nextDep : sub.deps;
+  while (dep !== undefined) dep = unlink(dep, sub);
+}
+
+export function untrack(fn) {
+  const prev = activeSub;
+  activeSub = undefined;
+  try { return fn(); }
+  finally { activeSub = prev; }
+}
+
+export function watch(source, cb, { immediate = false } = {}) {
+  let prev, first = true;
+  return effect(() => {
+    const value = source();
+    if (first) {
+      first = false;
+      prev = value;
+      if (immediate) untrack(() => cb(value, undefined));
+      return;
+    }
+    if (Object.is(prev, value)) return;
+    const old = prev;
+    prev = value;
+    untrack(() => cb(value, old));
+  });
+}
+
+export function local(key, initial) {
+  let value = initial;
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw !== null) value = JSON.parse(raw);
+    } catch {}
+  }
+
+  const s = signal(value);
+
+  effect(() => {
+    const v = s();
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const json = JSON.stringify(v);
+        if (localStorage.getItem(key) !== json) localStorage.setItem(key, json);
+      } catch {}
+    }
+  });
+
+  return s;
+}
+
+const DOC = typeof document !== 'undefined' ? document : null;
+
+export function h(tag, props = {}, ...children) {
+  if (typeof tag === 'function') {
+    let element;
+    const stop = effectScope(() => { element = tag(props, children); });
+    const mark = (n) => {
+      if (n instanceof Node) n._stopScope = stop;
+      else if (Array.isArray(n)) n.forEach(mark);
+    };
+    mark(element);
+    return element;
+  }
+
+  if (
+    props instanceof Node ||
+    Array.isArray(props) ||
+    (props !== null && typeof props !== 'object') ||
+    props === undefined
+  ) {
+    children = [props, ...children];
+    props = {};
+  }
+
+  const el = DOC.createElement(tag);
+
+  for (const key in props) {
+    const val = props[key];
+    if (key.startsWith('on') && typeof val === 'function') {
+      el.addEventListener(key.slice(2).toLowerCase(), val);
+    } else if (typeof val === 'function') {
+      effect(() => {
+        const res = val();
+        if (key === 'class' || key === 'className') el.className = res ?? '';
+        else if (res == null || res === false) el.removeAttribute(key);
+        else if (key in el && typeof el[key] !== 'function') el[key] = res;
+        else el.setAttribute(key, res === true ? '' : res);
+      });
+    } else {
+      if (key === 'class' || key === 'className') el.className = val ?? '';
+      else if (val == null || val === false) {}
+      else if (key in el && typeof el[key] !== 'function') el[key] = val;
+      else el.setAttribute(key, val === true ? '' : val);
+    }
+  }
+
+  const append = (c) => {
+    if (Array.isArray(c)) { for (const x of c) append(x); return; }
+    if (c == null || c === false || c === true) return;
+
+    if (typeof c === 'function') {
+      const anchor = DOC.createComment('');
+      el.appendChild(anchor);
+      effect(() => {
+        const res = c();
+        const list = Array.isArray(res) ? res : [res];
+        const nodes = [];
+        for (const item of list) {
+          if (item == null || item === false || item === true) continue;
+          nodes.push(item instanceof Node ? item : DOC.createTextNode(String(item)));
+        }
+        for (const n of nodes) el.insertBefore(n, anchor);
+        return () => {
+          for (const n of nodes) {
+            if (n._stopScope) { n._stopScope(); n._stopScope = null; }
+            n.remove();
+          }
+        };
+      });
+      return;
+    }
+
+    el.appendChild(c instanceof Node ? c : DOC.createTextNode(String(c)));
+  };
+  append(children);
+
+  return el;
+}
+
+export const bind = (sig, { prop = 'value', onEvent = 'onInput', parse = (v) => v } = {}) => ({
+  [prop]: () => sig(),
+  [onEvent]: (e) => sig(parse(e.target[prop])),
+});
+
+export function mount(component, target) {
+  const el = typeof target === 'string' ? DOC.querySelector(target) : target;
+  if (!el) return () => {};
+
+  let node;
+  const stopRoot = effectScope(() => { node = h(component, {}); });
+
+  const nodes = Array.isArray(node) ? node.filter(Boolean) : (node ? [node] : []);
+  el.replaceChildren(...nodes);
+
+  return () => { stopRoot(); el.replaceChildren(); };
+}
+
+export function unmount(node) {
+  if (!(node instanceof Node)) return;
+  const stack = [node];
+  while (stack.length) {
+    const n = stack.pop();
+    if (n._stopScope) { n._stopScope(); n._stopScope = null; }
+    for (let i = 0; i < n.childNodes.length; i++) stack.push(n.childNodes[i]);
+  }
+  if (node.parentNode) node.parentNode.removeChild(node);
+}
+
+const htmlTags = "a abbr article aside audio b blockquote br button canvas caption cite code col colgroup datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 header hr i iframe img input ins kbd label legend li main mark meter nav object ol optgroup option output p picture pre progress section select slot small source span strong sub summary sup table tbody td template textarea tfoot th thead time tr u ul video";
+
+export const exposeTags = (target = typeof window !== 'undefined' ? window : null) => {
+  if (!target) return;
+  for (const tag of htmlTags.split(' ')) {
+    target[tag] = (props, ...children) => h(tag, props, ...children);
+  }
+};
+
+export const currentPath = signal(
+  typeof window !== 'undefined'
+    ? (window.location.hash.slice(1) || '/')
+    : '/'
+);
+export const routerParams = signal({});
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('hashchange', () => {
+    currentPath(window.location.hash.slice(1) || '/');
+  });
+}
+
+export const router = routes => () => {
+  const hook = h('div', { class: 'router-hook' });
+
+  effect(() => {
+    const path = currentPath();
+    const p2 = path.split('/').filter(Boolean);
+
+    return effectScope(() => {
+      const route = routes.find(r => {
+        const p1 = r.path.split('/').filter(Boolean);
+        return (
+          p1.length === p2.length &&
+          p1.every((p, i) => p[0] === ':' || p === p2[i])
+        );
+      }) || routes.find(r => r.path === '*');
+
+      if (!route) {
+        hook.replaceChildren();
+        return;
+      }
+
+      const params = {};
+      route.path.split('/').filter(Boolean).forEach((p, i) => {
+        if (p[0] === ':') params[p.slice(1)] = p2[i];
+      });
+
+      routerParams(params);
+
+      const node = typeof route.component === 'function'
+        ? h(route.component, params)
+        : route.component;
+
+      const nodes = node == null ? [] : Array.isArray(node) ? node : [node];
+      hook.replaceChildren(...nodes);
+    });
+  });
+
+  return hook;
+};
+
+router.to = path => {
+  if (typeof window !== 'undefined') {
+    window.location.hash = path.replace(/^#?\/?/, '#/');
+  }
+};
+router.back = () => {
+  if (typeof window !== 'undefined') window.history.back();
+};
+router.path = () => currentPath();
+
+export const currentLocale = signal('en');
+const translations = {};
+
+export const addLang = obj => {
+  for (const locale in obj) {
+    translations[locale] ||= {};
+    Object.assign(translations[locale], obj[locale]);
+  }
+};
+
+export const setLocale = locale => {
+  if (locale && translations[locale]) currentLocale(locale);
+};
+
+export const t = key => () =>
+  translations[currentLocale()]?.[key] ?? key;
+
+export const tt = key =>
+  translations[currentLocale()]?.[key] ?? key;
+
+export const db = async (url, data = null, loading = null, signal = null) => {
+  if (loading) loading(true);
+  try {
+    const res = await fetch(url, {
+      method: data ? 'POST' : 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: 'include',
+      signal,
+    });
+    if (!res.ok) throw new Error(`Error ${res.status}: ${await res.text()}`);
+    return await res.json();
+  } finally {
+    if (loading) loading(false);
+  }
+};
+
+export const SigPro = {
+  signal, computed, effect, effectScope, batch,
+  untrack, watch, local,
+  h, bind, mount, unmount, exposeTags,
+  router, currentPath, routerParams,
+  currentLocale, addLang, setLocale, t, tt,
+  db,
+};
