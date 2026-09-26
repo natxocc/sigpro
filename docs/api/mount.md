@@ -5,19 +5,20 @@ The `mount` function is the entry point of your reactive world. It bridges the g
 ## Function Signature
 
 ```typescript
-mount(component: Function | Node, target: string | HTMLElement): RuntimeObject
+mount(
+  component: (props?: any) => Node | Node[] | null,
+  target: string | Element
+): () => void
 ```
 
 | Parameter | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
-| **`component`** | `Function` or `Node` | Yes | A component function (returns a Node) or a direct DOM node. |
-| **`target`** | `string` or `HTMLElement` | Yes | CSS selector (e.g., `"#app"`) or DOM element where the app will be mounted. |
+| **`component`** | `Function` | Yes | A component function that returns a node, an array of nodes, or `null`. |
+| **`target`** | `string` or `Element` | Yes | CSS selector (e.g., `"#app"`) or DOM element where the app will be mounted. |
 
-**Returns:** A `Runtime` object with:
-- `container`: The actual DOM element created by the renderer.
-- `destroy()`: A method to completely unmount and clean up the application.
+**Returns:** A **stop function**. Call it to dispose the app's root scope and clear the target. There is no runtime object, no `.destroy()` method, no `.container` property — just a plain function.
 
-> **Availability:** `mount` is exported from the SigPro module. In **ESM** you must import it (`import { mount } from 'sigpro'`). In the **IIFE** classic script, it is automatically available on `window`. The examples below assume the function is already in scope.
+> **Availability:** `mount` is exported from the SigPro module. Import it (`import { mount } from 'sigpro'`). The tag helpers (`div`, `h1`, `button`, ...) become globals after calling `exposeTags()` once at startup.
 
 ---
 
@@ -26,14 +27,17 @@ mount(component: Function | Node, target: string | HTMLElement): RuntimeObject
 ### 1. Main Application Entry Point
 
 ```javascript
-import { mount } from 'sigpro';
+import { mount, exposeTags } from 'sigpro';
 
-const App = () => div({ class: "app" }, [
-  h1("Hello SigPro"),
-  button("Click me")
-]);
+exposeTags();
 
-mount(App, '#app');
+const App = () =>
+  div({ class: 'app' }, [
+    h1('Hello SigPro'),
+    button('Click me')
+  ]);
+
+const stop = mount(App, '#app');
 ```
 
 ### 2. Reactive Widget (Island Architecture)
@@ -41,22 +45,31 @@ mount(App, '#app');
 Mount small reactive components into static HTML pages.
 
 ```javascript
+import { signal, mount, exposeTags } from 'sigpro';
+
+exposeTags();
+
 const Counter = () => {
-  const count = $(0);
-  return button({ onclick: () => count(count() + 1) }, () => `Clicks: ${count()}`);
+  const count = signal(0);
+  return button(
+    { onclick: () => count(count() + 1) },
+    () => `Clicks: ${count()}`
+  );
 };
 
-mount(Counter, '#sidebar-widget');
+const stop = mount(Counter, '#sidebar-widget');
 ```
 
-### 3. Direct Node Mounting
+### 3. Dynamic tag or pre-built node
 
-You can also mount an already existing DOM node.
+`mount` accepts a component function. If you already have a node, wrap it in a function:
 
 ```javascript
-const myDiv = div("I am already a node");
-mount(myDiv, '#container');
+const myDiv = div('I am already a node');
+mount(() => myDiv, '#container');
 ```
+
+Note: mounting a static node is possible but unusual — `h()` already lets you insert nodes anywhere in a tree. `mount` is designed for **component functions** that own their own reactive scope.
 
 ---
 
@@ -64,76 +77,138 @@ mount(myDiv, '#container');
 
 When you call `mount`, SigPro performs these steps:
 
-1. **Duplicate Detection**  
-   SigPro keeps a `WeakMap` (`MOUNTED_NODES`) that tracks which DOM target already has a mounted runtime. If you mount a new component to the same target, the previous instance is **automatically destroyed** before the new one is rendered. This prevents memory leaks and “zombie effects”.
+1. **Resolve target**
+   If `target` is a string, `document.querySelector(target)` finds the element. If it does not exist, `mount` returns a no-op function and does nothing — no error is thrown.
 
-2. **Render Phase**  
-   The `render` function creates a **cleanup container** (a `div` with `style="display: contents"`), and executes the component inside a fresh reactive owner. All effects (`watch`), event listeners, and child components created during this render are captured.
+2. **Create root scope**
+   An `effectScope()` wraps the component call. Every effect, event listener, and nested scope created during the render is registered inside this scope.
 
-3. **DOM Injection**  
-   The target element is cleared using `replaceChildren()`, and the container (which holds the rendered content) is appended.
+3. **Render component**
+   `h(component, {})` is called. The result may be a single node, an array of nodes, or `null`. Arrays are filtered to remove falsy entries.
 
-4. **Runtime Object**  
-   Returns an object `{ _isRuntime: true, container, destroy }`. The `destroy` function recursively disposes all effects, cleans up DOM nodes, and removes the container from the parent.
+4. **Inject into target**
+   The target's children are replaced with the rendered nodes via `el.replaceChildren(...nodes)`.
+
+5. **Return stop function**
+   The function returned stops the root scope (cascading cleanup of all descendant effects and listeners) and clears the target with `el.replaceChildren()`.
 
 ---
 
 ## Manual Unmounting
 
-You can call `destroy()` at any time to tear down the application. This is essential for imperatively managed UI like **modals**, **toasts**, or **dynamic panels**.
+Call the returned function to tear down the app at any time. This is essential for imperatively managed UI like **modals**, **toasts**, or **dynamic panels**.
 
 ```javascript
-const widget = mount(MyToast, '#toast-container');
+const stop = mount(MyToast, '#toast-container');
 
 // Later, remove it completely:
-widget.destroy();
+stop();
+```
+
+For a **single node** created outside the mount tree, use `unmount(node)` instead:
+
+```javascript
+import { unmount } from 'sigpro';
+
+unmount(document.querySelector('.some-node'));
+```
+
+`unmount` recursively stops scopes and removes tracked listeners on the node and its descendants, then detaches it from the DOM.
+
+---
+
+## What Is Automatically Cleaned Up
+
+When the stop function is called, everything created under the mount scope is purged:
+
+- All `effect` and `computed` instances created inside components, including nested `effectScope()` calls.
+- All event listeners registered via `h()` (`onclick`, `oninput`, ...). They are stored on each element's `_cln` array and executed on cleanup.
+- All reactive child nodes created by passing functions as children.
+- All nested component scopes.
+
+> **You must clean up manually** for external resources not managed by SigPro: `setInterval`, `setTimeout`, WebSocket connections, third-party library instances, `IntersectionObserver`, etc.
+
+**How to register cleanup:** return a function from an `effect()`, or wrap the resource in an `effectScope()` and call the returned stopper on unmount.
+
+```javascript
+const App = () => {
+  effect(() => {
+    const id = setInterval(() => console.log('tick'), 1000);
+    return () => clearInterval(id);   // ← runs on dispose
+  });
+  return div('...');
+};
 ```
 
 ---
 
-## Automatic Re‑mount on Same Target
+## No Auto-Replace on Same Target
 
-If you call `mount` a second time on the same target, SigPro automatically destroys the previous instance and replaces it with the new one. No manual cleanup required.
+Unlike some frameworks, **SigPro does not track mounted targets in a registry**. If you call `mount` twice on the same target:
 
 ```javascript
 mount(LoginScreen, '#app');
-// ... later, after login
-mount(Dashboard, '#app');  // LoginScreen is destroyed automatically
+// ...later
+mount(Dashboard, '#app');
 ```
 
----
+The second call replaces the DOM children but **does not dispose the first mount's scope**. The old effects and listeners stay alive, attached to detached nodes. This is a **leak**.
 
-## What is Automatically Cleaned Up
+**Correct pattern**: keep the stop function and call it before mounting again.
 
-When `destroy()` is called (or when a new mount replaces an old one), everything is purged:
+```javascript
+let stop = mount(LoginScreen, '#app');
 
-- All `watch` effects
-- All event listeners added via SigPro (`onClick`, `onInput`, etc.)
-- All child components created with `when`, `each`, or nested `mount` calls
-- Any custom cleanups registered with `onUnmount`
+// ...later
+stop();
+stop = mount(Dashboard, '#app');
+```
 
-> **You only need manual cleanup** for external resources not managed by SigPro (e.g., `setInterval`, third‑party libraries, WebSocket connections). Use `onUnmount` for that.
+If you want a "one-liner" that handles this, wrap it yourself:
+
+```javascript
+const mounts = new WeakMap();
+
+export function remount(component, target) {
+  const el = typeof target === 'string' ? document.querySelector(target) : target;
+  if (!el) return () => {};
+  mounts.get(el)?.();
+  const stop = mount(component, el);
+  mounts.set(el, stop);
+  return stop;
+}
+```
+
+Ten lines. No hidden registry in the core.
 
 ---
 
 ## Complete Example
 
 ```javascript
-import { $, mount } from 'sigpro';
+import { signal, effect, mount, exposeTags } from 'sigpro';
 
+exposeTags();
 
 const App = () => {
-  const count = $(0);
-  return div({ class: "demo" }, [
+  const count = signal(0);
+
+  // External resource with cleanup
+  effect(() => {
+    const id = setInterval(() => console.log('app alive'), 5000);
+    return () => clearInterval(id);
+  });
+
+  return div({ class: 'demo' }, [
     h1(() => `Count: ${count()}`),
-    button({ onClick: () => count(count() + 1) }, "Increment")
+    button({ onclick: () => count(count() + 1) }, 'Increment')
   ]);
 };
 
-const runtime = mount(App, '#app');
+const stop = mount(App, '#app');
 
 // Destroy after 10 seconds
-setTimeout(() => runtime.destroy(), 10000);
+setTimeout(stop, 10000);
 ```
 
 ---
@@ -142,10 +217,10 @@ setTimeout(() => runtime.destroy(), 10000);
 
 | Goal | Code |
 | :--- | :--- |
-| Mount to a CSS selector | `mount(App, '#root')` |
-| Mount to a DOM element | `mount(App, document.getElementById('root'))` |
-| Mount a static node | `mount(div("Hello"), '#target')` |
-| Manual destruction | `const app = mount(App, '#app'); app.destroy();` |
-| Auto‑replace on same target | Just call `mount` again – SigPro handles cleanup. |
+| Mount to a CSS selector | `const stop = mount(App, '#root')` |
+| Mount to a DOM element | `const stop = mount(App, document.getElementById('root'))` |
+| Stop the app | `stop()` |
+| Remove an arbitrary node | `unmount(el)` |
+| Register cleanup for a resource | `return () => cleanup` inside `effect()` |
 
-> **Note:** The target must exist in the DOM at the time of mounting.
+> **Note:** The target must exist in the DOM at the time of mounting. If it does not, `mount` returns a no-op function and logs nothing.

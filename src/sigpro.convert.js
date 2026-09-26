@@ -1,7 +1,5 @@
 /// <reference path="../sigpro.d.ts" />
 
-var { signal } = window.SigPro;
-
 function html2sigpro(h, mode = "tags") {
     const B = new Set(["allowfullscreen", "async", "autofocus", "autoplay", "checked", "controls", "default", "defer", "disabled", "formnovalidate", "hidden", "ismap", "itemscope", "loop", "multiple", "muted", "nomodule", "novalidate", "open", "playsinline", "readonly", "required", "reversed", "selected", "truespeed"]);
     const esc = v => v.replace(/"/g, '\\"');
@@ -52,6 +50,8 @@ function html2sigpro(h, mode = "tags") {
 }
 
 const converter = () => {
+    const { signal } = window.SigPro;  // ← movido aquí
+
     const inH = signal("");
     const outS = signal("");
     const mode = signal("tags");

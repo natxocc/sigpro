@@ -1,9 +1,9 @@
-Blazing fast, zero-overhead, vanilla JS renderer with atomic reactivity.
-
 # `SigPro`
 
+Blazing fast, zero-overhead, vanilla JS renderer with atomic reactivity.
+
 [![npm version](https://img.shields.io/npm/v/sigpro.svg)](https://www.npmjs.com/package/sigpro)
-![js size](https://img.shields.io/badge/js_size-2.8_kB_brotli-blue)
+![js size](https://img.shields.io/badge/js_size-~4_kB_brotli-blue)
 [![license](https://img.shields.io/npm/l/sigpro)](https://github.com/natxocc/sigpro/blob/main/LICENSE)
 
 [**Explore the Docs →**](https://sigpro.natxocc.com/#/)
@@ -16,40 +16,14 @@ After years of building within closed ecosystems like **React, Vue, or Svelte**�
 
 That extra development time and the cognitive load of "learning the framework" instead of "learning the language" is exactly what **SigPro** eliminates. If the final destination is always JS, why not use a Pure JS-based system that drastically simplifies coding with a readable, vanilla, and remarkably fast architecture?
 
-* **Atomic Precision:** Powered by a *Signal-based* architecture. State is bound directly to DOM nodes—when a value changes, **only that specific node updates**.
+* **Atomic Precision:** Powered by an **alien-signals**-class push-pull reactive core. State is bound directly to DOM nodes—when a value changes, **only that specific node updates**. No diffing, no virtual tree, no wasted work.
 * **Zero-Hydration Bottlenecks:** No 100KB bundles or complex build steps. SigPro is pure, optimized JavaScript tailored for the browser's native engine.
-* **Pure Vanilla JS Performance:** High-octane performance without the need for transpilers or heavy transformations. It runs natively in the browser just as well as it does in complex build pipelines.
+* **Lazy Computation:** `computed()` is lazy and verified with `checkDirty`. Effects don't re-run when a dependency's value didn't actually change.
 * **Build-Tool Agnostic:** Total freedom. Use it with **Vite, Webpack, or Rollup** for enterprise projects, or simply import it via a **`<script>` tag** for rapid prototyping. No tooling required.
-* **Vite-Powered DX:** First-class Vite support with **file-based routing** out of the box. The official `sigpro/vite` plugin automatically scans your `src/pages` directory and generates reactive routes—no manual route configuration needed.
-* **Zero-Scale Bloat:** Unlike other frameworks where the bundle grows exponentially, SigPro's footprint remains **flat and predictable**. You only pay for the code you write.
-* **Premium DX (Developer Experience):** Forget boilerplate imports. SigPro injects an elegant, functional syntax (`div()`, `button()`, `span()`) directly into your scope for a **"Zero-Import"** workflow.
-* **Fully Loaded:** Built-in Hash Routing, native **`localStorage` persistence**, and automatic lifecycle management (cleanups) included in less than 2KB.
-* **Tree-Shakable:** Optimized for modern bundlers. Import only what you use, or load the full engine for rapid prototyping.
-
------
-
-## Real-World Benchmarks
-
-SigPro isn't just "fast on paper." In the industry-standard **JS Framework Benchmark**, it consistently outperforms the most popular libraries by operating at near-native speeds with almost zero memory overhead.
-
-### Execution Speed (CPU)
-*Lower is better. Measured in milliseconds (ms).*
-
-| Benchmark Test | **SigPro** | SolidJS | Vue 3 | React 18 |
-| :--- | :--- | :--- | :--- | :--- |
-| **Surgical Update** (10th row) | **46.8ms** | ~48ms | ~75ms | ~158ms |
-| **Direct Selection** (on click) | **17.5ms** | ~18ms | ~32ms | ~65ms |
-| **Initial Render** (1k rows) | **~35ms** | ~32ms | ~45ms | ~70ms |
-
-### Memory Footprint
-*Lower is better. Measured in Megabytes (MB) after 1k rows.*
-
-| Metric | **SigPro** | Vanilla JS | Svelte | React |
-| :--- | :--- | :--- | :--- | :--- |
-| **Ready Memory** (Idle) | **1.05 MB** | 1.01 MB | ~2.8 MB | ~10.4 MB |
-| **Run Memory** (1k rows) | **4.90 MB** | 4.25 MB | ~10.2 MB | ~28.5 MB |
-
-> **The Verdict:** SigPro delivers **Vanilla-like memory consumption** while maintaining **Surgical reactivity** that rivals (and often beats) SolidJS in granular updates.
+* **Zero-Scale Bloat:** Unlike other frameworks where the bundle grows exponentially, SigPro's footprint remains **flat and predictable**.
+* **Premium DX:** Forget boilerplate imports. SigPro injects an elegant, functional syntax (`div()`, `button()`, `span()`) directly into your scope for a **"Zero-Import"** workflow.
+* **Fully Loaded:** Built-in Hash Routing, native **`localStorage` persistence**, **`provide`/`inject`** dependency injection, **SVG support**, and automatic cleanup of listeners and scopes—all in a single file.
+* **No Memory Leaks:** Scopes cascade idempotently. Event listeners are tracked and removed with the node. Computeds die with their owners.
 
 -----
 
@@ -62,21 +36,22 @@ Create reactive, persistent components with a syntax that feels like Vanilla JS,
 ```
 
 ```javascript
-import { $, mount } from "sigpro";
+import { signal, computed, mount, exposeTags } from "sigpro";
+
+exposeTags();
 
 const Counter = () => {
   // Simple signal
-  const value = $(100);
+  const value = signal(100);
   // One-line persistence: state survives page reloads automatically
-  const count = $(0, "user-counter-pref");
-  // Computed: automatically updated when count() or value() changes
-  const doubleValue = $(()=> value() * count());
+  const count = local("user-counter-pref",0); // use local() for persistence
+  const ref   = signal(100);
+  const doubleValue = computed(() => value() * ref());
 
-  // Create fast HTML with pure JS
   return div({ class: "card" }, [
-    h1(() => `Count: ${count()}, Reference: ${value()}, Double x Ref: ${doubleValue()}`),
+    h1(() => `Count: ${count()}, Reference: ${value()}, Double: ${doubleValue()}`),
     p("Atomic updates. Zero re-renders of the parent tree."),
-    button({ onclick: () => count(c => c + 1)}, "Increment +1")
+    button({ onclick: () => count(count() + 1) }, "Increment +1")
   ]);
 };
 
@@ -85,56 +60,157 @@ mount(Counter, "#app");
 
 -----
 
+## Core API
+
+### Reactivity
+
+```javascript
+import {
+  signal, computed, effect, effectScope,
+  batch, untrack, watch, local, provide, inject
+} from "sigpro";
+
+const count = signal(0);
+count();        // read
+count(1);       // write
+
+const double = computed(() => count() * 2);
+double();       // → 2, lazily evaluated
+
+// Effect with cleanup
+const stop = effect(() => {
+  const v = count();
+  console.log(v);
+  return () => console.log("cleanup");
+});
+
+// Scoped effects (cascade cleanup for children)
+const dispose = effectScope(() => {
+  effect(() => console.log(count()));
+  effect(() => console.log(double()));
+});
+
+// Batching: defer flush until the end
+batch(() => {
+  count(1);
+  count(2);
+});
+
+// Watch: skip initial run, receive old/new values
+watch(count, (newval, oldval) => console.log(oldval, "→", newval));
+
+// Untrack: read without subscribing
+untrack(() => count());
+
+// Persistent signal (localStorage-backed, JSON)
+const theme = local("theme", "light");
+theme("dark");  // stored, survives reloads
+
+// Dependency injection
+provide("theme", signal("dark"));
+const t = inject("theme");  // nearest provider
+```
+
+### Rendering
+
+```javascript
+import { h, mount, exposeTags } from "sigpro";
+
+exposeTags(); // → window.div, window.span, window.button, etc.
+
+// Static
+div({ class: "card" }, "Hello");
+
+// Reactive props
+div({ class: () => active() ? "card active" : "card" });
+
+// Reactive style
+div({ style: () => open() ? "" : "display:none" });
+
+// Reactive children
+div({}, () => items().map(i => li({}, i.name)));
+
+// Events
+button({ onclick: () => count(count() + 1) }, "+1");
+
+// ref
+input({ ref: el => el.focus() });
+
+// innerHTML (reactive)
+div({ html: () => markdown(run().text) });
+
+// Two-way binding
+input({ value: () => username(), oninput: e => username(e.target.value)})
+```
+
+### SVG
+
+```javascript
+svg({ viewBox: "0 0 24 24" }, [
+  path({ d: "M9 12l2 2 4-4", stroke: "currentColor", fill: "none" })
+]);
+```
+
+SVG tags are detected automatically. `class`, `style`, and every attribute go through `setAttribute` correctly.
+
+### Router
+
+```javascript
+import { router } from "sigpro";
+
+const App = router([
+  { path: "/",          component: Home },
+  { path: "/about",     component: About },
+  { path: "/blog/:slug", component: BlogPost },
+  { path: "*",          component: NotFound }
+]);
+
+router.to("/about");
+router.back();
+router.path(); // current path
+```
+
+### i18n
+
+```javascript
+import { addLang, setLocale, t, tt } from "sigpro";
+
+addLang({
+  en: { hello: "Hello" },
+  es: { hello: "Hola" }
+});
+
+setLocale("es");
+tt("hello");    // "Hola"
+t("hello")();   // "Hola" (reactive getter)
+```
+
+### HTTP Helper
+
+```javascript
+import { db } from "sigpro";
+
+const loading = signal(false);
+const data = await db("/api/users", null, loading);
+
+// POST
+await db("/api/save", { name: "Ada" });
+```
+
+-----
+
 ## Performance Without Compromise
 
 | Feature | **SigPro** | React / Vue | Svelte |
 | :--- | :--- | :--- | :--- |
-| **Payload (Gzipped)** | **<3KB** | ~30KB - 50KB | ~5KB (Compiled Runtime) |
-| **State Logic** | **Atomic Signals** | Virtual DOM Diffing | Compiler Dirty Bits |
+| **Payload (Brotli)** | **~4KB** | ~30KB - 50KB | ~5KB (Compiled Runtime) |
+| **State Logic** | **Push-pull Signals** | Virtual DOM Diffing | Compiler Dirty Bits |
 | **Update Speed** | **Direct Node Access** | Component Re-render | Block Reconciliation |
-| **Native Persistence** | **Included ($)** | Requires Plugins | Manual |
+| **Native Persistence** | **`local()`** | Requires Plugins | Manual |
 | **Dependencies** | **Zero** | Many | Build Toolchain |
-| **Lifecycle Mgmt** | **Automatic (Cleanup Root)** | Manual / Hook-based | Manual / Hook-based |
-| **Routing** | **Reactive Hash (Router) + File-based (Vite)** | Virtual Router (External) | File-based / External |
+| **Lifecycle Mgmt** | **Automatic (Scopes + `_cln`)** | Manual / Hook-based | Manual / Hook-based |
+| **Routing** | **Reactive Hash Router** | Virtual Router (External) | File-based / External |
 | **Learning Curve** | **Zero (Vanilla JS)** | Steep (JSX/Templates) | Medium (Directives) |
-
------
-
-## Scalable Architecture with Vite
-
-SigPro scales from micro-widgets to full enterprise dashboards. With the official Vite plugin, routing becomes effortless:
-
-```text
-src/
-├── 📂 pages/              # File-based routing (auto-scanned)
-│   ├── index.js           # → /
-│   ├── about.js           # → /about
-│   ├── blog/
-│   │   ├── index.js       # → /blog
-│   │   └── [slug].js      # → /blog/:slug
-│   └── docs/
-│       └── [...all].js    # → /docs/*
-├── 📂 components/         # Reusable components
-└── 📄 main.js             # App Entry & Mounting
-```
-
-**Vite Plugin Setup:**
-```javascript
-// vite.config.js
-import { defineConfig } from 'vite';
-import { sigproRouter } from 'sigpro/router';
-
-export default defineConfig({
-  plugins: [sigproRouter()]
-});
-```
-
-The plugin automatically:
-- Scans your `src/pages` directory recursively
-- Generates route definitions from file paths
-- Supports dynamic segments (`[param]`) and catch-all routes (`[...param]`)
-- Provides automatic 404 fallback
-- Enables lazy-loading out of the box
 
 -----
 
@@ -144,7 +220,7 @@ The plugin automatically:
 npm install sigpro
 ```
 
-**With Vite (Recommended for larger apps):**
+**With Vite:**
 ```bash
 npm create vite@latest my-app -- --template vanilla
 cd my-app
@@ -155,6 +231,18 @@ npm install sigpro
 ```html
 <script src="https://unpkg.com/sigpro"></script>
 ```
+
+-----
+
+## What SigPro Is Not
+
+SigPro is **not** a framework with a custom compiler, virtual DOM, or JSX transform. It is:
+
+- **Vanilla JS** with a reactive core.
+- **Explicit**: `signal()`, `computed()`, `effect()` — no overloaded operators, no magic argument-type dispatch.
+- **Minimal**: only the primitives needed to build UIs, not a kitchen sink.
+
+If you want JSX, file-based routing with auto-generation, or a component lifecycle DSL, SigPro is not that. If you want **the rawest, smallest reactive renderer that stays out of your way**, it is.
 
 -----
 

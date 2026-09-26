@@ -1,26 +1,28 @@
 # Hyperscript Function: `h( )`
 
-The `h` function is the **core DOM builder** of SigPro. It creates DOM elements from a tag name, props, and children. While the global tag helpers (`div()`, `button()`, etc.) are built on top of `h`, you may need `h` directly for dynamic tag names or when you prefer an explicit function style.
+The `h` function is the **core DOM builder** of SigPro. It creates DOM elements from a tag name, props, and children. The global tag helpers (`div()`, `button()`, etc.) are thin wrappers around `h`, so anything you can do with them you can do with `h` directly — and vice versa.
 
-> **Availability:** `h` and all tag helpers (`div`, `button`, etc.) are exported from the SigPro module. In **ESM** you must import them (`import { h, div, button } from 'sigpro'`). In the **IIFE** classic script, `h` and all tag helpers are automatically available on `window`. The examples below assume the functions are already in scope.
+> **Availability:** `h` and all tag helpers (`div`, `button`, etc.) are exported from the SigPro module. Call `exposeTags()` once at startup to register the tag helpers as globals (`window.div`, `window.button`, ...). The examples below assume `exposeTags()` has been called and `h` is in scope via import.
 
 ## Function Signature
 
 ```typescript
 h(
-  tag: string | Function,
-  props?: object | Node | any[],
-  children?: any
-): Node
+  tag: string | ((props: any, children: Child[]) => Node | Node[] | null),
+  props?: object | Child | null,
+  ...children: Child[]
+): Element | SVGElement | Node | Node[] | null
 ```
 
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
-| **`tag`** | `string` or `Function` | HTML tag name (e.g., `"div"`) or a component function. |
-| **`props`** | `object` | Optional. Attributes, event handlers, refs, etc. If not an object, it becomes `children`. |
-| **`children`** | `any` | Optional. Text, nodes, arrays, or reactive functions. |
+| **`tag`** | `string` or `Function` | HTML/SVG tag name (e.g., `"div"`) or a component function. |
+| **`props`** | `object` | Optional. Attributes, event handlers, `ref`, `html`, etc. If not a plain object, it is treated as the first child. |
+| **`...children`** | `Child[]` | Optional. Text, nodes, arrays, or reactive functions. Variadic. |
 
-**Returns:** A DOM node (or an array of nodes when the tag is a component that returns an array).
+**Returns:** A DOM node, or an array of nodes when the tag is a component that returns an array.
+
+**SVG detection:** If `tag` is in the built-in SVG tag set (`svg`, `path`, `circle`, `g`, `defs`, `linearGradient`, ...), `h` uses `createElementNS` automatically. No `xmlns` prop required.
 
 ---
 
@@ -38,7 +40,7 @@ h('button', { class: 'btn', onclick: () => alert('clicked') }, 'Click me');
 
 ### 2. Nested Children
 
-Children can be a single node, an array, or a function.
+Children can be a single node, an array, or a mix. They are appended in order.
 
 ```javascript
 h('div', { class: 'container' }, [
@@ -49,65 +51,81 @@ h('div', { class: 'container' }, [
 
 ### 3. Reactive Children
 
-Pass a **function** as a child – it will be re‑evaluated whenever any signal inside changes, and the DOM will be patched surgically.
+Pass a **function** as a child. It re-evaluates whenever any signal inside changes, and only the affected nodes are added/removed. No diffing, no virtual tree.
 
 ```javascript
-const count = $(0);
+import { signal } from 'sigpro';
 
-h('div', {}, [
-  h('p', {}, () => `Count: ${count()}`),
-  h('button', { onclick: () => count(count() + 1) }, '+1')
+const count = signal(0);
+
+div({}, [
+  p(() => `Count: ${count()}`),
+  button({ onclick: () => count(count() + 1) }, '+1')
 ]);
 ```
 
 ### 4. Reactive Attributes
 
-Pass a function as an attribute value to keep it dynamic.
+Pass a function as an attribute value to keep it dynamic. The effect re-runs on dependency change and updates the DOM directly.
 
 ```javascript
-const theme = $('dark');
+import { signal } from 'sigpro';
 
-h('div', { class: () => `box ${theme()}` }, 'Themed box');
+const theme = signal('dark');
+
+div({ class: () => `box ${theme()}` }, 'Themed box');
 ```
 
-### 5. Two‑Way Binding
+### 5. Form Inputs (Explicit, Not Magic)
 
-Assign a signal directly to `value` or `checked` on form elements – SigPro automatically syncs both ways.
+SigPro does **not** auto-bind `value` to signals. You wire the two directions explicitly:
 
 ```javascript
-const name = $('');
+import { signal } from 'sigpro';
 
-h('input', {
+const name = signal('');
+
+input({
   type: 'text',
-  value: name,        // two-way binding
+  value: () => name(),
+  oninput: (e) => name(e.target.value),
   placeholder: 'Your name'
 });
-h('p', {}, () => `Hello, ${name()}`);
+
+p(() => `Hello, ${name()}`);
 ```
+
+This is deliberate. Auto-binding hides behavior and breaks down the moment you need parse, format, or validation logic. Explicit is clearer and works identically for `input`, `textarea`, `select`, checkboxes, and radio groups.
 
 ### 6. Component Functions as `tag`
 
-You can pass a component function directly to `h`. SigPro will execute it with the provided props and an `emit` helper for custom events.
+A component is just a function that receives `(props, children[])` and returns a node, an array of nodes, or `null`.
 
 ```javascript
-const Button = (props, { children }) =>
-  h('button', { class: 'btn', onclick: props.onClick }, children);
+const Button = (props, children) =>
+  button({ class: 'btn', onclick: props.onClick }, children);
 
 const App = () =>
-  h('div', {}, [
-    h(Button, { onClick: () => alert('clicked') }, 'Custom button')
+  div({}, [
+    Button({ onClick: () => alert('clicked') }, 'Custom button')
   ]);
 ```
 
+**No `emit` helper.** Events flow through props: the parent passes `onX` and the child calls `props.onX(...)` directly. Simpler, no magic.
+
+**Cleanup:** Component functions run inside a `effectScope`. When the component is unmounted, all its effects, listeners, and nested scopes are disposed automatically.
+
 ### 7. SVG Elements
 
-Use `h` with SVG tag names – SigPro automatically applies the correct namespace.
+SVG tags are detected by name. No namespace prop needed.
 
 ```javascript
-h('svg', { width: 100, height: 100 }, [
-  h('circle', { cx: 50, cy: 50, r: 40, fill: 'red' })
+svg({ width: 100, height: 100 }, [
+  circle({ cx: 50, cy: 50, r: 40, fill: 'red' })
 ]);
 ```
+
+Attributes and reactive bindings work the same as HTML — everything goes through `setAttribute` under the hood, which is the correct path for SVG.
 
 ---
 
@@ -115,10 +133,12 @@ h('svg', { width: 100, height: 100 }, [
 
 | Prop | Behaviour |
 | :--- | :--- |
-| **`ref`** | `ref: (el) => ...` or `ref: { current: null }` – provides direct access to the DOM node after creation. |
-| **`onEvent`** | Any prop starting with `on` (e.g., `onClick`, `onInput`) is treated as an event listener. Automatically removed on cleanup. |
-| **`value` / `checked`** | When a signal is passed, creates two‑way binding for inputs, textareas, and selects. |
-| **`class`** | You can use `class` (not `className`). Accepts a string or a reactive function. |
+| **`ref`** | `ref: (el) => ...` or `ref: { current: null }`. Provides direct access to the DOM node after creation. If the node is unmounted, the reference is not automatically cleared — handle that yourself if needed. |
+| **`on*`** | Any prop starting with `on` is treated as an event listener. Case-insensitive: `onclick`, `onClick`, `onINPUT` all normalize to `addEventListener('click')`, `addEventListener('input')`. Listeners are tracked and removed on cleanup. |
+| **`class` / `className`** | Both aliases work. Accepts a string or a reactive function. For SVG elements, uses `setAttribute('class', ...)`. |
+| **`style`** | Accepts a string or a reactive function returning a string. Uses `setAttribute('style', ...)`. For reactivity: `style: () => open() ? '' : 'display:none'`. |
+| **`html`** | If present, sets `innerHTML` and **skips children**. Reactive: `html: () => markdown(source())`. Use deliberately — this is an escape hatch for raw HTML. |
+| **`value` / `checked`** | Plain attributes. No auto-binding. Assign directly or via a reactive getter, and wire `oninput` yourself for the reverse direction. |
 
 ---
 
@@ -127,35 +147,50 @@ h('svg', { width: 100, height: 100 }, [
 | Feature | `h('div', ...)` | `div(...)` (tag helper) |
 | :--- | :--- | :--- |
 | **Dynamic tag names** | ✅ `h(tagName, ...)` | ❌ Must know tag name at write time |
-| **Explicit style** | More verbose | Cleaner, DSL‑like |
-| **Availability** | Import or global | Import or global (same) |
+| **Explicit style** | More verbose | Cleaner, DSL-like |
+| **Availability** | Import from `sigpro` | Import from `sigpro`, or global after `exposeTags()` |
 | **Performance** | Identical | Identical (helpers call `h` internally) |
 
-> **Recommendation:** Use tag helpers (`div()`, `button()`, etc.) for most cases – they are shorter and more readable. Use `h` directly only when the tag name is dynamic (e.g., `h(props.tag, ...)`).
+> **Recommendation:** Use tag helpers (`div()`, `button()`, etc.) for most cases — they are shorter and more readable. Use `h` directly only when the tag name is dynamic.
 
 ---
 
 ## Complete Example
 
 ```javascript
-import 'sigpro';
+import { signal, mount, h, exposeTags } from 'sigpro';
 
-const dynamicTag = $('h1');
+exposeTags();
+
+const dynamicTag = signal('h1');
 
 const App = () =>
-  h('div', { class: 'demo' }, [
-    h(dynamicTag(), {}, () => `Current tag: ${dynamicTag()}`),
-    h('button', { onclick: () => dynamicTag(dynamicTag() === 'h1' ? 'h2' : 'h1') }, 'Toggle heading size')
+  div({ class: 'demo' }, [
+    h(
+      dynamicTag(),
+      {},
+      () => `Current tag: ${dynamicTag()}`
+    ),
+    button(
+      { onclick: () => dynamicTag(dynamicTag() === 'h1' ? 'h2' : 'h1') },
+      'Toggle heading size'
+    )
   ]);
 
 mount(App, '#app');
+```
+
+Note that `h(dynamicTag(), ...)` is re-created from scratch whenever the tag name changes — `h` does not diff or swap tags. If you need reactive tag switching, wrap it in a reactive child function so the old node is removed and the new one inserted:
+
+```javascript
+div({}, () => h(dynamicTag(), {}, `Current tag: ${dynamicTag()}`))
 ```
 
 ---
 
 ## Summary
 
-- `h` is the low‑level DOM builder used internally by all tag helpers.
-- It supports reactive attributes, reactive children, two‑way binding, event listeners, and SVG.
-- Use `h` directly when you need a **dynamic tag name**; otherwise, prefer the convenient tag helpers (import them or inject globally).
-- Components written with `h` are fully reactive and automatically cleaned up.
+- `h` is the low-level DOM builder used internally by all tag helpers.
+- It supports reactive attributes, reactive children, event listeners, `ref`, `html`, and SVG — all with automatic cleanup.
+- **No two-way binding, no `emit` helper.** Data flows in via props and out via `on*` handlers. Explicit, predictable, and identical for every input type.
+- Use `h` directly when you need a **dynamic tag name**; otherwise, prefer the tag helpers.

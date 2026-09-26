@@ -1,6 +1,6 @@
 # HTML to SigPro Converter
 
-Convert your existing HTML markup directly into SigPro Tag Helper syntax. Paste your HTML in the left panel and get clean, ready-to-use SigPro code on the right.
+Convert your existing HTML markup directly into SigPro tag-helper syntax. Paste your HTML on the left and get clean, ready-to-use SigPro code on the right.
 
 ## Usage
 

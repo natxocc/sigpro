@@ -1,124 +1,216 @@
 # Reactivity Control: `watch( )`
 
-The `watch` function is the reactive engine of SigPro. It allows you to execute code automatically when signals change. `watch` is **polymorphic**: it can track dependencies automatically or follow an explicit list.
+The `watch` function lets you run a callback when a signal (or computed) changes value. It runs **outside** the normal effect flow and **skips the initial read by default** — only fires on actual changes.
 
 ## Function Signature
 
 ```typescript
-// Automatic Mode (Magic Tracking)
-watch(callback: Function): StopFunction
-
-// Explicit Mode (Isolated Dependencies)
-watch(deps: Signal[], callback: (values: any[]) => void): StopFunction
+watch<T>(
+  source: Signal<T> | (() => T),
+  cb: (value: T, oldValue: T | undefined) => void,
+  options?: { immediate?: boolean }
+): () => void
 ```
 
 | Parameter | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
-| **`callback`** (auto mode) | `Function` | Yes | The code to run. Any signal accessed inside becomes a dependency. |
-| **`deps`** (explicit mode) | `Signal[]` | Yes | An array of signals to watch explicitly. |
-| **`callback`** (explicit mode) | `Function` | Yes | Runs when any of the `deps` change. Receives an array of their current values. |
+| **`source`** | `Signal<T>` or `() => T` | Yes | Signal or getter to observe. |
+| **`cb`** | `(value, oldValue) => void` | Yes | Called when `source` produces a new value. `oldValue` is `undefined` on the first `immediate` call. |
+| **`options.immediate`** | `boolean` | No | If `true`, `cb` runs once at setup with `oldValue = undefined`. Default `false`. |
 
-**Returns:** A `StopFunction` that, when called, destroys the watcher and releases memory.
+**Returns:** A stop function. Call it to dispose the watcher.
 
-> **Availability:** `watch` is exported from the SigPro module. In **ESM** you must import it (`import { watch } from 'sigpro'`). In the **IIFE** classic script, it is automatically available on `window`. The examples below assume the function is already in scope.
+> **Availability:** `watch` is exported from the SigPro module. Import it (`import { watch } from 'sigpro'`). The examples below assume it is in scope.
+
+> **Comparison with `effect`:** `watch` is sugar over `effect` for the specific case of "run a callback when a value changes". If you need full control (multiple dependencies, cleanup, side effects on every read), use `effect` directly.
 
 ---
 
 ## Usage Patterns
 
-### 1. Automatic Mode (Default)
-Any signal you **touch** inside the callback becomes a dependency. SigPro tracks them behind the scenes.
+### 1. Watch a Signal
 
 ```javascript
-const count = $(0);
+import { signal, watch } from 'sigpro';
 
-watch(() => {
-  // Re‑runs every time 'count' changes
-  console.log(`Count is: ${count()}`);
+const count = signal(0);
+
+const stop = watch(count, (nuevo, viejo) => {
+  console.log(`${viejo} → ${nuevo}`);
 });
+
+count(5);   // logs: "0 → 5"
+count(5);   // no log (same value)
+count(7);   // logs: "5 → 7"
+stop();     // detach
 ```
 
-### 2. Explicit Mode (Isolated)
-This mode **isolates** execution. The callback only triggers when the signals in the array change. Any other signal accessed *inside* the callback will **not** trigger a re‑run. This is ideal for routers or performance‑critical components.
+`watch` uses `Object.is` for equality. Writing the same value does **not** trigger the callback.
+
+### 2. Watch a Getter (Composed Value)
+
+If your value is derived from multiple signals, pass a getter:
 
 ```javascript
-const path = $("/home");
-const user = $("Admin");
+import { signal, watch } from 'sigpro';
 
-watch([path], ([newPath]) => {
-  // Only triggers when 'path' changes.
-  // Changes to 'user' will NOT trigger this.
-  console.log(`Navigating to ${newPath} as ${user()}`);
+const first = signal('Ada');
+const last  = signal('Lovelace');
+
+watch(() => `${first()} ${last()}`, (fullName, oldFullName) => {
+  console.log(`${oldFullName} → ${fullName}`);
 });
+
+first('Grace'); // logs: "Ada Lovelace → Grace Lovelace"
 ```
 
-In explicit mode, the callback receives an array of current values corresponding to the `deps` order.
+The getter is tracked inside an effect, so any signal it reads becomes a dependency.
 
-### 3. Stopping a Watcher
-Call the returned function to kill the watcher manually.
+### 3. Immediate Run
+
+By default `watch` skips the initial read. Use `immediate` to fire once at setup:
 
 ```javascript
-const stop = watch(() => console.log(count()));
-// Later...
-stop(); // Disconnects the watcher completely.
+import { signal, watch } from 'sigpro';
+
+const theme = signal('dark');
+
+watch(
+  theme,
+  (value) => console.log('theme:', value),
+  { immediate: true }
+);
+// logs immediately: "theme: dark"
 ```
 
-### 4. Automatic Cleanup Inside Effects
-If your watcher creates timers, event listeners, or nested effects, SigPro tracks them as children and cleans them up automatically before re‑running or when stopped.
+The first call receives `oldValue === undefined`, which lets you distinguish the initial invocation from real changes:
 
 ```javascript
-watch(() => {
-  const timer = setInterval(() => console.log("tick"), 1000);
-  // No need to manually clear – SigPro will dispose it when the watcher re‑runs or stops.
-  // (But you can also return a cleanup function if needed)
+watch(source, (nuevo, viejo) => {
+  if (viejo === undefined) {
+    console.log('initial:', nuevo);
+  } else {
+    console.log(`${viejo} → ${nuevo}`);
+  }
+}, { immediate: true });
+```
+
+### 4. Stopping a Watcher
+
+```javascript
+const stop = watch(count, v => console.log(v));
+
+// later
+stop();
+```
+
+If you create the watcher **inside a component** (inside a component function body, or inside an `effect`), it is automatically disposed when the enclosing scope is disposed. If you create it **outside** any scope (module top-level, `setTimeout`, event handler), you own its lifecycle — call the stop function yourself.
+
+---
+
+## `watch` vs `effect`
+
+| Use case | Use |
+| :--- | :--- |
+| Run a callback when a value changes, skip initial | `watch` |
+| React to changes and update the DOM | reactive child function `() => ...` |
+| Run side effects, manage resources, register cleanup | `effect` |
+| Watch multiple independent values | two `watch` calls, or one `effect` reading all of them |
+
+`watch` is **narrower** than `effect`. It only gives you `(nuevo, viejo)` values. If you need to do something on every read, or want cleanup semantics per run, use `effect`:
+
+```javascript
+import { effect } from 'sigpro';
+
+effect(() => {
+  const id = setInterval(() => console.log('tick'), 1000);
+  return () => clearInterval(id);
 });
 ```
 
 ---
 
-## Batching & Microtask Queue
+## Synchronous Flush
 
-SigPro batches reactive updates. If you modify several signals in the same synchronous block, the watcher will fire **only once**, after the task completes.
+SigPro flushes effects **synchronously** by default. A signal write triggers dependent effects before the next line of code runs.
 
 ```javascript
-const a = $(0);
-const b = $(0);
+import { signal, watch } from 'sigpro';
 
-watch(() => console.log(a(), b()));
+const a = signal(0);
 
-// Triggers only ONE log: "1 2"
+watch(a, v => console.log('a =', v));
+
 a(1);
-b(2);
+console.log('after');
+// Output order:
+//   a = 1
+//   after
 ```
 
-This is achieved via `queueMicrotask`, ensuring optimal performance.
+If you want to batch multiple writes into a single flush, use `batch`:
+
+```javascript
+import { signal, batch, watch } from 'sigpro';
+
+const a = signal(0);
+const b = signal(0);
+
+watch(() => [a(), b()], ([na, nb]) => console.log(na, nb));
+
+// Without batch: two logs
+// a(1); b(2);
+
+// With batch: one log
+batch(() => {
+  a(1);
+  b(2);
+});
+// logs: "1 2"
+```
+
+`batch` defers the flush until the function returns. Effects run once at the end.
 
 ---
 
 ## Key Points
 
-- **Function name:** `watch` (lowercase) – exported from SigPro and also available globally (depending on environment).
-- **Auto mode:** `watch(fn)` – automatically tracks any signals read inside `fn`.
-- **Explicit mode:** `watch([sig1, sig2], (values) => {...})` – only re‑runs when listed signals change; callback receives an array of their new values.
-- **Stop function:** returned by both modes; call it to dispose the effect and its children.
-- **Batching:** multiple signal writes in one event loop tick trigger a single execution (microtask).
+- **Signature:** `watch(source, cb, { immediate })`.
+- **Skips initial run** unless `{ immediate: true }`.
+- **Callback receives** `(newValue, oldValue)`. On the immediate first call, `oldValue` is `undefined`.
+- **Equality check** uses `Object.is`.
+- **Stop function** returned. Call it to dispose.
+- **Synchronous flush** by default. Use `batch` to group writes.
+- **No "auto vs explicit" mode.** There is one signature. If you want to watch two signals together, use a getter that reads both.
 
 ---
 
 ## Complete Example
 
 ```javascript
-const count = $(0);
-const step = $(1);
+import { signal, computed, watch, batch } from 'sigpro';
 
-watch(() => {
-  console.log(`Count changed to ${count()}`);
+const count = signal(0);
+const step  = signal(1);
+const total = computed(() => count() * step());
+
+// Watch the raw signal
+watch(count, (nuevo, viejo) => {
+  console.log(`count: ${viejo} → ${nuevo}`);
 });
 
-watch([count, step], ([newCount, newStep]) => {
-  console.log(`Count=${newCount}, step=${newStep} (explicit)`);
-});
+// Watch a getter that reads several signals
+watch(
+  () => ({ count: count(), total: total() }),
+  (nuevo, viejo) => {
+    console.log(`state: ${JSON.stringify(viejo)} → ${JSON.stringify(nuevo)}`);
+  }
+);
 
-count(5);      // logs: auto + explicit
-step(2);       // logs: explicit only (auto does not track step)
+count(5);      // logs: count 0 → 5, then state change
+step(2);       // logs: only state change (count didn't change)
+batch(() => {
+  count(10);
+  step(3);
+});            // logs: one combined update
 ```

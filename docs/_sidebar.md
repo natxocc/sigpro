@@ -2,23 +2,27 @@
 
 * **Introduction**
   * [Installation](install.md)
+  * [Quick Start](api/quick.md)
   * [Router](router.md)
 
-* **API Reference**
-  * [Quick Start](api/quick.md)
-  * [$ignal](api/signal.md)
+* **Reactivity**
+  * [Signals, Computed & Local](api/signal.md)
+  * [Effects](api/effects.md)
   * [watch](api/watch.md)
-  * [when](api/when.md)
-  * [each](api/each.md)
-  * [mount](api/mount.md)
+
+* **DOM**
   * [h](api/h.md)
+  * [Tags](api/tags.md)
+  * [mount](api/mount.md)
+  * [unmount](api/unmount.md)
+
+* **Dependency Injection**
+  * [provide / inject](api/di.md)
+
+* **Built-ins**
+  * [i18n](api/i18n.md)
+  * [db](api/db.md)
 
 * **Concepts**
-  * [Tags](api/tags.md)
   * [Global Store](api/global.md)
-  * [JSX Style](api/jsx.md)
-  * [HTML converter](convert.md)
-  * [UI](ui.md)
-
-* **UI**
-  * [WIP]
+  * [HTML Converter](convert.md)

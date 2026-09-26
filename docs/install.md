@@ -25,12 +25,10 @@ bun add sigpro
 
 ```html
 <script type="module">
+  import { signal, h, mount } from "https://cdn.jsdelivr.net/npm/sigpro/+esm";
 
-  import { $, h, mount } from "https://cdn.jsdelivr.net/npm/sigpro@latest/dist/sigpro.esm.min.js";
-
-  const count = $(0);
+  const count = signal(0);
   mount(() => h("h1", {}, () => `Count: ${count()}`), "#app");
-
 </script>
 ```
 
@@ -41,18 +39,20 @@ bun add sigpro
 
 ## 2. Quick Start Examples
 
-SigPro uses **lowercase** Tag Helpers (e.g., `div`, `button`) to keep the syntax close to raw HTML, while still being pure JavaScript functions.
+SigPro uses **lowercase** Tag Helpers (e.g., `div`, `button`) to keep the syntax close to raw HTML, while still being pure JavaScript functions. Tag helpers are registered as globals when you call `exposeTags()` once at startup. You can also import them by name from the module.
 
 <div class="tabs tabs-box w-full mt-8 mb-12 bg-base-200/50 p-2 rounded-xl border border-base-300">
   <input type="radio" name="quick_start_tabs" class="tab !rounded-lg" aria-label="ESM" checked />
   <div class="tab-content bg-base-100 border-base-300 rounded-lg p-6 mt-2">
 
 ```javascript
-// App.js – Use named imports for the core, activate helpers if needed
-import { $, mount } from "sigpro";
+// App.js
+import { signal, mount, exposeTags } from "sigpro";
+
+exposeTags();
 
 const App = () => {
-  const count = $(0);
+  const count = signal(0);
   return div({ class: "card p-4" }, [
     h1(() => `Count is: ${count()}`),
     button(
@@ -77,19 +77,24 @@ mount(App, "#app");
     <div id="app"></div>
 
     <script type="module">
-      // Import the core
-      import { $, h, mount } from "https://cdn.jsdelivr.net/npm/sigpro@latest/dist/sigpro.esm.min.js";
-      const name = $("Developer");
+      import { signal, mount, exposeTags } from "https://cdn.jsdelivr.net/npm/sigpro/+esm";
+
+      exposeTags();
+
+      const name = signal("Developer");
+
       const App = () =>
         section({ class: "container" }, [
           h2(() => `Welcome, ${name()}`),
           input({
             type: "text",
             class: "input input-bordered",
-            value: name,
+            value: () => name(),
+            oninput: (e) => name(e.target.value),
             placeholder: "Type your name...",
           }),
         ]);
+
       mount(App, "#app");
     </script>
   </body>
@@ -112,9 +117,10 @@ Because SigPro uses **native ES Modules** and standard JavaScript functions to g
 
 - **Extreme Performance**: No Virtual DOM reconciliation. SigPro updates the specific node or attribute instantly when a signal changes.
 - **Fine-Grained Reactivity**: State changes only trigger updates where the data is actually used, not on the entire component.
+- **Lazy Computed**: `computed()` recomputes on read and only when dependencies actually changed. No wasted work.
 - **Native Web Standards**: Everything is a standard JS function. No custom template syntax to learn.
-- **Zero Magic**: No hidden compilers. What you write is what runs in the browser.
-- **Global by Design** (with control): Tag helpers and core functions can be globally available (IIFE) or imported on demand (ESM) – you choose.
+- **Zero Magic**: No hidden compilers, no overloaded operators. What you write is what runs in the browser.
+- **Global by Design** (with control): Tag helpers become globals when you call `exposeTags()`, or you can import them by name. You choose.
 
 ---
 

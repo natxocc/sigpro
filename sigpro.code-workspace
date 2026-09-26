@@ -4,9 +4,6 @@
       "path": ".",
     },
     {
-      "path": "../sigpro-ui",
-    },
-    {
       "path": "../sigpro",
     },
   ],

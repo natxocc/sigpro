@@ -1,7 +1,13 @@
 /**
- * SigPro
- * A minimalistic reactive library with fine-grained reactivity,
- * direct DOM updates, and built-in component helpers.
+ * SigPro — Type Definitions
+ *
+ * A minimal reactive library built on an alien-signals-class push-pull core
+ * with a thin, direct-to-DOM rendering layer.
+ *
+ * - Explicit API: `signal()`, `computed()`, `effect()`
+ * - Lazy computeds with checkDirty verification
+ * - Atomic updates: no virtual DOM, no diffing
+ * - Built-in: hash router, i18n, localStorage signals, DI, fetch helper
  */
 
 // ============================================================================
@@ -9,176 +15,273 @@
 // ============================================================================
 
 /**
- * Creates a reactive signal. When a function is passed, it becomes a computed signal.
- * If a `localStorageKey` is provided, the value persists.
+ * A reactive signal. Call with no args to read, with a value or an updater
+ * function to write.
  *
- * @param value - Initial value or computation function
- * @param localStorageKey - Optional key for persistence
- * @returns A getter/setter function
+ * @example
+ * const count = signal(0);
+ * count();          // read → 0
+ * count(1);         // write
+ * count(c => c + 1);// updater
  */
-export function $<T>(value: T, localStorageKey?: string): Signal<T>;
-export function $<T>(computation: () => T): Signal<T>;
-
 export interface Signal<T> {
   (): T;
   (value: T | ((prev: T) => T)): void;
 }
 
 /**
- * Creates a deep reactive proxy for objects and arrays.
- * Tracks property access and mutations automatically.
- *
- * @param target - Object or array to make reactive
- * @returns A reactive proxy
+ * Creates a reactive signal with an initial value.
  */
-export function $$<T extends object>(target: T): DeepReactive<T>;
-
-export type DeepReactive<T> = T extends object
-  ? {
-      [K in keyof T]: T[K] extends object ? DeepReactive<T[K]> : T[K];
-    }
-  : T;
+export function signal<T>(initialValue: T): Signal<T>;
 
 /**
- * Watches reactive sources and runs a callback.
- *
- * @example
- * // Auto-track mode
- * watch(() => {
- *   console.log(count());
- * });
- *
- * @example
- * // Explicit sources
- * watch([count, name], ([c, n]) => {
- *   console.log(c, n);
- * });
- *
- * @returns A function to stop the watcher.
+ * A read-only derived value. Call with no args to read.
  */
-export function watch(fn: () => void): () => void;
+export type ReadonlySignal<T> = () => T;
+
+/**
+ * Creates a derived value computed lazily from dependencies.
+ * Recomputed on read only when dependencies have actually changed.
+ */
+export function computed<T>(getter: (oldValue?: T) => T): ReadonlySignal<T>;
+
+/**
+ * Runs `fn` reactively. Re-executes when its tracked dependencies change.
+ * `fn` may return a cleanup function, run before the next re-execution and
+ * on stop.
+ *
+ * @returns A function that stops the effect.
+ */
+export function effect(fn: () => void | (() => void)): () => void;
+
+/**
+ * Creates a scope that groups child effects. Does not track dependencies
+ * and does not re-execute. Returns a function that disposes all effects
+ * created inside.
+ */
+export function effectScope(fn: () => void): () => void;
+
+/**
+ * Runs `fn` without tracking signal reads as dependencies.
+ */
+export function untrack<T>(fn: () => T): T;
+
+/**
+ * Batches multiple signal writes into a single flush.
+ */
+export function batch<T>(fn: () => T): T;
+
+/**
+ * Watches a signal or getter and calls `cb` when the value changes.
+ * Skips the initial run by default. Set `immediate` to call once on setup.
+ *
+ * @returns A function that stops the watcher.
+ */
 export function watch<T>(
-  sources: Array<Signal<any>> | (() => T),
-  callback: (values: T | any[]) => void
+  source: Signal<T> | ReadonlySignal<T>,
+  cb: (value: T, oldValue: T | undefined) => void,
+  options?: { immediate?: boolean }
 ): () => void;
 
 /**
- * Batches multiple reactive updates into a single flush.
+ * Creates a signal persisted to `localStorage` under `key`.
+ * The value is JSON-serialized. Falls back to `initial` if unavailable
+ * or if the stored value cannot be parsed.
  */
-export function batch<T>(fn: () => T): T;
+export function local<T>(key: string, initial: T): Signal<T>;
+
+// ============================================================================
+// Dependency Injection
+// ============================================================================
+
+/**
+ * Provides a value in the current effect/scope context.
+ * Only visible to descendants.
+ */
+export function provide<T = any>(key: string | symbol, value: T): void;
+
+/**
+ * Injects the nearest value for `key` from an ancestor context.
+ * Returns `fallback` if not found.
+ */
+export function inject<T = any>(key: string | symbol, fallback?: T): T | undefined;
 
 // ============================================================================
 // DOM Creation
 // ============================================================================
 
 /**
- * Hyperscript function to create DOM elements or components.
+ * A prop value may be static or a reactive getter.
+ */
+export type PropValue<T = any> = T | (() => T);
+
+/**
+ * Props accepted by `h` and all tag helpers.
  *
- * @param tag - HTML/SVG tag name or component function
- * @param props - Optional properties/attributes
- * @param children - Child nodes or reactive functions
- * @returns DOM node or array of nodes
+ * Special props:
+ * - `ref`: function `(el) => void` or object with `.current`
+ * - `html`: sets `innerHTML` reactively (skips `children` if present)
+ * - `on*`: DOM event listeners (case-insensitive: `onclick`, `onInput`)
+ * - any other: assigned to the element (property if it exists, otherwise attribute)
+ */
+export type Props = {
+  ref?: ((el: Element) => void) | { current: Element | null };
+  html?: PropValue<string | null | undefined>;
+  class?: PropValue<string | null | undefined>;
+  className?: PropValue<string | null | undefined>;
+  style?: PropValue<string | null | undefined>;
+  [key: string]: PropValue<any>;
+};
+
+/**
+ * Any value accepted as a child: nodes, strings, numbers, arrays, or
+ * reactive getter functions returning any of these.
+ */
+export type Child =
+  | Node
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | (() => Child | Child[])
+  | Child[];
+
+/**
+ * Creates a DOM element from a tag name, or renders a component.
+ *
+ * - `tag` as string → creates HTML or SVG element (auto-detected).
+ * - `tag` as function → treated as a component: `(props, children[]) => Node | Node[]`.
+ * - First argument may be children if it is not a plain object.
+ * - Multiple children may be passed variadically.
  */
 export function h(
-  tag: string | ((props: any, ctx: ComponentContext) => any),
-  props?: any,
-  children?: any
-): Node;
+  tag: string,
+  props?: Props | Child | null,
+  ...children: Child[]
+): Element | SVGElement;
 
-export interface ComponentContext {
-  children: any;
-  emit: (event: string, ...args: any[]) => void;
-}
-
-/**
- * Conditionally renders content.
- *
- * @param condition - Boolean, signal, or function returning boolean
- * @param thenBranch - Content when truthy (Node or function)
- * @param elseBranch - Optional content when falsy
- * @returns A placeholder element that updates reactively
- */
-export function when(
-  condition: boolean | (() => boolean) | Signal<boolean>,
-  thenBranch: any | (() => any),
-  elseBranch?: any | (() => any)
-): HTMLElement;
+export function h<P extends object>(
+  tag: (props: P, children: Child[]) => Node | Node[] | null,
+  props?: P | null,
+  ...children: Child[]
+): Node | Node[] | null;
 
 /**
- * Keyed list renderer. Uses `item?.id` by default or a custom key field.
+ * Registers all standard HTML tag names as globals (`div`, `span`, `button`,
+ * `input`, `textarea`, `svg`, etc.).
  *
- * @param src - Array, signal, or function returning array
- * @param itemFn - Render function (item, index) => Node
- * @param keyField - Optional property name for unique key (e.g., "id")
- * @returns A container element with reactive list
+ * Must be called once at startup. Defaults to `window`.
  */
-export function each<T>(
-  src: T[] | (() => T[]) | Signal<T[]>,
-  itemFn: (item: T, index: number) => any,
-  keyField?: keyof T
-): HTMLElement;
+export function exposeTags(target?: any): void;
 
+// ============================================================================
+// Mount / Unmount
+// ============================================================================
+
+/**
+ * Mounts a component into a DOM target.
+ *
+ * @param component - Component function or node.
+ * @param target    - CSS selector or DOM element.
+ * @returns A function that stops the app scope and clears the target.
+ */
+export function mount(
+  component: (props?: any) => Node | Node[] | null,
+  target: string | Element
+): () => void;
+
+/**
+ * Recursively disposes scopes and removes tracked event listeners on a node
+ * and its descendants, then detaches it from the DOM.
+ *
+ * Only needed when working with nodes created outside `h()`.
+ */
+export function unmount(node: Node): void;
 
 // ============================================================================
 // Router
 // ============================================================================
 
-/**
- * Hash-based router.
- *
- * @param routes - Array of route definitions
- * @returns A container that renders the current route
- */
-export function router(routes: RouteDefinition[]): HTMLElement;
-
 export interface RouteDefinition {
-  path: string; // e.g., "/", "/user/:id", "*"
-  component: any | ((params: Record<string, string>) => any);
+  /** Path pattern: `/`, `/user/:id`, `/blog/*`, or `*` for fallback. */
+  path: string;
+  /** Component function receiving route params, or a static node. */
+  component: ((params: Record<string, string>) => Node | Node[] | null) | Node;
 }
 
-export namespace router {
-  /** Reactive params signal */
-  export const params: Signal<Record<string, string>>;
-
-  /** Navigate to path */
-  export function to(path: string): void;
-
-  /** Go back in history */
-  export function back(): void;
-
-  /** Current path without hash */
-  export function path(): string;
-}
-
-// ============================================================================
-// Mount API
-// ============================================================================
-
-export interface RuntimeInstance {
-  _isRuntime: true;
-  container: HTMLElement;
-  destroy: () => void;
+export interface RouterFn {
+  (): HTMLElement;
+  /** Navigate to a path (updates `window.location.hash`). */
+  to(path: string): void;
+  /** Go back in browser history. */
+  back(): void;
+  /** Returns the current path (without leading `#`). */
+  path(): string;
 }
 
 /**
- * Mounts a component to a DOM target.
- *
- * @param component - Component function or node
- * @param target - CSS selector or DOM element
- * @returns Runtime instance
+ * Creates a hash-based router. Returns a component that renders the
+ * matched route and re-renders on navigation.
  */
-export function mount(
-  component: (() => any) | Node,
-  target: string | HTMLElement
-): RuntimeInstance | undefined;
+export function router(routes: RouteDefinition[]): RouterFn;
+
+/** Current path as a reactive signal (without leading `#`). */
+export const currentPath: Signal<string>;
+
+/** Current route params as a reactive signal. */
+export const routerParams: Signal<Record<string, string>>;
 
 // ============================================================================
-// Tag Helpers (globally available, lowercase)
+// i18n
 // ============================================================================
 
-// All standard HTML tags are available as global functions.
-// They follow the same signature as `h` but with predefined tag names.
-// Examples:
+/** Active locale. Reactive. */
+export const currentLocale: Signal<string>;
+
+/**
+ * Registers translations for one or more locales.
+ *
+ * @example
+ * addLang({ en: { hello: "Hello" }, es: { hello: "Hola" } });
+ */
+export function addLang(translations: Record<string, Record<string, string>>): void;
+
+/** Sets the active locale if it has been registered. */
+export function setLocale(locale: string): void;
+
+/** Reactive translation getter for a key. */
+export function t(key: string): () => string;
+
+/** Imperative translation read for a key. */
+export function tt(key: string): string;
+
+// ============================================================================
+// HTTP Helper
+// ============================================================================
+
+/**
+ * JSON fetch helper. POSTs when `data` is provided, GETs otherwise.
+ * Calls `loading(true/false)` around the request if provided.
+ * Pass an `AbortSignal` to cancel.
+ */
+export function db<T = any>(
+  url: string,
+  data?: any | null,
+  loading?: ((loading: boolean) => void) | null,
+  signal?: AbortSignal | null
+): Promise<T>;
+
+// ============================================================================
+// Tag Helpers (registered by `exposeTags`)
+// ============================================================================
+
+/**
+ * A tag helper: `div(props?, ...children)`.
+ * Available on `window` after calling `exposeTags()`.
+ */
+export type TagHelper = (props?: Props | Child | null, ...children: Child[]) => Element;
+
 export const a: TagHelper;
 export const abbr: TagHelper;
 export const article: TagHelper;
@@ -265,25 +368,34 @@ export const u: TagHelper;
 export const ul: TagHelper;
 export const video: TagHelper;
 
-export type TagHelper = (
-  props?: any,
-  children?: any
-) => HTMLElement | SVGElement | Text;
-
 // ============================================================================
-// Default Export
+// Aggregate Export
 // ============================================================================
 
 declare const SigPro: {
-  $: typeof $;
-  $$: typeof $$;
-  watch: typeof watch;
-  h: typeof h;
-  when: typeof when;
-  each: typeof each;
-  router: typeof router;
-  mount: typeof mount;
+  signal: typeof signal;
+  computed: typeof computed;
+  effect: typeof effect;
+  effectScope: typeof effectScope;
+  untrack: typeof untrack;
   batch: typeof batch;
+  watch: typeof watch;
+  local: typeof local;
+  provide: typeof provide;
+  inject: typeof inject;
+  h: typeof h;
+  mount: typeof mount;
+  unmount: typeof unmount;
+  exposeTags: typeof exposeTags;
+  router: typeof router;
+  currentPath: typeof currentPath;
+  routerParams: typeof routerParams;
+  currentLocale: typeof currentLocale;
+  addLang: typeof addLang;
+  setLocale: typeof setLocale;
+  t: typeof t;
+  tt: typeof tt;
+  db: typeof db;
 };
 
 export default SigPro;
@@ -294,16 +406,31 @@ export default SigPro;
 
 declare global {
   interface Window {
-    $: typeof $;
-    $$: typeof $$;
-    watch: typeof watch;
-    h: typeof h;
-    when: typeof when;
-    each: typeof each;
-    router: typeof router;
-    mount: typeof mount;
-    batch: typeof batch;
     SigPro: typeof SigPro;
+
+    signal: typeof signal;
+    computed: typeof computed;
+    effect: typeof effect;
+    effectScope: typeof effectScope;
+    untrack: typeof untrack;
+    batch: typeof batch;
+    watch: typeof watch;
+    local: typeof local;
+    provide: typeof provide;
+    inject: typeof inject;
+    h: typeof h;
+    mount: typeof mount;
+    unmount: typeof unmount;
+    exposeTags: typeof exposeTags;
+    router: typeof router;
+    currentPath: typeof currentPath;
+    routerParams: typeof routerParams;
+    currentLocale: typeof currentLocale;
+    addLang: typeof addLang;
+    setLocale: typeof setLocale;
+    t: typeof t;
+    tt: typeof tt;
+    db: typeof db;
 
     // Tag helpers (lowercase)
     a: TagHelper;
