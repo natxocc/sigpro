@@ -1,5 +1,5 @@
 const None = 0, Mutable = 1, Watching = 2, RecursedCheck = 4,
-      Recursed = 8, Dirty = 16, Pending = 32, HasChildEffect = 64;
+  Recursed = 8, Dirty = 16, Pending = 32, HasChildEffect = 64;
 
 function createReactiveSystem({ update, notify, unwatched }) {
   return { link, unlink, propagate, checkDirty, shallowPropagate };
@@ -126,20 +126,6 @@ let cycle = 0, runDepth = 0, batchDepth = 0, notifyIndex = 0, queuedLength = 0;
 let activeSub;
 const queued = [];
 
-const contextStack = [];
-
-export function provide(key, value) {
-  const ctx = contextStack[contextStack.length - 1];
-  if (ctx) ctx.set(key, value);
-}
-
-export function inject(key, fallback) {
-  for (let i = contextStack.length - 1; i >= 0; i--) {
-    if (contextStack[i].has(key)) return contextStack[i].get(key);
-  }
-  return fallback;
-}
-
 const { link, unlink, propagate, checkDirty, shallowPropagate } = createReactiveSystem({
   update(node) {
     if ('getter' in node) return updateComputed(node);
@@ -200,11 +186,9 @@ export function effect(fn) {
   const prevSub = activeSub;
   activeSub = e;
   if (prevSub !== undefined) { link(e, prevSub, 0); prevSub.flags |= HasChildEffect; }
-  contextStack.push(new Map());
   try { ++runDepth; const r = e.fn(); e.cleanup = typeof r === 'function' ? r : undefined; }
   finally {
     --runDepth; activeSub = prevSub;
-    contextStack.pop();
     e.flags &= ~RecursedCheck;
   }
   return effectOper.bind(e);
@@ -218,12 +202,8 @@ export function effectScope(fn) {
   const prevSub = activeSub;
   activeSub = e;
   if (prevSub !== undefined) { link(e, prevSub, 0); prevSub.flags |= HasChildEffect; }
-  contextStack.push(new Map());
   try { fn(); }
-  finally {
-    contextStack.pop();
-    activeSub = prevSub;
-  }
+  finally { activeSub = prevSub; }
   return effectScopeOper.bind(e);
 }
 
@@ -278,7 +258,6 @@ function run(e) {
     e.flags = Watching | RecursedCheck;
     const prevSub = activeSub;
     activeSub = e;
-    contextStack.push(new Map());
     try {
       ++cycle; ++runDepth;
       const r = e.fn();
@@ -286,7 +265,6 @@ function run(e) {
     }
     finally {
       --runDepth; activeSub = prevSub;
-      contextStack.pop();
       e.flags &= ~RecursedCheck;
       purgeDeps(e);
     }
@@ -417,23 +395,18 @@ export function watch(source, cb, { immediate = false } = {}) {
 
 export function local(key, initial) {
   let value = initial;
-  if (typeof localStorage !== 'undefined') {
-    try {
-      const raw = localStorage.getItem(key);
-      if (raw !== null) value = JSON.parse(raw);
-    } catch {}
-  }
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw !== null) value = JSON.parse(raw);
+  } catch { }
 
   const s = signal(value);
 
   effect(() => {
-    const v = s();
-    if (typeof localStorage !== 'undefined') {
-      try {
-        const json = JSON.stringify(v);
-        if (localStorage.getItem(key) !== json) localStorage.setItem(key, json);
-      } catch {}
-    }
+    try {
+      const json = JSON.stringify(s());
+      if (localStorage.getItem(key) !== json) localStorage.setItem(key, json);
+    } catch { }
   });
 
   return s;
@@ -444,11 +417,11 @@ const DOC = typeof document !== 'undefined' ? document : null;
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const SVG_TAGS = new Set(
   ('svg path circle rect line polyline polygon g defs text textPath tspan use symbol image marker ellipse ' +
-   'foreignObject clipPath mask linearGradient radialGradient pattern filter stop ' +
-   'animate animateMotion animateTransform view desc metadata title switch ' +
-   'feGaussianBlur feOffset feBlend feColorMatrix feComponentTransfer feComposite feConvolveMatrix ' +
-   'feDiffuseLighting feDisplacementMap feDistantLight feFlood feFuncA feFuncB feFuncG feFuncR ' +
-   'feImage feMerge feMergeNode feMorphology fePointLight feSpecularLighting feSpotLight feTile feTurbulence'
+    'foreignObject clipPath mask linearGradient radialGradient pattern filter stop ' +
+    'animate animateMotion animateTransform view desc metadata title switch ' +
+    'feGaussianBlur feOffset feBlend feColorMatrix feComponentTransfer feComposite feConvolveMatrix ' +
+    'feDiffuseLighting feDisplacementMap feDistantLight feFlood feFuncA feFuncB feFuncG feFuncR ' +
+    'feImage feMerge feMergeNode feMorphology fePointLight feSpecularLighting feSpotLight feTile feTurbulence'
   ).split(' ')
 );
 
@@ -478,7 +451,6 @@ function setAttr(el, key, res, isSVG) {
   else el.setAttribute(key, res === true ? '' : res);
 }
 
-// Limpieza recursiva de un nodo (scopes + listeners)
 function cleanupNode(n) {
   const stack = [n];
   while (stack.length) {
@@ -581,7 +553,6 @@ export function h(tag, props = {}, ...children) {
     append(children);
   }
 
-  // select.value diferido hasta que existan los <option>
   if (deferredSelectValue !== undefined) {
     if (typeof deferredSelectValue === 'function') {
       effect(() => setAttr(el, 'value', deferredSelectValue(), isSVG));
@@ -593,22 +564,24 @@ export function h(tag, props = {}, ...children) {
   return el;
 }
 
-export const bind = (sig, { prop = 'value', onEvent = 'onInput', parse = (v) => v } = {}) => ({
-  [prop]: () => sig(),
-  [onEvent]: (e) => sig(parse(e.target[prop])),
-});
-
 export function mount(component, target) {
   const el = typeof target === 'string' ? DOC.querySelector(target) : target;
-  if (!el) return () => {};
+  if (!el) return () => { };
 
   let node;
   const stopRoot = effectScope(() => { node = h(component, {}); });
 
-  const nodes = Array.isArray(node) ? node.filter(Boolean) : (node ? [node] : []);
+  const nodes = (Array.isArray(node) ? node : [node])
+    .filter(n => n != null && n !== false && n !== true)
+    .map(n => (n instanceof Node ? n : DOC.createTextNode(String(n))));
+
   el.replaceChildren(...nodes);
 
-  return () => { stopRoot(); el.replaceChildren(); };
+  return () => {
+    stopRoot();
+    for (const n of nodes) cleanupNode(n);
+    el.replaceChildren();
+  };
 }
 
 export function unmount(node) {
@@ -706,10 +679,7 @@ export const setLocale = locale => {
 export const t = key => () =>
   translations[currentLocale()]?.[key] ?? key;
 
-export const tt = key =>
-  translations[currentLocale()]?.[key] ?? key;
-
-export const db = async (url, data = null, loading = null, signal = null) => {
+export const db = async (url, data = null, loading = null, abortSignal = null) => {
   if (loading) loading(true);
   try {
     const res = await fetch(url, {
@@ -717,7 +687,7 @@ export const db = async (url, data = null, loading = null, signal = null) => {
       headers: { 'Content-Type': 'application/json' },
       body: data ? JSON.stringify(data) : undefined,
       credentials: 'include',
-      signal,
+      signal: abortSignal,
     });
     if (!res.ok) throw new Error(`Error ${res.status}: ${await res.text()}`);
     return await res.json();
@@ -726,12 +696,8 @@ export const db = async (url, data = null, loading = null, signal = null) => {
   }
 };
 
-export const SigPro = {
-  signal, computed, effect, effectScope, batch,
-  untrack, watch, local,
-  provide, inject,
-  h, bind, mount, unmount, exposeTags,
-  router, currentPath, routerParams,
-  currentLocale, addLang, setLocale, t, tt,
-  db,
+export const $ = (value, key) => {
+  if (typeof value === 'function') return computed(value);
+  if (key !== undefined) return local(key, value);
+  return signal(value);
 };

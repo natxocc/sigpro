@@ -126,26 +126,6 @@ effect(() => {
 });
 ```
 
-### `provide(key, value)` / `inject(key, fallback?)` – Dependency Injection
-
-Scoped value propagation by tree. `provide` registers a value for the current effect/scope; `inject` finds the nearest ancestor value.
-
-```javascript
-import { signal, provide, inject } from 'sigpro';
-
-const THEME = Symbol('theme');
-
-const App = () => {
-  provide(THEME, signal('dark'));
-  return div({}, Child());
-};
-
-const Child = () => {
-  const theme = inject(THEME);
-  return div({ class: () => `theme-${theme()}` }, '...');
-};
-```
-
 ---
 
 ## Components & DOM (Hyperscript)
@@ -344,7 +324,7 @@ h2(() => `Slug: ${routerParams().slug}`);
 ### `addLang(translations)`, `setLocale(locale)`
 
 ```javascript
-import { addLang, setLocale, t, tt, currentLocale } from 'sigpro';
+import { addLang, setLocale, t, currentLocale } from 'sigpro';
 
 addLang({
   en: { hello: 'Hello' },
@@ -354,11 +334,14 @@ addLang({
 setLocale('es');
 ```
 
-### `tt(key)` and `t(key)`
+### `t(key)` – Reactive Getter
+
+Returns a function that reads the current locale. Pass it directly to a child position, or call it for the imperative value.
 
 ```javascript
-tt('hello');       // → "Hola"  (imperative)
-t('hello')();      // → "Hola"  (reactive getter)
+t('hello');       // returns a function
+h1(t('hello'));   // reactive: re-renders when locale changes
+t('hello')();     // → "Hola"  (imperative read)
 ```
 
 ### `currentLocale` – Active Locale Signal
@@ -416,4 +399,40 @@ const App = () => {
 };
 
 mount(App, '#app');
+```
+
+---
+
+## Utilities
+
+### `$` – Universal Element Selector
+
+Returns a single element. Accepts an id (with or without `#`) or any CSS selector.
+
+```javascript
+import { $ } from 'sigpro';
+
+$('app');              // by id
+$('#app');             // by id
+$('.btn');             // first .btn
+$('div');              // first <div>
+$('input[type=text]'); // CSS
+$('item', formEl);     // id inside a context
+```
+
+Resolution order:
+1. If the string starts with `#` → `getElementById`.
+2. If it's a bare word (`/^[\w-]+$/`) → try `getElementById`, fall back to `querySelector`.
+3. Otherwise → `querySelector`.
+
+### `$$` – Selector All
+
+Returns an array of elements (always an array, never a NodeList).
+
+```javascript
+import { $$ } from 'sigpro';
+
+$$('.item');              // all .item
+$$('.item').forEach(...); // iterate
+$$('li', listEl);         // all <li> inside a context
 ```

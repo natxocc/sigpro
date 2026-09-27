@@ -16,9 +16,6 @@
   * [mount](api/mount.md)
   * [unmount](api/unmount.md)
 
-* **Dependency Injection**
-  * [provide / inject](api/di.md)
-
 * **Built-ins**
   * [i18n](api/i18n.md)
   * [db](api/db.md)
