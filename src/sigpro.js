@@ -1,3 +1,4 @@
+// src/sigpro.js
 const None = 0, Mutable = 1, Watching = 2, RecursedCheck = 4,
   Recursed = 8, Dirty = 16, Pending = 32, HasChildEffect = 64;
 
@@ -444,6 +445,7 @@ function setAttr(el, key, res, isSVG) {
     return;
   }
   if (isSVG) {
+    el.setAttribute('key', res === true ? '' : res);
     el.setAttribute(key, res === true ? '' : res);
     return;
   }
@@ -612,10 +614,21 @@ if (typeof window !== 'undefined') {
   });
 }
 
+const hmrRegistry = new Map();
+export const hmrTick = signal(0);
+
+if (typeof window !== 'undefined') {
+  window.__sigpro_hmr_page__ = (url, component) => {
+    hmrRegistry.set(url, component);
+    hmrTick(hmrTick() + 1);
+  };
+}
+
 export const router = routes => () => {
   const hook = h('div', { class: 'router-hook' });
 
   effect(() => {
+    hmrTick();
     const path = currentPath();
     const p2 = path.split('/').filter(Boolean);
 
@@ -640,9 +653,11 @@ export const router = routes => () => {
 
       routerParams(params);
 
-      const node = typeof route.component === 'function'
-        ? h(route.component, params)
-        : route.component;
+      const component = hmrRegistry.get(route.path) ?? route.component;
+
+      const node = typeof component === 'function'
+        ? h(component, params)
+        : component;
 
       const nodes = node == null ? [] : Array.isArray(node) ? node : [node];
       hook.replaceChildren(...nodes);
