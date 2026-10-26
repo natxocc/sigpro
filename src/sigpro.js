@@ -230,7 +230,7 @@ function updateComputed(c) {
   try {
     ++cycle;
     const oldValue = c.value;
-    return oldValue !== (c.value = c.getter(oldValue));
+    return !Object.is(oldValue, (c.value = c.getter(oldValue)));
   } finally {
     activeSub = prevSub;
     c.flags &= ~RecursedCheck;
@@ -240,7 +240,7 @@ function updateComputed(c) {
 
 function updateSignal(s) {
   s.flags = Mutable;
-  return s.currentValue !== (s.currentValue = s.pendingValue);
+  return !Object.is(s.currentValue, (s.currentValue = s.pendingValue));
 }
 
 function run(e) {
@@ -289,6 +289,7 @@ function flush() {
     }
     notifyIndex = 0;
     queuedLength = 0;
+    if (queued.length > 64) queued.length = 64;
   }
 }
 
@@ -313,7 +314,7 @@ function computedOper() {
 
 function signalOper(...value) {
   if (value.length) {
-    if (this.pendingValue !== (this.pendingValue = value[0])) {
+    if (!Object.is(this.pendingValue, (this.pendingValue = value[0]))) {
       this.flags = Mutable | Dirty;
       const subs = this.subs;
       if (subs !== undefined) {
@@ -396,20 +397,18 @@ export function watch(source, cb, { immediate = false } = {}) {
 
 export function local(key, initial) {
   let value = initial;
+  let last;
   try {
     const raw = localStorage.getItem(key);
-    if (raw !== null) value = JSON.parse(raw);
+    if (raw !== null) { value = JSON.parse(raw); last = raw; }
   } catch { }
-
   const s = signal(value);
-
   effect(() => {
     try {
       const json = JSON.stringify(s());
-      if (localStorage.getItem(key) !== json) localStorage.setItem(key, json);
+      if (last !== json) { localStorage.setItem(key, json); last = json; }
     } catch { }
   });
-
   return s;
 }
 
@@ -437,15 +436,37 @@ function setAttr(el, key, res, isSVG) {
     return;
   }
   if (res == null || res === false) {
+    if (key === 'style') el._lastStyle = undefined;
     el.removeAttribute(key);
     return;
   }
-  if (key === 'style' && typeof res === 'string') {
-    el.setAttribute('style', res);
-    return;
+  if (key === 'style') {
+    const prev = el._lastStyle;
+    if (typeof res === 'string') {
+      if (prev !== undefined) {
+        el.removeAttribute('style');
+        el._lastStyle = undefined;
+      }
+      el.setAttribute('style', res);
+      return;
+    }
+    if (typeof res === 'object') {
+      if (prev === undefined && el.hasAttribute('style')) {
+        el.removeAttribute('style');
+      }
+      if (prev) {
+        for (const k in prev) if (!(k in res)) el.style.removeProperty(k);
+      }
+      for (const k in res) {
+        const v = res[k];
+        if (v == null || v === false) el.style.removeProperty(k);
+        else el.style.setProperty(k, String(v));
+      }
+      el._lastStyle = res;
+      return;
+    }
   }
   if (isSVG) {
-    el.setAttribute('key', res === true ? '' : res);
     el.setAttribute(key, res === true ? '' : res);
     return;
   }
@@ -459,7 +480,8 @@ function cleanupNode(n) {
     const node = stack.pop();
     if (node._stopScope) { node._stopScope(); node._stopScope = null; }
     if (node._cln) { for (const f of node._cln) f(); node._cln = null; }
-    for (let i = 0; i < node.childNodes.length; i++) stack.push(node.childNodes[i]);
+    const children = node.childNodes;
+    for (let i = 0, len = children.length; i < len; i++) stack.push(children[i]);
   }
 }
 
@@ -491,7 +513,7 @@ export function h(tag, props = {}, ...children) {
   let deferredSelectValue;
   let hasHTML = false;
 
-  for (const key in props) {
+  for (const key of Object.keys(props || {})) {
     const val = props[key];
 
     if (key === 'ref') {
@@ -507,8 +529,13 @@ export function h(tag, props = {}, ...children) {
 
     if (key === 'html') {
       hasHTML = true;
-      if (typeof val === 'function') effect(() => { el.innerHTML = val() ?? ''; });
-      else el.innerHTML = val ?? '';
+      if (typeof val === 'function') {
+        let last;
+        effect(() => {
+          const v = val() ?? '';
+          if (v !== last) { el.innerHTML = v; last = v; }
+        });
+      } else el.innerHTML = val ?? '';
       continue;
     }
 
@@ -626,43 +653,56 @@ if (typeof window !== 'undefined') {
 
 export const router = routes => () => {
   const hook = h('div', { class: 'router-hook' });
+  let scopeStop;
+  let lastPath;
+  let lastComponent;
 
-  effect(() => {
+  const effectStop = effect(() => {
     hmrTick();
     const path = currentPath();
     const p2 = path.split('/').filter(Boolean);
 
-    return effectScope(() => {
-      const route = routes.find(r => {
-        const p1 = r.path.split('/').filter(Boolean);
-        return (
-          p1.length === p2.length &&
-          p1.every((p, i) => p[0] === ':' || p === p2[i])
-        );
-      }) || routes.find(r => r.path === '*');
+    const route = routes.find(r => {
+      const p1 = r.path.split('/').filter(Boolean);
+      return (
+        p1.length === p2.length &&
+        p1.every((p, i) => p[0] === ':' || p === p2[i])
+      );
+    }) || routes.find(r => r.path === '*');
 
-      if (!route) {
-        hook.replaceChildren();
-        return;
-      }
+    if (!route) {
+      if (scopeStop) { scopeStop(); scopeStop = undefined; }
+      hook.replaceChildren();
+      lastPath = lastComponent = undefined;
+      return;
+    }
 
-      const params = {};
-      route.path.split('/').filter(Boolean).forEach((p, i) => {
-        if (p[0] === ':') params[p.slice(1)] = p2[i];
-      });
+    const params = {};
+    route.path.split('/').filter(Boolean).forEach((p, i) => {
+      if (p[0] === ':') params[p.slice(1)] = p2[i];
+    });
 
-      routerParams(params);
+    const component = hmrRegistry.get(route.path) ?? route.component;
 
-      const component = hmrRegistry.get(route.path) ?? route.component;
+    if (path === lastPath && component === lastComponent) return;
+    lastPath = path;
+    lastComponent = component;
 
+    if (scopeStop) scopeStop();
+    routerParams(params);
+    scopeStop = effectScope(() => {
       const node = typeof component === 'function'
         ? h(component, params)
         : component;
-
       const nodes = node == null ? [] : Array.isArray(node) ? node : [node];
       hook.replaceChildren(...nodes);
     });
   });
+
+  hook._stopScope = () => {
+    if (scopeStop) scopeStop();
+    effectStop();
+  };
 
   return hook;
 };
@@ -681,7 +721,7 @@ export const currentLocale = signal('en');
 const translations = {};
 
 export const addLang = obj => {
-  for (const locale in obj) {
+  for (const locale of Object.keys(obj)) {
     translations[locale] ||= {};
     Object.assign(translations[locale], obj[locale]);
   }
@@ -705,6 +745,7 @@ export const db = async (url, data = null, loading = null, abortSignal = null) =
       signal: abortSignal,
     });
     if (!res.ok) throw new Error(`Error ${res.status}: ${await res.text()}`);
+    if (res.status === 204) return null;
     return await res.json();
   } finally {
     if (loading) loading(false);
