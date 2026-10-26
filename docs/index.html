@@ -1,77 +1,78 @@
 <!doctype html>
 <html lang="es" data-theme="splight">
-  <head>
-    <meta charset="UTF-8" />
-    <title>SigPro Docs</title>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <link
-      rel="stylesheet"
-      href="//cdn.jsdelivr.net/npm/docsify/lib/themes/vue.css"
-    />
-    <link href="./sigpro.ui.css" rel="stylesheet" type="text/css" />
-  </head>
-  <body>
-    <div id="app"></div>
+<head>
+  <meta charset="UTF-8" />
+  <title>SigPro Docs</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <script>
-      window.$docsify = {
-        name: "SigPro",
-        repo: "",
-        loadSidebar: true,
-        subMaxLevel: 0,
-        sidebarDisplayLevel: 1,
-        executeScript: true,
-        copyCode: {
-          buttonText:
-            '<svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>',
-          errorText: "Error",
-          successText:
-            '<svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg"><polyline points="20 6 9 17 4 12"></polyline></svg>',
-        },
-        search: {
-          placeholder: "Type to search",
-          noData: "No Results!",
-          depth: 3,
-          hideOtherSidebarContent: true,
-        },
-        plugins: [
-          function (hook, vm) {
-            hook.doneEach(async function () {
-              if (window.SigProReady) await window.SigProReady;
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify/lib/themes/vue.css" />
+  <link href="./sigpro.ui.css" rel="stylesheet" type="text/css" />
+</head>
 
-              const codeBlocks = document.querySelectorAll(
-                'pre[data-lang="js"] code',
-              );
-              codeBlocks.forEach((code) => {
-                if (/^\s*import\s/m.test(code.innerText)) return;
+<body>
+  <div id="app"></div>
 
-                try {
-                  const scriptContent = `(function() { ${code.innerText} }).call(window);`;
-                  const runDemo = new Function(scriptContent);
-                  runDemo();
-                } catch (err) {
-                  console.error("Error ejecutando demo de SigPro:", err);
-                }
-              });
+  <script>
+    window.$docsify = {
+      name: "SigPro",
+      repo: "",
+      loadSidebar: true,
+      subMaxLevel: 0,
+      sidebarDisplayLevel: 1,
+      executeScript: true,
+      copyCode: {
+        buttonText:
+          '<svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>',
+        errorText: "Error",
+        successText:
+          '<svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+      },
+      search: {
+        placeholder: "Type to search",
+        noData: "No Results!",
+        depth: 3,
+        hideOtherSidebarContent: true,
+      },
+      plugins: [
+        function (hook, vm) {
+          hook.doneEach(async function () {
+            if (window.SigProReady) await window.SigProReady;
+
+            const codeBlocks = document.querySelectorAll(
+              'pre[data-lang="js"] code',
+            );
+            codeBlocks.forEach((code) => {
+              if (/^\s*import\s/m.test(code.innerText)) return;
+
+              try {
+                const scriptContent = `(function() { ${code.innerText} }).call(window);`;
+                const runDemo = new Function(scriptContent);
+                runDemo();
+              } catch (err) {
+                console.error("Error ejecutando demo de SigPro:", err);
+              }
             });
-          },
-        ],
-      };
-    </script>
+          });
+        },
+      ],
+    };
+  </script>
 
-    <script type="module">
-      window.SigProReady = (async () => {
-        const SigPro = await import("./sigpro.js");
-        Object.assign(window, SigPro);
-        SigPro.exposeTags();
-        await import("./sigpro.convert.js").catch(() => {});
-      })();
-    </script>
+  <script type="module">
+    window.SigProReady = (async () => {
+      const SigPro = await import("./sigpro.js");
+      Object.assign(window, SigPro);
+      window.SigPro = SigPro;
+      SigPro.exposeTags();
+      await import("./sigpro.convert.js").catch(() => { });
+    })();
+  </script>
 
-    <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/search.min.js"></script>
-    <script src="//cdn.jsdelivr.net/npm/docsify/lib/docsify.min.js"></script>
-    <script src="//cdn.jsdelivr.net/npm/docsify-copy-code/dist/docsify-copy-code.min.js"></script>
-  </body>
+  <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/search.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify/lib/docsify.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify-copy-code/dist/docsify-copy-code.min.js"></script>
+</body>
+
 </html>
