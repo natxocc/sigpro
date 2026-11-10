@@ -426,6 +426,19 @@ const SVG_TAGS = new Set(
 );
 
 function setAttr(el, key, res, isSVG) {
+  const k = key.toLowerCase();
+  if (k === 'innerhtml' || k === 'outerhtml' || k === 'srcdoc') return;
+  if (k.startsWith('on') && res != null && res !== false) return;
+  if (/^(href|src|action|formaction|poster|data|xlink:href)$/i.test(key) && res != null && res !== false) {
+    if (typeof res !== 'string') return;
+    try {
+      const proto = new URL(res, 'https://placeholder.invalid/').protocol;
+      const safeData = proto === 'data:' && k === 'src' &&
+        /^(img|source|video|audio|track|input)$/i.test(el.tagName) &&
+        /^data:image\/(png|jpe?g|gif|webp|avif|bmp);/i.test(res.trim());
+      if (!/^(https?|mailto|tel|blob):$/.test(proto) && !safeData) return;
+    } catch { return; }
+  }
   if (key === 'class' || key === 'className') {
     if (isSVG) {
       if (res == null || res === false) el.removeAttribute('class');
@@ -455,12 +468,12 @@ function setAttr(el, key, res, isSVG) {
         el.removeAttribute('style');
       }
       if (prev) {
-        for (const k in prev) if (!(k in res)) el.style.removeProperty(k);
+        for (const p in prev) if (!(p in res)) el.style.removeProperty(p);
       }
-      for (const k in res) {
-        const v = res[k];
-        if (v == null || v === false) el.style.removeProperty(k);
-        else el.style.setProperty(k, String(v));
+      for (const p in res) {
+        const v = res[p];
+        if (v == null || v === false) el.style.removeProperty(p);
+        else el.style.setProperty(p, String(v));
       }
       el._lastStyle = res;
       return;
