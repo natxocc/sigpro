@@ -527,18 +527,6 @@ export function h(tag, props = {}, ...children) {
       continue;
     }
 
-    if (key === 'html') {
-      hasHTML = true;
-      if (typeof val === 'function') {
-        let last;
-        effect(() => {
-          const v = val() ?? '';
-          if (v !== last) { el.innerHTML = v; last = v; }
-        });
-      } else el.innerHTML = val ?? '';
-      continue;
-    }
-
     if (key.startsWith('on') && typeof val === 'function') {
       const ev = key.slice(2).toLowerCase();
       el.addEventListener(ev, val);
