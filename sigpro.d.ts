@@ -1,13 +1,8 @@
 /**
  * SigPro — Type Definitions
  *
- * A minimal reactive library built on an alien-signals-class push-pull core
- * with a thin, direct-to-DOM rendering layer.
- *
- * - Explicit API: `signal()`, `computed()`, `effect()`
- * - Lazy computeds with checkDirty verification
- * - Atomic updates: no virtual DOM, no diffing
- * - Built-in: hash router, i18n, localStorage signals, DI, fetch helper
+ * Minimal reactive library: alien-signals-class push-pull core + direct-to-DOM
+ * rendering. No VDOM, no diffing, no build step.
  */
 
 // ============================================================================
@@ -17,65 +12,40 @@
 /**
  * A reactive signal. Call with no args to read, with a value or an updater
  * function to write.
- *
- * @example
- * const count = signal(0);
- * count();          // read → 0
- * count(1);         // write
- * count(c => c + 1);// updater
  */
 export interface Signal<T> {
   (): T;
   (value: T | ((prev: T) => T)): void;
 }
 
-/**
- * Creates a reactive signal with an initial value.
- */
 export function signal<T>(initialValue: T): Signal<T>;
 
-/**
- * A read-only derived value. Call with no args to read.
- */
+/** A read-only derived value. Call with no args to read. */
 export type ReadonlySignal<T> = () => T;
 
-/**
- * Creates a derived value computed lazily from dependencies.
- * Recomputed on read only when dependencies have actually changed.
- */
 export function computed<T>(getter: (oldValue?: T) => T): ReadonlySignal<T>;
 
 /**
- * Runs `fn` reactively. Re-executes when its tracked dependencies change.
- * `fn` may return a cleanup function, run before the next re-execution and
- * on stop.
- *
- * @returns A function that stops the effect.
+ * Runs `fn` reactively. Re-executes when tracked deps change. `fn` may
+ * return a cleanup function, run before the next re-execution and on stop.
  */
 export function effect(fn: () => void | (() => void)): () => void;
 
 /**
- * Creates a scope that groups child effects. Does not track dependencies
- * and does not re-execute. Returns a function that disposes all effects
- * created inside.
+ * Groups child effects in a scope. Does not track deps and does not
+ * re-execute. Returns a disposer for all effects created inside.
  */
 export function effectScope(fn: () => void): () => void;
 
-/**
- * Runs `fn` without tracking signal reads as dependencies.
- */
+/** Runs `fn` without tracking reads as dependencies. */
 export function untrack<T>(fn: () => T): T;
 
-/**
- * Batches multiple signal writes into a single flush.
- */
+/** Batches multiple signal writes into a single flush. */
 export function batch<T>(fn: () => T): T;
 
 /**
- * Watches a signal or getter and calls `cb` when the value changes.
- * Skips the initial run by default. Set `immediate` to call once on setup.
- *
- * @returns A function that stops the watcher.
+ * Watches a signal/getter and calls `cb` when the value changes. Skips the
+ * initial run by default; pass `{ immediate: true }` to fire once on setup.
  */
 export function watch<T>(
   source: Signal<T> | ReadonlySignal<T>,
@@ -84,59 +54,42 @@ export function watch<T>(
 ): () => void;
 
 /**
- * Creates a signal persisted to `localStorage` under `key`.
- * The value is JSON-serialized. Falls back to `initial` if unavailable
- * or if the stored value cannot be parsed.
+ * Signal persisted to `localStorage` under `key` (JSON-serialized).
+ * Falls back to `initial` if unavailable or unparseable.
  */
 export function local<T>(key: string, initial: T): Signal<T>;
-
-// ============================================================================
-// Dependency Injection
-// ============================================================================
-
-/**
- * Provides a value in the current effect/scope context.
- * Only visible to descendants.
- */
-export function provide<T = any>(key: string | symbol, value: T): void;
-
-/**
- * Injects the nearest value for `key` from an ancestor context.
- * Returns `fallback` if not found.
- */
-export function inject<T = any>(key: string | symbol, fallback?: T): T | undefined;
 
 // ============================================================================
 // DOM Creation
 // ============================================================================
 
-/**
- * A prop value may be static or a reactive getter.
- */
+/** Static value or reactive getter. */
 export type PropValue<T = any> = T | (() => T);
 
 /**
- * Props accepted by `h` and all tag helpers.
+ * Props accepted by `h` and tag helpers.
  *
- * Special props:
- * - `ref`: function `(el) => void` or object with `.current`
- * - `html`: sets `innerHTML` reactively (skips `children` if present)
- * - `on*`: DOM event listeners (case-insensitive: `onclick`, `onInput`)
- * - any other: assigned to the element (property if it exists, otherwise attribute)
+ * Special keys:
+ * - `ref`: function or `{ current }` object
+ * - `html`: sets `innerHTML` reactively (children ignored when present)
+ * - `on*`: DOM event listeners (case-sensitive after `on`: `onclick`, `onInput`)
+ * - `class` / `className`: element class
+ * - `style`: CSS string or object of properties
+ * - anything else: assigned as property if present on the element,
+ *   otherwise set as attribute
  */
 export type Props = {
   ref?: ((el: Element) => void) | { current: Element | null };
   html?: PropValue<string | null | undefined>;
   class?: PropValue<string | null | undefined>;
   className?: PropValue<string | null | undefined>;
-  style?: PropValue<string | null | undefined>;
+  style?: PropValue<
+    string | Record<string, string | number | null | false> | null | undefined
+  >;
   [key: string]: PropValue<any>;
 };
 
-/**
- * Any value accepted as a child: nodes, strings, numbers, arrays, or
- * reactive getter functions returning any of these.
- */
+/** Any valid child: node, primitive, array, or a reactive getter. */
 export type Child =
   | Node
   | string
@@ -148,18 +101,15 @@ export type Child =
   | Child[];
 
 /**
- * Creates a DOM element from a tag name, or renders a component.
- *
- * - `tag` as string → creates HTML or SVG element (auto-detected).
- * - `tag` as function → treated as a component: `(props, children[]) => Node | Node[]`.
- * - First argument may be children if it is not a plain object.
- * - Multiple children may be passed variadically.
+ * Creates an HTML/SVG element (tag: string) or renders a component
+ * (tag: function). The first arg after `tag` may be children when it is not
+ * a plain object.
  */
 export function h(
   tag: string,
   props?: Props | Child | null,
   ...children: Child[]
-): Element | SVGElement;
+): Element;
 
 export function h<P extends object>(
   tag: (props: P, children: Child[]) => Node | Node[] | null,
@@ -168,10 +118,8 @@ export function h<P extends object>(
 ): Node | Node[] | null;
 
 /**
- * Registers all standard HTML tag names as globals (`div`, `span`, `button`,
- * `input`, `textarea`, `svg`, etc.).
- *
- * Must be called once at startup. Defaults to `window`.
+ * Registers all standard HTML tag names as globals on `target` (default
+ * `window`). Call once at startup.
  */
 export function exposeTags(target?: any): void;
 
@@ -180,22 +128,17 @@ export function exposeTags(target?: any): void;
 // ============================================================================
 
 /**
- * Mounts a component into a DOM target.
- *
- * @param component - Component function or node.
- * @param target    - CSS selector or DOM element.
- * @returns A function that stops the app scope and clears the target.
+ * Mounts a component or node into a target. Returns a disposer that stops
+ * the app scope and clears the target.
  */
 export function mount(
-  component: (props?: any) => Node | Node[] | null,
+  component: ((props?: any) => Node | Node[] | null) | Node | string,
   target: string | Element
 ): () => void;
 
 /**
- * Recursively disposes scopes and removes tracked event listeners on a node
- * and its descendants, then detaches it from the DOM.
- *
- * Only needed when working with nodes created outside `h()`.
+ * Recursively disposes scopes, removes tracked event listeners, and detaches
+ * the node. Only needed for nodes created outside `h()`.
  */
 export function unmount(node: Node): void;
 
@@ -204,10 +147,11 @@ export function unmount(node: Node): void;
 // ============================================================================
 
 export interface RouteDefinition {
-  /** Path pattern: `/`, `/user/:id`, `/blog/*`, or `*` for fallback. */
+  /** `/`, `/user/:id`, `/blog/*`, or `*` for fallback. */
   path: string;
-  /** Component function receiving route params, or a static node. */
-  component: ((params: Record<string, string>) => Node | Node[] | null) | Node;
+  component:
+    | ((params: Record<string, string>) => Node | Node[] | null)
+    | Node;
 }
 
 export interface RouterFn {
@@ -216,14 +160,11 @@ export interface RouterFn {
   to(path: string): void;
   /** Go back in browser history. */
   back(): void;
-  /** Returns the current path (without leading `#`). */
+  /** Current path (without leading `#`). */
   path(): string;
 }
 
-/**
- * Creates a hash-based router. Returns a component that renders the
- * matched route and re-renders on navigation.
- */
+/** Creates a hash-based router component. */
 export function router(routes: RouteDefinition[]): RouterFn;
 
 /** Current path as a reactive signal (without leading `#`). */
@@ -231,6 +172,9 @@ export const currentPath: Signal<string>;
 
 /** Current route params as a reactive signal. */
 export const routerParams: Signal<Record<string, string>>;
+
+/** Increments on HMR page registration; read to force route refresh. */
+export const hmrTick: Signal<number>;
 
 // ============================================================================
 // i18n
@@ -245,7 +189,7 @@ export const currentLocale: Signal<string>;
  * @example
  * addLang({ en: { hello: "Hello" }, es: { hello: "Hola" } });
  */
-export function addLang(translations: Record<string, Record<string, string>>): void;
+export function addLang(obj: Record<string, Record<string, string>>): void;
 
 /** Sets the active locale if it has been registered. */
 export function setLocale(locale: string): void;
@@ -253,34 +197,48 @@ export function setLocale(locale: string): void;
 /** Reactive translation getter for a key. */
 export function t(key: string): () => string;
 
-/** Imperative translation read for a key. */
-export function tt(key: string): string;
-
 // ============================================================================
 // HTTP Helper
 // ============================================================================
 
 /**
- * JSON fetch helper. POSTs when `data` is provided, GETs otherwise.
- * Calls `loading(true/false)` around the request if provided.
- * Pass an `AbortSignal` to cancel.
+ * JSON fetch helper. POSTs when `data` is provided, GETs otherwise. Calls
+ * `loading(true/false)` around the request. Pass `abortSignal` to cancel.
  */
 export function db<T = any>(
   url: string,
   data?: any | null,
   loading?: ((loading: boolean) => void) | null,
-  signal?: AbortSignal | null
+  abortSignal?: AbortSignal | null
 ): Promise<T>;
+
+// ============================================================================
+// Universal factory
+// ============================================================================
+
+/**
+ * Universal reactive factory:
+ * - called with a getter → wrapped in `computed()`
+ * - called with a value + key → `local(key, value)`
+ * - called with a value → `signal(value)`
+ *
+ * @example
+ * const count = $(0);                     // signal
+ * const theme = $('dark', 'app.theme');   // localStorage signal
+ * const double = $(() => count() * 2);    // computed
+ */
+export function $<T>(getter: (oldValue?: T) => T): ReadonlySignal<T>;
+export function $<T>(value: T, key: string): Signal<T>;
+export function $<T>(value: T): Signal<T>;
 
 // ============================================================================
 // Tag Helpers (registered by `exposeTags`)
 // ============================================================================
 
-/**
- * A tag helper: `div(props?, ...children)`.
- * Available on `window` after calling `exposeTags()`.
- */
-export type TagHelper = (props?: Props | Child | null, ...children: Child[]) => Element;
+export type TagHelper = (
+  props?: Props | Child | null,
+  ...children: Child[]
+) => Element;
 
 export const a: TagHelper;
 export const abbr: TagHelper;
@@ -381,8 +339,6 @@ declare const SigPro: {
   batch: typeof batch;
   watch: typeof watch;
   local: typeof local;
-  provide: typeof provide;
-  inject: typeof inject;
   h: typeof h;
   mount: typeof mount;
   unmount: typeof unmount;
@@ -390,18 +346,19 @@ declare const SigPro: {
   router: typeof router;
   currentPath: typeof currentPath;
   routerParams: typeof routerParams;
+  hmrTick: typeof hmrTick;
   currentLocale: typeof currentLocale;
   addLang: typeof addLang;
   setLocale: typeof setLocale;
   t: typeof t;
-  tt: typeof tt;
   db: typeof db;
+  $: typeof $;
 };
 
 export default SigPro;
 
 // ============================================================================
-// Global augmentation for browser environments
+// Global augmentation
 // ============================================================================
 
 declare global {
@@ -416,8 +373,6 @@ declare global {
     batch: typeof batch;
     watch: typeof watch;
     local: typeof local;
-    provide: typeof provide;
-    inject: typeof inject;
     h: typeof h;
     mount: typeof mount;
     unmount: typeof unmount;
@@ -425,98 +380,34 @@ declare global {
     router: typeof router;
     currentPath: typeof currentPath;
     routerParams: typeof routerParams;
+    hmrTick: typeof hmrTick;
     currentLocale: typeof currentLocale;
     addLang: typeof addLang;
     setLocale: typeof setLocale;
     t: typeof t;
-    tt: typeof tt;
     db: typeof db;
+    $: typeof $;
 
-    // Tag helpers (lowercase)
-    a: TagHelper;
-    abbr: TagHelper;
-    article: TagHelper;
-    aside: TagHelper;
-    audio: TagHelper;
-    b: TagHelper;
-    blockquote: TagHelper;
-    br: TagHelper;
-    button: TagHelper;
-    canvas: TagHelper;
-    caption: TagHelper;
-    cite: TagHelper;
-    code: TagHelper;
-    col: TagHelper;
-    colgroup: TagHelper;
-    datalist: TagHelper;
-    dd: TagHelper;
-    del: TagHelper;
-    details: TagHelper;
-    dfn: TagHelper;
-    dialog: TagHelper;
-    div: TagHelper;
-    dl: TagHelper;
-    dt: TagHelper;
-    em: TagHelper;
-    embed: TagHelper;
-    fieldset: TagHelper;
-    figcaption: TagHelper;
-    figure: TagHelper;
-    footer: TagHelper;
-    form: TagHelper;
-    h1: TagHelper;
-    h2: TagHelper;
-    h3: TagHelper;
-    h4: TagHelper;
-    h5: TagHelper;
-    h6: TagHelper;
-    header: TagHelper;
-    hr: TagHelper;
-    i: TagHelper;
-    iframe: TagHelper;
-    img: TagHelper;
-    input: TagHelper;
-    ins: TagHelper;
-    kbd: TagHelper;
-    label: TagHelper;
-    legend: TagHelper;
-    li: TagHelper;
-    main: TagHelper;
-    mark: TagHelper;
-    meter: TagHelper;
-    nav: TagHelper;
-    object: TagHelper;
-    ol: TagHelper;
-    optgroup: TagHelper;
-    option: TagHelper;
-    output: TagHelper;
-    p: TagHelper;
-    picture: TagHelper;
-    pre: TagHelper;
-    progress: TagHelper;
-    section: TagHelper;
-    select: TagHelper;
-    slot: TagHelper;
-    small: TagHelper;
-    source: TagHelper;
-    span: TagHelper;
-    strong: TagHelper;
-    sub: TagHelper;
-    summary: TagHelper;
-    sup: TagHelper;
-    svg: TagHelper;
-    table: TagHelper;
-    tbody: TagHelper;
-    td: TagHelper;
-    template: TagHelper;
-    textarea: TagHelper;
-    tfoot: TagHelper;
-    th: TagHelper;
-    thead: TagHelper;
-    time: TagHelper;
-    tr: TagHelper;
-    u: TagHelper;
-    ul: TagHelper;
-    video: TagHelper;
+    a: TagHelper; abbr: TagHelper; article: TagHelper; aside: TagHelper;
+    audio: TagHelper; b: TagHelper; blockquote: TagHelper; br: TagHelper;
+    button: TagHelper; canvas: TagHelper; caption: TagHelper; cite: TagHelper;
+    code: TagHelper; col: TagHelper; colgroup: TagHelper; datalist: TagHelper;
+    dd: TagHelper; del: TagHelper; details: TagHelper; dfn: TagHelper;
+    dialog: TagHelper; div: TagHelper; dl: TagHelper; dt: TagHelper;
+    em: TagHelper; embed: TagHelper; fieldset: TagHelper; figcaption: TagHelper;
+    figure: TagHelper; footer: TagHelper; form: TagHelper; h1: TagHelper;
+    h2: TagHelper; h3: TagHelper; h4: TagHelper; h5: TagHelper; h6: TagHelper;
+    header: TagHelper; hr: TagHelper; i: TagHelper; iframe: TagHelper;
+    img: TagHelper; input: TagHelper; ins: TagHelper; kbd: TagHelper;
+    label: TagHelper; legend: TagHelper; li: TagHelper; main: TagHelper;
+    mark: TagHelper; meter: TagHelper; nav: TagHelper; object: TagHelper;
+    ol: TagHelper; optgroup: TagHelper; option: TagHelper; output: TagHelper;
+    p: TagHelper; picture: TagHelper; pre: TagHelper; progress: TagHelper;
+    section: TagHelper; select: TagHelper; slot: TagHelper; small: TagHelper;
+    source: TagHelper; span: TagHelper; strong: TagHelper; sub: TagHelper;
+    summary: TagHelper; sup: TagHelper; svg: TagHelper; table: TagHelper;
+    tbody: TagHelper; td: TagHelper; template: TagHelper; textarea: TagHelper;
+    tfoot: TagHelper; th: TagHelper; thead: TagHelper; time: TagHelper;
+    tr: TagHelper; u: TagHelper; ul: TagHelper; video: TagHelper;
   }
 }
