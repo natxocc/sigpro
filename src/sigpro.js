@@ -511,7 +511,6 @@ export function h(tag, props = {}, ...children) {
   const el = isSVG ? DOC.createElementNS(SVG_NS, tag) : DOC.createElement(tag);
 
   let deferredSelectValue;
-  let hasHTML = false;
 
   for (const key of Object.keys(props || {})) {
     const val = props[key];
