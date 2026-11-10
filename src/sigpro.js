@@ -537,37 +537,35 @@ export function h(tag, props = {}, ...children) {
     }
   }
 
-  if (!hasHTML) {
-    const append = (c) => {
-      if (Array.isArray(c)) { for (const x of c) append(x); return; }
-      if (c == null || c === false || c === true) return;
+  const append = (c) => {
+    if (Array.isArray(c)) { for (const x of c) append(x); return; }
+    if (c == null || c === false || c === true) return;
 
-      if (typeof c === 'function') {
-        const anchor = DOC.createComment('');
-        el.appendChild(anchor);
-        effect(() => {
-          const res = c();
-          const list = Array.isArray(res) ? res : [res];
-          const nodes = [];
-          for (const item of list) {
-            if (item == null || item === false || item === true) continue;
-            nodes.push(item instanceof Node ? item : DOC.createTextNode(String(item)));
+    if (typeof c === 'function') {
+      const anchor = DOC.createComment('');
+      el.appendChild(anchor);
+      effect(() => {
+        const res = c();
+        const list = Array.isArray(res) ? res : [res];
+        const nodes = [];
+        for (const item of list) {
+          if (item == null || item === false || item === true) continue;
+          nodes.push(item instanceof Node ? item : DOC.createTextNode(String(item)));
+        }
+        for (const n of nodes) el.insertBefore(n, anchor);
+        return () => {
+          for (const n of nodes) {
+            cleanupNode(n);
+            n.remove();
           }
-          for (const n of nodes) el.insertBefore(n, anchor);
-          return () => {
-            for (const n of nodes) {
-              cleanupNode(n);
-              n.remove();
-            }
-          };
-        });
-        return;
-      }
+        };
+      });
+      return;
+    }
 
-      el.appendChild(c instanceof Node ? c : DOC.createTextNode(String(c)));
-    };
-    append(children);
-  }
+    el.appendChild(c instanceof Node ? c : DOC.createTextNode(String(c)));
+  };
+  append(children);
 
   if (deferredSelectValue !== undefined) {
     if (typeof deferredSelectValue === 'function') {
