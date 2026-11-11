@@ -557,7 +557,7 @@ export function h(tag, props = {}, ...children) {
     if (typeof c === 'function') {
       const anchor = DOC.createComment('');
       el.appendChild(anchor);
-      effect(() => {
+      const stop = effect(() => {
         const res = c();
         const list = Array.isArray(res) ? res : [res];
         const nodes = [];
@@ -573,6 +573,7 @@ export function h(tag, props = {}, ...children) {
           }
         };
       });
+      (el._cln || (el._cln = [])).push(stop);
       return;
     }
 
