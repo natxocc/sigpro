@@ -749,9 +749,3 @@ export const db = async (url, data = null, loading = null, abortSignal = null) =
     if (loading) loading(false);
   }
 };
-
-export const $ = (value, key) => {
-  if (typeof value === 'function') return computed(value);
-  if (key !== undefined) return local(key, value);
-  return signal(value);
-};
