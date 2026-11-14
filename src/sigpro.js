@@ -1,4 +1,3 @@
-// src/sigpro.js
 const None = 0, Mutable = 1, Watching = 2, RecursedCheck = 4,
   Recursed = 8, Dirty = 16, Pending = 32, HasChildEffect = 64;
 
@@ -187,15 +186,18 @@ export function effect(fn) {
   const prevSub = activeSub;
   activeSub = e;
   if (prevSub !== undefined) { link(e, prevSub, 0); prevSub.flags |= HasChildEffect; }
-  try { ++runDepth; const r = e.fn(); e.cleanup = typeof r === 'function' ? r : undefined; }
-  finally {
+  try {
+    ++runDepth;
+    const r = e.fn();
+    e.cleanup = typeof r === 'function' ? r : undefined;
+  } finally {
     --runDepth; activeSub = prevSub;
     e.flags &= ~RecursedCheck;
   }
   return effectOper.bind(e);
 }
 
-export function effectScope(fn) {
+function effectScope(fn) {
   const e = {
     deps: undefined, depsTail: undefined,
     subs: undefined, subsTail: undefined, flags: Mutable,
@@ -425,6 +427,12 @@ const SVG_TAGS = new Set(
   ).split(' ')
 );
 
+const BOOLEAN_PROPS = new Set([
+  'allowFullscreen', 'async', 'autofocus', 'autoplay', 'checked', 'controls',
+  'defer', 'disabled', 'formNoValidate', 'hidden', 'inert', 'loop', 'multiple',
+  'muted', 'noValidate', 'open', 'playsInline', 'readOnly', 'required', 'reversed', 'selected',
+]);
+
 function setAttr(el, key, res, isSVG) {
   const k = key.toLowerCase();
   if (k === 'innerhtml' || k === 'outerhtml' || k === 'srcdoc') return;
@@ -448,6 +456,13 @@ function setAttr(el, key, res, isSVG) {
     }
     return;
   }
+  if (BOOLEAN_PROPS.has(key) && !isSVG && key in el) {
+    const on = res != null && res !== false;
+    el[key] = on;
+    if (on) el.setAttribute(key, '');
+    else el.removeAttribute(key);
+    return;
+  }
   if (res == null || res === false) {
     if (key === 'style') el._lastStyle = undefined;
     el.removeAttribute(key);
@@ -464,16 +479,18 @@ function setAttr(el, key, res, isSVG) {
       return;
     }
     if (typeof res === 'object') {
-      if (prev === undefined && el.hasAttribute('style')) {
-        el.removeAttribute('style');
-      }
-      if (prev) {
-        for (const p in prev) if (!(p in res)) el.style.removeProperty(p);
+      if (prev) for (const p in prev) if (!(p in res)) {
+        if (p.startsWith('--')) el.style.removeProperty(p);
+        else el.style[p] = '';
       }
       for (const p in res) {
         const v = res[p];
-        if (v == null || v === false) el.style.removeProperty(p);
-        else el.style.setProperty(p, String(v));
+        if (p.startsWith('--')) {
+          if (v == null || v === false) el.style.removeProperty(p);
+          else el.style.setProperty(p, String(v));
+        } else {
+          el.style[p] = v == null || v === false ? '' : String(v);
+        }
       }
       el._lastStyle = res;
       return;
@@ -513,8 +530,7 @@ export function h(tag, props = {}, ...children) {
   if (
     props instanceof Node ||
     Array.isArray(props) ||
-    (props !== null && typeof props !== 'object') ||
-    props === undefined
+    (props !== null && typeof props !== 'object')
   ) {
     children = [props, ...children];
     props = {};
@@ -603,7 +619,11 @@ export function mount(component, target) {
     .filter(n => n != null && n !== false && n !== true)
     .map(n => (n instanceof Node ? n : DOC.createTextNode(String(n))));
 
-  el.replaceChildren(...nodes);
+  while (el.firstChild) {
+    cleanupNode(el.firstChild);
+    el.removeChild(el.firstChild);
+  }
+  for (const n of nodes) el.appendChild(n);
 
   return () => {
     stopRoot();
@@ -651,6 +671,12 @@ if (typeof window !== 'undefined') {
 }
 
 export const router = routes => () => {
+  routes = [...routes].sort((a, b) =>
+    (a.path === '*') - (b.path === '*') ||
+    a.path.split('/').filter(p => p[0] === ':').length -
+    b.path.split('/').filter(p => p[0] === ':').length
+  );
+
   const hook = h('div', { class: 'router-hook' });
   let scopeStop;
   let lastPath;
@@ -659,7 +685,8 @@ export const router = routes => () => {
   const effectStop = effect(() => {
     hmrTick();
     const path = currentPath();
-    const p2 = path.split('/').filter(Boolean);
+    const pathname = path.split(/[?#]/)[0];
+    const p2 = pathname.split('/').filter(Boolean);
 
     const route = routes.find(r => {
       const p1 = r.path.split('/').filter(Boolean);
@@ -736,14 +763,23 @@ export const t = key => () =>
 export const db = async (url, data = null, loading = null, abortSignal = null) => {
   if (loading) loading(true);
   try {
+    const isForm = typeof FormData !== 'undefined' && data instanceof FormData;
+    const isBlob = typeof Blob !== 'undefined' && data instanceof Blob;
+    const isParams = typeof URLSearchParams !== 'undefined' && data instanceof URLSearchParams;
+    const raw = isForm || isBlob || isParams;
+
     const res = await fetch(url, {
-      method: data ? 'POST' : 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      body: data ? JSON.stringify(data) : undefined,
+      method: data !== null && data !== undefined ? 'POST' : 'GET',
+      headers: raw ? undefined : { 'Content-Type': 'application/json' },
+      body: data == null ? undefined : raw ? data : JSON.stringify(data),
       credentials: 'include',
       signal: abortSignal,
     });
-    if (!res.ok) throw new Error(`Error ${res.status}: ${await res.text()}`);
+
+    if (!res.ok) throw Object.assign(
+      new Error(`HTTP ${res.status}`),
+      { status: res.status, statusText: res.statusText }
+    );
     if (res.status === 204) return null;
     return await res.json();
   } finally {

@@ -50,7 +50,7 @@ function html2sigpro(h, mode = "tags") {
 }
 
 const converter = () => {
-    const { signal } = window.SigPro;  // ← movido aquí
+    const { signal, effect } = window.SigPro;
 
     const inH = signal("");
     const outS = signal("");
@@ -120,16 +120,16 @@ const converter = () => {
                 label({ style: "font-weight:bold;margin-bottom:8px" }, "Live Preview"),
                 iframe({
                     style: "width:100%;height:200px;border:1px solid #e2e8f0;border-radius:4px;background:white;",
-                    srcdoc: () => {
+                    ref: el => effect(() => {
                         const html = previewHtml() || "";
-                        return `
+                        el.srcdoc = `
                             <!DOCTYPE html>
                             <html>
                                 <head>
                                 <meta charset="UTF-8">
                                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                                 <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css">
-                                <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+                                <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"><\/script>
                                 <style>
                                     body { padding: 10px; margin: 0; font-family: sans-serif; }
                                 </style>
@@ -139,7 +139,7 @@ const converter = () => {
                                 </body>
                             </html>
                         `;
-                    },
+                    }),
                     sandbox: "allow-same-origin allow-scripts allow-popups allow-forms allow-modals"
                 })
             )
