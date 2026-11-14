@@ -10,12 +10,11 @@
 // ============================================================================
 
 /**
- * A reactive signal. Call with no args to read, with a value or an updater
- * function to write.
+ * A reactive signal. Call with no args to read, with a value to write.
  */
 export interface Signal<T> {
   (): T;
-  (value: T | ((prev: T) => T)): void;
+  (value: T): void;
 }
 
 export function signal<T>(initialValue: T): Signal<T>;
@@ -30,12 +29,6 @@ export function computed<T>(getter: (oldValue?: T) => T): ReadonlySignal<T>;
  * return a cleanup function, run before the next re-execution and on stop.
  */
 export function effect(fn: () => void | (() => void)): () => void;
-
-/**
- * Groups child effects in a scope. Does not track deps and does not
- * re-execute. Returns a disposer for all effects created inside.
- */
-export function effectScope(fn: () => void): () => void;
 
 /** Runs `fn` without tracking reads as dependencies. */
 export function untrack<T>(fn: () => T): T;
@@ -71,16 +64,20 @@ export type PropValue<T = any> = T | (() => T);
  *
  * Special keys:
  * - `ref`: function or `{ current }` object
- * - `html`: sets `innerHTML` reactively (children ignored when present)
- * - `on*`: DOM event listeners (case-sensitive after `on`: `onclick`, `onInput`)
+ * - `on*`: DOM event listeners (e.g. `onclick`, `onInput`)
  * - `class` / `className`: element class
- * - `style`: CSS string or object of properties
+ * - `style`: CSS string or object of properties (camelCase keys,
+ *   `--custom` keys go through `setProperty`)
  * - anything else: assigned as property if present on the element,
  *   otherwise set as attribute
+ *
+ * For security, `innerHTML`, `outerHTML` and `srcdoc` are ignored.
+ * URL props (`href`, `src`, `action`, `formAction`, `poster`, `data`,
+ * `xlink:href`) are restricted to `http(s)`, `mailto`, `tel`, `blob`,
+ * and safe `data:image/*` for images.
  */
 export type Props = {
   ref?: ((el: Element) => void) | { current: Element | null };
-  html?: PropValue<string | null | undefined>;
   class?: PropValue<string | null | undefined>;
   className?: PropValue<string | null | undefined>;
   style?: PropValue<
@@ -147,7 +144,7 @@ export function unmount(node: Node): void;
 // ============================================================================
 
 export interface RouteDefinition {
-  /** `/`, `/user/:id`, `/blog/*`, or `*` for fallback. */
+  /** `/`, `/user/:id`, or `*` for fallback. */
   path: string;
   component:
     | ((params: Record<string, string>) => Node | Node[] | null)
@@ -202,8 +199,17 @@ export function t(key: string): () => string;
 // ============================================================================
 
 /**
- * JSON fetch helper. POSTs when `data` is provided, GETs otherwise. Calls
+ * Fetch helper. POSTs when `data` is provided, GETs otherwise. Calls
  * `loading(true/false)` around the request. Pass `abortSignal` to cancel.
+ *
+ * `data` may be:
+ * - a plain object/array/primitive → sent as JSON
+ * - `FormData` → sent as multipart/form-data (browser sets Content-Type)
+ * - `Blob` / `File` → sent as binary (browser sets Content-Type)
+ * - `URLSearchParams` → sent as application/x-www-form-urlencoded
+ *
+ * On non-2xx responses the returned Error has `status` and `statusText`.
+ * Returns `null` for 204/205 responses. Parses the response as JSON.
  */
 export function db<T = any>(
   url: string,
@@ -211,25 +217,6 @@ export function db<T = any>(
   loading?: ((loading: boolean) => void) | null,
   abortSignal?: AbortSignal | null
 ): Promise<T>;
-
-// ============================================================================
-// Universal factory
-// ============================================================================
-
-/**
- * Universal reactive factory:
- * - called with a getter → wrapped in `computed()`
- * - called with a value + key → `local(key, value)`
- * - called with a value → `signal(value)`
- *
- * @example
- * const count = $(0);                     // signal
- * const theme = $('dark', 'app.theme');   // localStorage signal
- * const double = $(() => count() * 2);    // computed
- */
-export function $<T>(getter: (oldValue?: T) => T): ReadonlySignal<T>;
-export function $<T>(value: T, key: string): Signal<T>;
-export function $<T>(value: T): Signal<T>;
 
 // ============================================================================
 // Tag Helpers (registered by `exposeTags`)
@@ -311,7 +298,6 @@ export const strong: TagHelper;
 export const sub: TagHelper;
 export const summary: TagHelper;
 export const sup: TagHelper;
-export const svg: TagHelper;
 export const table: TagHelper;
 export const tbody: TagHelper;
 export const td: TagHelper;
@@ -334,7 +320,6 @@ declare const SigPro: {
   signal: typeof signal;
   computed: typeof computed;
   effect: typeof effect;
-  effectScope: typeof effectScope;
   untrack: typeof untrack;
   batch: typeof batch;
   watch: typeof watch;
@@ -352,7 +337,6 @@ declare const SigPro: {
   setLocale: typeof setLocale;
   t: typeof t;
   db: typeof db;
-  $: typeof $;
 };
 
 export default SigPro;
@@ -368,7 +352,6 @@ declare global {
     signal: typeof signal;
     computed: typeof computed;
     effect: typeof effect;
-    effectScope: typeof effectScope;
     untrack: typeof untrack;
     batch: typeof batch;
     watch: typeof watch;
@@ -386,7 +369,6 @@ declare global {
     setLocale: typeof setLocale;
     t: typeof t;
     db: typeof db;
-    $: typeof $;
 
     a: TagHelper; abbr: TagHelper; article: TagHelper; aside: TagHelper;
     audio: TagHelper; b: TagHelper; blockquote: TagHelper; br: TagHelper;
@@ -405,7 +387,7 @@ declare global {
     p: TagHelper; picture: TagHelper; pre: TagHelper; progress: TagHelper;
     section: TagHelper; select: TagHelper; slot: TagHelper; small: TagHelper;
     source: TagHelper; span: TagHelper; strong: TagHelper; sub: TagHelper;
-    summary: TagHelper; sup: TagHelper; svg: TagHelper; table: TagHelper;
+    summary: TagHelper; sup: TagHelper; table: TagHelper;
     tbody: TagHelper; td: TagHelper; template: TagHelper; textarea: TagHelper;
     tfoot: TagHelper; th: TagHelper; thead: TagHelper; time: TagHelper;
     tr: TagHelper; u: TagHelper; ul: TagHelper; video: TagHelper;
