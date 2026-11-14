@@ -1,6 +1,16 @@
 const None = 0, Mutable = 1, Watching = 2, RecursedCheck = 4,
   Recursed = 8, Dirty = 16, Pending = 32, HasChildEffect = 64;
 
+let errorHandler;
+export function onError(fn) { errorHandler = fn; }
+function reportError(err, where) {
+  if (errorHandler) {
+    try { errorHandler(err, where); } catch {}
+  } else {
+    console.error('[sigpro]', err);
+  }
+}
+
 function createReactiveSystem({ update, notify, unwatched }) {
   return { link, unlink, propagate, checkDirty, shallowPropagate };
 
@@ -177,6 +187,10 @@ export function computed(getter) {
 }
 
 export function effect(fn) {
+  if (typeof fn !== 'function') {
+    console.error('[sigpro] effect() expects a function, got', typeof fn);
+    return () => {};
+  }
   const e = {
     fn, cleanup: undefined,
     subs: undefined, subsTail: undefined,
@@ -190,6 +204,10 @@ export function effect(fn) {
     ++runDepth;
     const r = e.fn();
     e.cleanup = typeof r === 'function' ? r : undefined;
+  } catch (err) {
+    e.flags = None;
+    disposeAllDepsInReverse(e);
+    reportError(err, e.fn);
   } finally {
     --runDepth; activeSub = prevSub;
     e.flags &= ~RecursedCheck;
@@ -265,8 +283,11 @@ function run(e) {
       ++cycle; ++runDepth;
       const r = e.fn();
       e.cleanup = typeof r === 'function' ? r : undefined;
-    }
-    finally {
+    } catch (err) {
+      e.flags = None;
+      disposeAllDepsInReverse(e);
+      reportError(err, e.fn);
+    } finally {
       --runDepth; activeSub = prevSub;
       e.flags &= ~RecursedCheck;
       purgeDeps(e);
@@ -516,15 +537,32 @@ function cleanupNode(n) {
 }
 
 export function h(tag, props = {}, ...children) {
+  if (tag == null) {
+    console.error('[sigpro] h() called with no tag');
+    return DOC.createComment('invalid tag');
+  }
+
   if (typeof tag === 'function') {
     let element;
-    const stop = effectScope(() => { element = tag(props, children); });
+    const stop = effectScope(() => {
+      try {
+        element = tag(props, children);
+      } catch (err) {
+        reportError(err, tag);
+        element = DOC.createComment('error');
+      }
+    });
     const mark = (n) => {
       if (n instanceof Node) n._stopScope = stop;
       else if (Array.isArray(n)) n.forEach(mark);
     };
     mark(element);
     return element;
+  }
+
+  if (typeof tag !== 'string') {
+    console.error('[sigpro] h() tag must be string or function, got', typeof tag);
+    return DOC.createComment('invalid tag');
   }
 
   if (
@@ -559,6 +597,8 @@ export function h(tag, props = {}, ...children) {
       const ev = key.slice(2).toLowerCase();
       el.addEventListener(ev, val);
       (el._cln || (el._cln = [])).push(() => el.removeEventListener(ev, val));
+    } else if (key.startsWith('on') && val != null && val !== false) {
+      console.error(`[sigpro] "${key}" expects a function, got ${typeof val}`);
     } else if (typeof val === 'function') {
       effect(() => setAttr(el, key, val(), isSVG));
     } else {
@@ -682,6 +722,11 @@ export const router = routes => () => {
   let lastPath;
   let lastComponent;
 
+  const clearHook = () => {
+    for (const child of hook.childNodes) cleanupNode(child);
+    hook.replaceChildren();
+  };
+
   const effectStop = effect(() => {
     hmrTick();
     const path = currentPath();
@@ -698,14 +743,17 @@ export const router = routes => () => {
 
     if (!route) {
       if (scopeStop) { scopeStop(); scopeStop = undefined; }
-      hook.replaceChildren();
+      clearHook();
       lastPath = lastComponent = undefined;
       return;
     }
 
     const params = {};
     route.path.split('/').filter(Boolean).forEach((p, i) => {
-      if (p[0] === ':') params[p.slice(1)] = p2[i];
+      if (p[0] === ':') {
+        try { params[p.slice(1)] = decodeURIComponent(p2[i]); }
+        catch { params[p.slice(1)] = p2[i]; }
+      }
     });
 
     const component = hmrRegistry.get(route.path) ?? route.component;
@@ -714,8 +762,12 @@ export const router = routes => () => {
     lastPath = path;
     lastComponent = component;
 
-    if (scopeStop) scopeStop();
+    if (scopeStop) { scopeStop(); scopeStop = undefined; }
+
+    clearHook();
+
     routerParams(params);
+
     scopeStop = effectScope(() => {
       const node = typeof component === 'function'
         ? h(component, params)
@@ -726,7 +778,7 @@ export const router = routes => () => {
   });
 
   hook._stopScope = () => {
-    if (scopeStop) scopeStop();
+    if (scopeStop) { scopeStop(); scopeStop = undefined; }
     effectStop();
   };
 

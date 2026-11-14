@@ -1,23 +1,40 @@
+// sigpro.bun.js
 import path from "path";
 
-const pagesDir = path.resolve(import.meta.dir, "src/pages");
+const PAGES = path.resolve(import.meta.dir, "src/pages") + path.sep;
+const isDev = process.env.NODE_ENV === "development";
 
 export const sigproPlugin = {
   name: "sigpro-hmr",
   setup(build) {
-    build.onLoad({ filter: /\.(js|jsx)$/ }, async (args) => {
-      if (!args.path.startsWith(pagesDir)) return;
+    build.onLoad({ filter: /\.js$/ }, async (args) => {
+      if (!args.path.startsWith(PAGES)) return;
 
-      let source = await Bun.file(args.path).text();
+      let source;
+      try {
+        source = await Bun.file(args.path).text();
+      } catch {
+        return;
+      }
 
-      if (process.env.NODE_ENV !== "production") {
-        const relative = path.relative(pagesDir, args.path).replace(/\\/g, "/").replace(/\.(js|jsx)$/, "");
-        const routePath = relative === "index" ? "/" : "/" + relative.replace(/\/index$/, "");
+      if (isDev) {
+        const rel = path
+          .relative(PAGES, args.path)
+          .replace(/\\/g, "/")
+          .replace(/\.js$/, "");
+
+        const routePath =
+          rel === "index"
+            ? "/"
+            : "/" +
+              rel.replace(/\/index$/, "").replace(/\[([^\]]+)\]/g, ":$1");
+
         source += `
           if (import.meta.hot) {
             import.meta.hot.accept((newMod) => {
-              if (newMod && typeof window !== 'undefined' && window.__sigpro_hmr_page__) {
-                window.__sigpro_hmr_page__("${routePath}", newMod.default ?? newMod);
+              const component = newMod && newMod.default;
+              if (typeof component === 'function' && typeof window !== 'undefined' && window.__sigpro_hmr_page__) {
+                window.__sigpro_hmr_page__(${JSON.stringify(routePath)}, component);
               }
             });
           }`;
