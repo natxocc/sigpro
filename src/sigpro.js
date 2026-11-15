@@ -5,7 +5,7 @@ let errorHandler;
 export function onError(fn) { errorHandler = fn; }
 function reportError(err, where) {
   if (errorHandler) {
-    try { errorHandler(err, where); } catch {}
+    try { errorHandler(err, where); } catch { }
   } else {
     console.error('[sigpro]', err);
   }
@@ -189,7 +189,7 @@ export function computed(getter) {
 export function effect(fn) {
   if (typeof fn !== 'function') {
     console.error('[sigpro] effect() expects a function, got', typeof fn);
-    return () => {};
+    return () => { };
   }
   const e = {
     fn, cleanup: undefined,
@@ -401,6 +401,13 @@ export function untrack(fn) {
   finally { activeSub = prev; }
 }
 
+export function onMount(fn) {
+  return effect(() => {
+    const cleanup = untrack(fn);
+    return typeof cleanup === 'function' ? cleanup : undefined;
+  });
+}
+
 export function watch(source, cb, { immediate = false } = {}) {
   let prev, first = true;
   return effect(() => {
@@ -525,7 +532,7 @@ function setAttr(el, key, res, isSVG) {
   else el.setAttribute(key, res === true ? '' : res);
 }
 
-function cleanupNode(n) {
+export function cleanupNode(n) {
   const stack = [n];
   while (stack.length) {
     const node = stack.pop();
@@ -534,6 +541,57 @@ function cleanupNode(n) {
     const children = node.childNodes;
     for (let i = 0, len = children.length; i < len; i++) stack.push(children[i]);
   }
+}
+
+export function each(items, render, keyFn = (_, i) => i) {
+  const anchor = DOC.createComment('each');
+  const entries = new Map();
+  const mount = (item, i) => {
+    const nodes = [];
+    const scope = effectScope(() => {
+      const r = render(item, i);
+      for (const n of Array.isArray(r) ? r : [r])
+        if (n instanceof Node) nodes.push(n);
+        else if (n != null && n !== false && n !== true) nodes.push(DOC.createTextNode(String(n)));
+    });
+    return { nodes, scope, item };
+  };
+  const dispose = e => { e.scope(); e.nodes.forEach(n => { cleanupNode(n); n.remove(); }); };
+  const diff = arr => {
+    const parent = anchor.parentNode, alive = new Set(), out = [];
+    for (let i = 0; i < arr.length; i++) {
+      const k = keyFn(arr[i], i);
+      let e = entries.get(k);
+      if (!e || e.item !== arr[i]) { e && dispose(e); e = mount(arr[i], i); entries.set(k, e); }
+      alive.add(k); out.push(...e.nodes);
+    }
+    for (const [k, e] of entries) if (!alive.has(k)) { dispose(e); entries.delete(k); }
+    let ref = anchor;
+    for (let i = out.length - 1; i >= 0; i--) {
+      const n = out[i];
+      if (n.parentNode !== parent || n.nextSibling !== ref) parent.insertBefore(n, ref);
+      ref = n;
+    }
+  };
+  const initial = untrack(() => {
+    const arr = items(), out = [];
+    for (let i = 0; i < arr.length; i++) {
+      const e = mount(arr[i], i);
+      entries.set(keyFn(arr[i], i), e);
+      out.push(...e.nodes);
+    }
+    return out;
+  });
+  anchor._stopScope = () => {
+    if (anchor._itemsEffect) anchor._itemsEffect();
+    for (const e of entries.values()) dispose(e);
+    entries.clear();
+  };
+  queueMicrotask(() => {
+    if (anchor.parentNode)
+      anchor._itemsEffect = effect(() => { const arr = items(); untrack(() => diff(arr)); });
+  });
+  return [...initial, anchor];
 }
 
 export function h(tag, props = {}, ...children) {
@@ -604,6 +662,10 @@ export function h(tag, props = {}, ...children) {
     } else {
       setAttr(el, key, val, isSVG);
     }
+  }
+
+  if (tag === 'a' && el.target === '_blank' && !el.rel) {
+    el.rel = 'noopener noreferrer';
   }
 
   const append = (c) => {

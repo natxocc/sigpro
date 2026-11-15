@@ -1,6 +1,6 @@
 {
   "name": "sigpro",
-  "version": "2.0.8",
+  "version": "2.0.9",
   "type": "module",
   "license": "MIT",
   "author": {
@@ -52,12 +52,13 @@
     "clean": "rm -rf dist docs/*.js",
     "prebuild": "bun run clean",
     "build:core": "bun build ./src/sigpro.js --bundle --outfile=./dist/sigpro.js --format=esm --minify",
+    "build:helpers": "bun build ./src/sigpro.helpers.js --bundle --outfile=./dist/sigpro.helpers.js --format=esm --minify",
     "build:grid": "bun build ./src/sigpro.grid.js --bundle --outfile=./dist/sigpro.grid.js --format=esm --minify",
     "build:editor": "bun build ./src/sigpro.editor.js --bundle --outfile=./dist/sigpro.editor.js --format=esm --minify",
     "build:ui": "bun build ./src/sigpro.ui.js --bundle --outfile=./dist/sigpro.ui.js --format=esm --external ./src/sigpro.js --minify",
     "build:vite": "bun build ./src/sigpro.vite.js --bundle --outfile=./dist/sigpro.vite.js --format=esm --external fs --external path --minify",
     "build:convert": "bun build ./src/sigpro.convert.js --bundle --outfile=./dist/sigpro.convert.js --format=esm --minify",
-    "build": "mkdir -p docs && bun run build:core && bun run build:grid && bun run build:editor && bun run build:ui && bun run build:vite && bun run build:convert && cp ./dist/*.js ./docs/",
+    "build": "mkdir -p docs && bun run build:core && bun run build:helpers && bun run build:grid && bun run build:editor && bun run build:ui && bun run build:vite && bun run build:convert && cp ./dist/*.js ./docs/",
     "docs": "bun x serve docs"
   },
   "devDependencies": {
