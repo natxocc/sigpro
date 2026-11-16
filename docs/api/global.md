@@ -2,7 +2,7 @@
 
 SigPro leverages the native power and efficiency of **signals** to create robust global stores with **zero complexity**. While other frameworks force you into heavy libraries and rigid boilerplate (Redux, Pinia, or Svelte stores), SigPro treats "the store" as a simple architectural choice: **defining a signal outside of a component.**
 
-> **Availability:** Core functions (`signal`, `computed`, `effect`, `local`, ...) are exported from the SigPro module. In **ESM** you must import them (`import { signal, computed, local } from 'sigpro'`). If you call `exposeTags()` at startup, the HTML helpers (`div`, `span`, `button`, ...) become available as globals. The examples below assume the core functions are in scope via import.
+> **Availability:** Core functions (`signal`, `computed`, `effect`, `local`, `batch`, `untrack`, ...) are exported from the SigPro module. In **ESM** you must import them (`import { signal, computed, local } from 'sigpro'`). The HTML tag helpers (`div`, `span`, `button`, ...) are **not** named exports — they are installed as globals on `window` when you call `exposeTags()` once at startup. All examples below assume `exposeTags()` has been called and the core functions are imported.
 
 ## Modular Organization (Zero Constraints)
 
@@ -32,8 +32,8 @@ Once exported, these signals act as a **single source of truth**. SigPro ensures
 
 ```javascript
 // Profile.js
+import { exposeTags } from 'sigpro';
 import { user } from "./auth.js";
-import { div, h2, button } from 'sigpro'; // o usa las globales tras exposeTags()
 
 const Profile = () => div({}, [
   h2(() => user().name),
@@ -42,15 +42,18 @@ const Profile = () => div({}, [
     "Log In"
   )
 ]);
+```
 
+```javascript
 // Navbar.js
 import { welcomeMessage, theme } from "./auth.js";
-import { nav, span } from 'sigpro';
 
 const Navbar = () => nav({ class: () => theme() }, [
   span(() => welcomeMessage())
 ]);
 ```
+
+> The `div`, `h2`, `button`, `nav`, and `span` helpers are available as globals after calling `exposeTags()` once at startup.
 
 ---
 
@@ -90,7 +93,7 @@ export const cart = local("session-cart", []);
 | **Global**      | Signal defined in a **separate file** and imported                           | Shared across the entire application               |
 | **Persistent**  | A signal wrapped with **`local(key, initial)`**                              | Shared globally and persisted in `localStorage`    |
 
-> Signals are not scoped to components by default. A signal created inside a component body is *re-created on every render*, so if you want state that survives re-renders, define it **outside** the component or wrap the creation inside an `effectScope()` with a stable boundary.
+> Signals are not scoped to components by default. A signal created inside a component body is **re-created on every render**, so if you want state that survives re-renders, define it **outside** the component body — either as a module-level constant or in the enclosing scope. There is no public `effectScope` to manage this manually; the internal scope is created by `h()` and torn down automatically on unmount.
 
 ---
 
@@ -121,9 +124,10 @@ export const filteredTodos = computed(() => {
 
 ```javascript
 // components/TodoApp.js
-import { mount, signal } from 'sigpro';
-import { div, input, button, ul, li, span } from 'sigpro'; // o tras exposeTags()
-import { todos, filter, addTodo, toggleTodo, filteredTodos } from "../store/todos.js";
+import { mount, signal, exposeTags } from 'sigpro';
+import { filteredTodos, addTodo, toggleTodo, filter } from "../store/todos.js";
+
+exposeTags();
 
 // Signal local al componente para el texto del input.
 // Definida FUERA del cuerpo de render para no recrearla en cada cambio.

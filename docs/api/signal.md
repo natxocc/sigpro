@@ -11,7 +11,7 @@ local<T>(key: string, initial: T): Signal<T>
 
 interface Signal<T> {
   (): T;
-  (value: T | ((prev: T) => T)): void;
+  (value: T): void;
 }
 ```
 
@@ -20,6 +20,8 @@ interface Signal<T> {
 | **`signal(v)`** | Writable state. | No |
 | **`computed(fn)`** | Read-only derived value. Lazy. | No |
 | **`local(key, v)`** | Writable state persisted to `localStorage`. | Yes (JSON) |
+
+> **No updater functions.** Signals accept a plain value, not a `(prev) => next` callback. To update based on the previous value, read first, then write: `list([...list(), newItem])`. This is deliberate — the setter has zero dispatch overhead and stays predictable.
 
 ---
 
@@ -61,6 +63,8 @@ Creates a signal that syncs with `localStorage`. The value is JSON-serialized. O
 }
 ```
 
+> **Cleanup contract.** `local()` creates an internal `effect` that writes to `localStorage` on every change of the returned signal. Inside a component, that effect is disposed on unmount. **Outside any scope** (module top-level, `setTimeout`, event handler), the effect lives forever — one effect per `local()` call. Call `local()` once per key and reuse the returned signal. Do **not** call `local()` inside a function that runs multiple times — each call creates a new signal and a new effect on the same key, which is a silent leak.
+
 ### 3. Computed (Derived) State — `computed(fn)`
 
 Creates a **lazy** read-only value. It recomputes on read and only when its dependencies actually changed. If nothing downstream depends on it, nothing runs.
@@ -88,9 +92,9 @@ Note: `computed` is **not** a signal. It's a read-only getter with no setter. If
 
 ---
 
-## Updating with Logic
+## Updating Based on the Previous Value
 
-Both `signal` and `local` accept an **updater function** as the argument. This gives you safe access to the previous value.
+Signals do not accept updater callbacks. To update based on the current value, **read it, compute the next value, then write it**:
 
 <div id="demo-signal-updater"></div>
 
@@ -99,13 +103,15 @@ Both `signal` and `local` accept an **updater function** as the argument. This g
   const list = signal(["A", "B"]);
   const App = () => div([
     ul(() => list().map(item => li(item))),
-    button({ onclick: () => list(prev => [...prev, "C"]) }, "Add C")
+    button({ onclick: () => list([...list(), "C"]) }, "Add C")
   ]);
   setTimeout(() => mount(App, '#demo-signal-updater'), 50);
 }
 ```
 
-The updater receives the current value and must return the new value. Unlike a plain write, it cannot accidentally close over a stale value.
+For an increment, the pattern is the same: `count(count() + 1)`. Since a signal write is synchronous and effects flush synchronously (unless inside `batch`), reading the current value right before writing is safe and always reflects the latest state.
+
+If you need to make multiple writes and want to read the updated values in between, wrap them in `batch(() => { ... })` — signals inside a batch still return their latest value on read.
 
 ---
 
@@ -177,7 +183,7 @@ For nested objects, **compose signals** instead of using magic proxies. This giv
   const App = () => div([
     ul(() => todos().map(todo => li(todo.text + (todo.done ? " ✓" : "")))),
     button({
-      onclick: () => todos(prev => [...prev, { id: Date.now(), text: "New todo", done: false }])
+      onclick: () => todos([...todos(), { id: Date.now(), text: "New todo", done: false }])
     }, "Add todo"),
     button({
       onclick: () => {
@@ -266,6 +272,25 @@ const createUserStore = () => {
 const userStore = createUserStore();
 ```
 
+### ✅ DO: Destructure the composed object, not the signal's return value
+
+Because a signal **is** a function, destructuring a plain object that holds signals works fine:
+
+```javascript
+const { name, email } = user;   // name and email are still signals (functions)
+name();                          // ✅ reactive read
+name("Ana");                     // ✅ write
+```
+
+What you must **not** do is store a signal's *result* and expect it to stay reactive:
+
+```javascript
+const n = user.name();   // ❌ `n` is a snapshot, not a signal
+n;                       // won't update when user.name changes
+```
+
+Rule: keep the signal reference. Call it only when you want the current value.
+
 ### ❌ DON'T: Try to wrap objects with a single signal
 
 ```javascript
@@ -278,18 +303,17 @@ const userName  = signal("Juan");
 const userEmail = signal("...");
 ```
 
-### ❌ DON'T: Destructure signals and lose the function reference
+### ❌ DON'T: Mutate in place
 
 ```javascript
-// Wrong — breaks tracking because you lose the signal identity
-const { name, email } = user;
-watch(name, ...); // ❌ `name` here is a plain function value
+// ❌ Mutating the object returned by the signal is invisible to the runtime
+user().name = "Ana";
+todos().push(newTodo);
 
-// Correct — keep the signal as a property
-watch(user.name, ...); // ✅
+// ✅ Replace the reference — this is what triggers reactivity
+user({ ...user(), name: "Ana" });
+todos([...todos(), newTodo]);
 ```
-
-Actually, destructuring a signal **does** preserve tracking (a signal is just a function). What breaks is destructuring a **plain object that holds signals** if you then call `.value`-style access. In SigPro, since signals are functions, `const { name } = user; name()` works fine. The rule is just: **never store a `signal()`'s return value as a plain value** — always call it.
 
 ---
 
@@ -299,11 +323,10 @@ Actually, destructuring a signal **does** preserve tracking (a signal is just a 
 
 ```javascript
 // Update arrays by replacing the reference
-todos(prev => [...prev, newTodo]);
+todos([...todos(), newTodo]);
 
 // Update objects immutably
-const current = user();
-user({ ...current, name: "Ana" });
+user({ ...user(), name: "Ana" });
 
 // Derive tracked values with computed
 const fullName = computed(() => `${first()} ${last()}`);
@@ -320,6 +343,9 @@ todos().push(newTodo); // ❌
 
 // Assume a signal read outside an effect will "track" something
 name(); // just reads, no tracking outside an active effect/computed
+
+// Pass an updater function — signals do not accept callbacks
+todos(prev => [...prev, newTodo]); // ❌ stores the function, not the array
 ```
 
 ---
@@ -430,3 +456,5 @@ With **three primitives** — `signal`, `computed`, `local`:
 - ✅ **Debuggable** — clear data flow.
 
 Complex state is built by **composing signals**, not by wrapping objects. This gives you the same power as reactive proxies with better control and fewer surprises.
+
+Signals are plain getter/setters. There is **no updater callback** — always read the current value, compute the next one, and write it back. This is one extra character in the common case (`count(count() + 1)`) and avoids a whole category of bugs around stale closures and accidental function values.

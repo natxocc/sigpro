@@ -76,7 +76,7 @@ mount(App, '#app');
 
 ### 3. Dynamic Segments
 
-Any segment starting with `:` captures the corresponding part of the URL.
+Any segment starting with `:` captures the corresponding part of the URL. Captured values are decoded with `decodeURIComponent`.
 
 ```javascript
 const UserProfile = (params) => div(
@@ -93,7 +93,7 @@ const App = router([
 mount(App, '#app');
 ```
 
-If the URL is `#/user/42`, `params.id` is `"42"`.
+If the URL is `#/user/42`, `params.id` is `"42"`. If the URL is `#/user/hello%20world`, `params.id` is `"hello world"`. If the segment is malformed (`#/user/%zz`), the raw value is used (`"%zz"`).
 
 ### 4. Multiple Params
 
@@ -112,7 +112,7 @@ Any number of `:param` segments can appear in a route.
 
 ### 5. Catch-All
 
-A route with `path: '*'` matches anything not caught by earlier routes. Put it last.
+A route with `path: '*'` matches anything not caught by earlier routes.
 
 ```javascript
 router([
@@ -121,6 +121,12 @@ router([
   { path: '*',       component: () => h1('404') }
 ]);
 ```
+
+> **Route priority is automatic.** The router sorts the routes at construction:
+> 1. `*` always ends up last.
+> 2. Among non-`*` routes, the one with fewer `:param` segments wins.
+>
+> So `[{ path: '/about' }, { path: '/:id' }]` and `[{ path: '/:id' }, { path: '/about' }]` behave identically — `/about` wins for URL `/about`, `/:id` wins for `/42`. You don't need to sort manually; keep the `*` route in the list and let the router do its thing.
 
 ---
 
@@ -136,6 +142,8 @@ router.to('/user/42');   // → '#/user/42'
 router.to('#/user/42');  // same
 ```
 
+**Query strings are preserved in the URL but ignored for route matching.** `router.to('/users?page=2')` sets `#/users?page=2`; the route `/users` matches; the URL keeps `?page=2`; `routerParams()` is `{}` (the query is not part of params). Read the query separately with `currentPath()` if you need it.
+
 ### `router.back()`
 
 Calls `window.history.back()`.
@@ -146,10 +154,10 @@ button({ onclick: () => router.back() }, '← Back');
 
 ### `router.path()`
 
-Returns the current path as a string, without the leading `#`.
+Returns the current path as a string, without the leading `#`. **Includes the query string** if present.
 
 ```javascript
-console.log(router.path()); // "/user/42"
+console.log(router.path()); // "/user/42"  or  "/users?page=2"
 ```
 
 ### Links
@@ -169,8 +177,8 @@ No special handling is required — the router listens to `hashchange`.
 
 Two signals are exported for reading the current route anywhere in your app:
 
-- **`currentPath`** — the current path string.
-- **`routerParams`** — the current route parameters object.
+- **`currentPath`** — the current path string, including query string.
+- **`routerParams`** — the current route parameters object (the same object passed to the route component as `props`).
 
 ### `currentPath`
 
@@ -190,7 +198,9 @@ import { routerParams } from 'sigpro';
 h2(() => `Slug: ${routerParams().slug}`);
 ```
 
-`routerParams()` returns the params object of the currently matched route. When the route changes, this signal updates and any element reading it re-renders.
+`routerParams()` returns the params object of the currently matched route. It is `{}` before any route matches, or when the matched route has no dynamic segments (e.g. `/about`). When the route changes, this signal updates and any element reading it re-renders.
+
+> **Full re-mount on param change.** Navigating from `/user/42` to `/user/43` counts as a route change: the previous component instance is disposed (its effects stop, its listeners are removed) and the new instance is rendered from scratch. Any local state inside the route component — an open dropdown, a partially-filled form, a running animation — is lost. If you need to preserve state across param changes, keep it in a module-level signal or a store, not inside the route component body.
 
 ### Watching Route Changes
 
@@ -267,26 +277,26 @@ const NotFound = () => div(
   p('Page not found.')
 );
 
-const App = () => {
-  const route = router([
-    { path: '/',         component: Home },
-    { path: '/about',    component: About },
-    { path: '/user/:id', component: UserProfile },
-    { path: '*',         component: NotFound }
-  ]);
+const route = router([
+  { path: '/',         component: Home },
+  { path: '/about',    component: About },
+  { path: '/user/:id', component: UserProfile },
+  { path: '*',         component: NotFound }
+]);
 
-  return div({ class: 'layout' },
-    nav(
-      a({ href: '#/' }, 'Home'),
-      a({ href: '#/about' }, 'About'),
-      a({ href: '#/user/42' }, 'User 42')
-    ),
-    main(route())
-  );
-};
+const App = () => div({ class: 'layout' },
+  nav(
+    a({ href: '#/' }, 'Home'),
+    a({ href: '#/about' }, 'About'),
+    a({ href: '#/user/42' }, 'User 42')
+  ),
+  main(route())
+);
 
 mount(App, '#app');
 ```
+
+Note that `route` is created **once**, outside the component. Calling `route()` inside `App` creates the outlet element. This is the recommended pattern — creating a new router on every render of the layout would leak (a fresh `effectScope` and `hashchange` effect per render).
 
 ---
 
@@ -294,9 +304,9 @@ mount(App, '#app');
 
 | Function / Signal | Description |
 | :--- | :--- |
-| `router(routes)` | Returns a component. Call it as `router(routes)()` or pass to `mount`. |
+| `router(routes)` | Returns a component. Pass to `mount` or call inside another component as `Router()`. |
 | `router.to(path)` | Navigate to a path (updates `window.location.hash`). |
 | `router.back()` | Go back in browser history. |
-| `router.path()` | Current path string (no `#`). |
-| `currentPath` | Signal: current path. |
-| `routerParams` | Signal: current route parameters object. |
+| `router.path()` | Current path string (no `#`, includes query). |
+| `currentPath` | Signal: current path (with query). |
+| `routerParams` | Signal: current route params object (`{}` if none). |

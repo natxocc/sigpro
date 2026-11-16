@@ -1,6 +1,6 @@
 # Reactivity Control: `watch( )`
 
-The `watch` function lets you run a callback when a signal (or computed) changes value. It runs **outside** the normal effect flow and **skips the initial read by default** — only fires on actual changes.
+The `watch` function lets you run a callback when a signal (or computed) changes value. It is built on top of `effect`: internally it runs a reactive getter that reads `source()`, and compares the new value against the previous one with `Object.is`. It **skips the initial read by default** — only fires on actual changes.
 
 ## Function Signature
 
@@ -66,6 +66,14 @@ first('Grace'); // logs: "Ada Lovelace → Grace Lovelace"
 
 The getter is tracked inside an effect, so any signal it reads becomes a dependency.
 
+> **⚠️ Reference equality gotcha.** `watch` compares the getter's return value with `Object.is`. If the getter returns a **new object or array** on every run (`() => ({ a: a(), b: b() })` or `() => [a(), b()]`), `Object.is` will always be `false` — the callback fires on **every change of any dependency**, even if the values inside are identical. To avoid this, either:
+>
+> - Return a primitive (string, number, boolean) from the getter, which compares by value.
+> - Or serialize the result: `watch(() => JSON.stringify({ a: a(), b: b() }), ...)`.
+> - Or track dependencies manually with `effect` and compare yourself.
+>
+> For signals of primitives (`watch(count, ...)`), this is a non-issue.
+
 ### 3. Immediate Run
 
 By default `watch` skips the initial read. Use `immediate` to fire once at setup:
@@ -106,6 +114,25 @@ stop();
 
 If you create the watcher **inside a component** (inside a component function body, or inside an `effect`), it is automatically disposed when the enclosing scope is disposed. If you create it **outside** any scope (module top-level, `setTimeout`, event handler), you own its lifecycle — call the stop function yourself.
 
+### 5. Callback Runs Untracked
+
+The callback is invoked inside `untrack`, so any signal read **inside the callback** does **not** become a dependency of the watcher. This prevents accidental loops and hidden dependencies:
+
+```javascript
+const a = signal(0);
+const b = signal(0);
+
+watch(a, (value) => {
+  // b() is read inside the callback — it does NOT create a dependency.
+  console.log('a changed to', value, 'and b is', b());
+});
+
+b(99);   // watcher does NOT fire
+a(1);    // watcher fires once, logs b's current value
+```
+
+If you *want* the callback to re-run when another signal changes, use `effect` directly.
+
 ---
 
 ## `watch` vs `effect`
@@ -132,7 +159,7 @@ effect(() => {
 
 ## Synchronous Flush
 
-SigPro flushes effects **synchronously** by default. A signal write triggers dependent effects before the next line of code runs.
+SigPro flushes effects **synchronously** by default. A signal write triggers dependent effects (including `watch` callbacks) before the next line of code runs.
 
 ```javascript
 import { signal, watch } from 'sigpro';
@@ -169,6 +196,8 @@ batch(() => {
 // logs: "1 2"
 ```
 
+> **Note:** the getter `() => [a(), b()]` returns a **new array** on every run. As explained in the reference-equality note above, this means the callback fires on **every** change of `a` or `b`, even if the array's contents are the same as before. For grouping unrelated writes, that's fine; if you want to skip identical tuples, serialize them (`JSON.stringify`) or compare manually.
+
 `batch` defers the flush until the function returns. Effects run once at the end.
 
 ---
@@ -176,12 +205,14 @@ batch(() => {
 ## Key Points
 
 - **Signature:** `watch(source, cb, { immediate })`.
+- **Built on `effect`.** It is sugar for "run a getter, compare with `Object.is`, call the callback on change".
 - **Skips initial run** unless `{ immediate: true }`.
 - **Callback receives** `(newValue, oldValue)`. On the immediate first call, `oldValue` is `undefined`.
-- **Equality check** uses `Object.is`.
+- **Equality check** uses `Object.is`. Getters returning objects/arrays will always trigger (reference inequality).
+- **Callback runs untracked.** Signals read inside `cb` do not become dependencies.
 - **Stop function** returned. Call it to dispose.
 - **Synchronous flush** by default. Use `batch` to group writes.
-- **No "auto vs explicit" mode.** There is one signature. If you want to watch two signals together, use a getter that reads both.
+- **No "auto vs explicit" mode.** There is one signature. If you want to watch two signals together, use a getter that reads both (and be aware of the reference-equality caveat).
 
 ---
 
@@ -194,12 +225,12 @@ const count = signal(0);
 const step  = signal(1);
 const total = computed(() => count() * step());
 
-// Watch the raw signal
+// Watch the raw signal — primitive, compares by value.
 watch(count, (nuevo, viejo) => {
   console.log(`count: ${viejo} → ${nuevo}`);
 });
 
-// Watch a getter that reads several signals
+// Watch a getter that returns an object — will fire on any dep change.
 watch(
   () => ({ count: count(), total: total() }),
   (nuevo, viejo) => {
@@ -207,10 +238,21 @@ watch(
   }
 );
 
-count(5);      // logs: count 0 → 5, then state change
-step(2);       // logs: only state change (count didn't change)
+count(5);      // → "count: 0 → 5", then "state: {count:0,total:0} → {count:5,total:5}"
+step(2);       // → "state: {count:5,total:5} → {count:5,total:10}" (count watcher silent)
 batch(() => {
   count(10);
   step(3);
-});            // logs: one combined update
+});            // → "count: 5 → 10", then one "state: {count:5,total:10} → {count:10,total:30}"
 ```
+
+If the second watcher's object-comparison behavior is not what you want, switch its getter to a serialized string:
+
+```javascript
+watch(
+  () => JSON.stringify({ count: count(), total: total() }),
+  (nuevo, viejo) => console.log(`${viejo} → ${nuevo}`)
+);
+```
+
+Now it only fires when the *contents* differ, not on every dependency change.

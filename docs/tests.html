@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SigPro v2 — Test Suite</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", monospace;
+    background: #0d1117;
+    color: #e6edf3;
+    margin: 0;
+    padding: 40px 20px;
+    line-height: 1.5;
+  }
+  .container { max-width: 780px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  h2 { font-size: 0.85rem; font-weight: 400; color: #8b949e; margin: 0 0 32px; }
+  .test {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 18px;
+    margin-bottom: 8px;
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 8px;
+    transition: border-color .15s;
+  }
+  .test.pass { border-color: #238636; }
+  .test.fail { border-color: #da3633; }
+  .test.pending { opacity: 0.6; }
+  .icon { font-size: 1.1rem; flex-shrink: 0; width: 20px; text-align: center; }
+  .test.pass .icon { color: #3fb950; }
+  .test.fail .icon { color: #f85149; }
+  .test.pending .icon { color: #8b949e; }
+  .body { flex: 1; min-width: 0; }
+  .name { font-weight: 600; font-size: 0.9rem; }
+  .desc { font-size: 0.78rem; color: #8b949e; margin-top: 2px; }
+  .detail { font-size: 0.78rem; margin-top: 8px; padding: 8px 10px; background: #0d1117; border-radius: 4px; font-family: monospace; white-space: pre-wrap; word-break: break-word; }
+  .fail .detail { color: #f85149; }
+  .pass .detail { color: #3fb950; }
+  .summary {
+    margin-top: 24px;
+    padding: 16px 20px;
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 0.9rem;
+  }
+  .summary.ok { border-color: #238636; color: #3fb950; }
+  .summary.ko { border-color: #da3633; color: #f85149; }
+  button {
+    margin-top: 16px;
+    padding: 8px 16px;
+    background: #21262d;
+    color: #e6edf3;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85rem;
+  }
+  button:hover { background: #30363d; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>SigPro Test Suite</h1>
+  <h2 id="version">Cargando…</h2>
+  <div id="tests"></div>
+  <div id="summary"></div>
+  <button id="rerun" disabled>Re-run tests</button>
+</div>
+
+<div id="test-mount" style="display:none"></div>
+
+<script type="module">
+import * as SigPro from './sigpro.js';
+
+const {
+  signal, computed, effect, onMount, onError, batch, untrack, watch, local,
+  h, mount, unmount, exposeTags, cleanupNode,
+  router, currentPath, routerParams,
+  db,
+} = SigPro;
+
+exposeTags();
+const { div, input, span } = window;
+
+const tests = [
+  {
+    name: 'Boolean props apply correctly',
+    desc: 'input({ checked: false }) → el.checked === false',
+    fn: async () => {
+      const a = input({ type: 'checkbox', checked: true });
+      const b = input({ type: 'checkbox', checked: false });
+      document.body.appendChild(a); document.body.appendChild(b);
+      const ok = a.checked === true && b.checked === false;
+      a.remove(); b.remove();
+      if (!ok) throw new Error(`expected true/false, got ${a.checked}/${b.checked}`);
+    }
+  },
+  {
+    name: 'style with camelCase applies',
+    desc: 'style: { backgroundColor, fontSize } → computed style set',
+    fn: async () => {
+      const el = div({ style: { backgroundColor: 'red', fontSize: '20px' } });
+      document.body.appendChild(el);
+      const cs = getComputedStyle(el);
+      const ok = cs.backgroundColor === 'rgb(255, 0, 0)' && cs.fontSize === '20px';
+      el.remove();
+      if (!ok) throw new Error(`bg=${cs.backgroundColor} font=${cs.fontSize}`);
+    }
+  },
+  {
+    name: 'mount cleans previous children',
+    desc: 'mount() on a target with existing children does not leak',
+    fn: async () => {
+      const host = document.getElementById('test-mount');
+      host.innerHTML = '<span>viejo</span>';
+      const stop = mount(() => div('nuevo'), host);
+      const html = host.innerHTML;
+      stop();
+      host.innerHTML = '';
+      if (!html.includes('nuevo')) throw new Error(`mount did not render: ${html}`);
+    }
+  },
+  {
+    name: 'Router strips query string for matching',
+    desc: '/users?page=2 matches /users route, not *',
+    fn: async () => {
+      const host = document.getElementById('test-mount');
+      const stop = mount(
+        router([
+          { path: '/users', component: () => div({ id: 'users-view' }, 'users') },
+          { path: '*', component: () => div({ id: 'not-found' }, '404') }
+        ]),
+        host
+      );
+      currentPath('/users?page=2');
+      await new Promise(r => setTimeout(r, 20));
+      const hasUsers = !!document.getElementById('users-view');
+      const has404 = !!document.getElementById('not-found');
+      stop();
+      host.innerHTML = '';
+      currentPath('/');
+      if (!hasUsers) throw new Error('did not render /users');
+      if (has404) throw new Error('fell through to *');
+    }
+  },
+  {
+    name: 'Router decodes URI params',
+    desc: '/user/hello%20world → params.id === "hello world"',
+    fn: async () => {
+      const host = document.getElementById('test-mount');
+      let captured = null;
+      const stop = mount(
+        router([
+          { path: '/user/:id', component: (params) => { captured = params; return div('user'); } }
+        ]),
+        host
+      );
+      currentPath('/user/hello%20world');
+      await new Promise(r => setTimeout(r, 20));
+      stop();
+      host.innerHTML = '';
+      currentPath('/');
+      if (!captured) throw new Error('route component never ran');
+      if (captured.id !== 'hello world') throw new Error(`got ${JSON.stringify(captured.id)}`);
+    }
+  },
+  {
+    name: 'db sends FormData as multipart',
+    desc: 'db(url, formData) → body is FormData, no JSON Content-Type',
+    fn: async () => {
+      const original = window.fetch;
+      let captured = null;
+      window.fetch = async (url, opts) => {
+        captured = opts;
+        return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      };
+      try {
+        const fd = new FormData();
+        fd.append('name', 'test');
+        await db('/api/upload', fd);
+      } finally {
+        window.fetch = original;
+      }
+      if (!captured) throw new Error('fetch was not called');
+      if (!(captured.body instanceof FormData)) throw new Error('body is not FormData');
+      const ct = captured.headers?.['Content-Type'];
+      if (ct === 'application/json') throw new Error('Content-Type is wrongly application/json');
+    }
+  },
+  {
+    name: 'effect error is reported, app survives',
+    desc: 'throwing effect logs via console.error, does not crash',
+    fn: async () => {
+      const originalErr = console.error;
+      let captured = null;
+      console.error = (...args) => { captured = args; };
+      try {
+        effect(() => { throw new Error('boom'); });
+      } finally {
+        console.error = originalErr;
+      }
+      let ran = false;
+      const stop = effect(() => { ran = true; });
+      stop();
+      if (!captured) throw new Error('console.error was not called');
+      if (!ran) throw new Error('could not create an effect after the failure');
+    }
+  },
+  {
+    name: 'onMount cleanup runs on stop',
+    desc: 'onMount(fn).stop() executes fn\'s returned cleanup',
+    fn: async () => {
+      let cleaned = false;
+      const stop = onMount(() => () => { cleaned = true; });
+      stop();
+      if (!cleaned) throw new Error('cleanup did not run');
+    }
+  }
+];
+
+const $tests = document.getElementById('tests');
+const $summary = document.getElementById('summary');
+const $rerun = document.getElementById('rerun');
+const $version = document.getElementById('version');
+
+$version.textContent = `Running ${tests.length} checks against SigPro`;
+
+async function run() {
+  $rerun.disabled = true;
+  $tests.innerHTML = '';
+  $summary.innerHTML = '';
+  $summary.className = 'summary';
+
+  const rows = tests.map((t, i) => {
+    const el = document.createElement('div');
+    el.className = 'test pending';
+    el.innerHTML = `
+      <div class="icon">…</div>
+      <div class="body">
+        <div class="name">${i + 1}. ${t.name}</div>
+        <div class="desc">${t.desc}</div>
+      </div>
+    `;
+    $tests.appendChild(el);
+    return el;
+  });
+
+  let passed = 0;
+  for (let i = 0; i < tests.length; i++) {
+    const t = tests[i];
+    const row = rows[i];
+    try {
+      await t.fn();
+      row.className = 'test pass';
+      row.querySelector('.icon').textContent = '✓';
+      passed++;
+    } catch (err) {
+      row.className = 'test fail';
+      row.querySelector('.icon').textContent = '✕';
+      const detail = document.createElement('div');
+      detail.className = 'detail';
+      detail.textContent = err?.message || String(err);
+      row.querySelector('.body').appendChild(detail);
+    }
+  }
+
+  const total = tests.length;
+  const ok = passed === total;
+  $summary.className = 'summary ' + (ok ? 'ok' : 'ko');
+  $summary.textContent = ok
+    ? `✓ ${passed}/${total} passed — ready to publish`
+    : `✕ ${passed}/${total} passed — ${total - passed} failing`;
+  $rerun.disabled = false;
+}
+
+$rerun.addEventListener('click', run);
+run();
+</script>
+</body>
+</html>

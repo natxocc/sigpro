@@ -9,7 +9,7 @@ SigPro creates a wrapper function for each standard HTML tag, all pointing to `h
 - **Under the hood:** `h('button', { onclick: ... }, 'Click')`
 - **SigPro style:** `button({ onclick: ... }, 'Click')`
 
-> **Note:** Tag helpers are **not registered automatically**. Call `exposeTags()` once at startup to make them available on `window`.
+> **Note:** Tag helpers are **not registered automatically** and are **not named exports** of the module. Call `exposeTags()` once at startup to install them as globals on `window`.
 
 ```javascript
 import { exposeTags } from 'sigpro';
@@ -17,13 +17,15 @@ import { exposeTags } from 'sigpro';
 exposeTags(); // now window.div, window.button, window.span, etc. exist
 ```
 
-If you prefer to avoid globals, import them from the module instead:
+After `exposeTags()`, you can write `div(...)`, `button(...)`, `span(...)` directly in any script that runs in the same global context.
+
+If you prefer to avoid globals, use `h('div', ...)` — it's the underlying primitive and works identically:
 
 ```javascript
-import { div, button, span } from 'sigpro';
-```
+import { h } from 'sigpro';
 
-Or use `h('div', ...)` directly — it's perfectly fine and works identically.
+h('div', { class: 'box' }, 'Hello');
+```
 
 > **Auto-cleanup:** All tag helpers and `h` automatically track effects and event listeners on their nodes. When the node is removed via `unmount()`, a reactive child swap, or a scope dispose, its listeners and scopes are cleaned up. For external resources (`setInterval`, sockets), return a cleanup from an `effect()`.
 
@@ -44,7 +46,7 @@ All helpers are **lowercase** and follow HTML5 tag names.
 
 Full list: `a`, `abbr`, `article`, `aside`, `audio`, `b`, `blockquote`, `br`, `button`, `canvas`, `caption`, `cite`, `code`, `col`, `colgroup`, `datalist`, `dd`, `del`, `details`, `dfn`, `dialog`, `div`, `dl`, `dt`, `em`, `embed`, `fieldset`, `figcaption`, `figure`, `footer`, `form`, `h1`…`h6`, `header`, `hr`, `i`, `iframe`, `img`, `input`, `ins`, `kbd`, `label`, `legend`, `li`, `main`, `mark`, `meter`, `nav`, `object`, `ol`, `optgroup`, `option`, `output`, `p`, `picture`, `pre`, `progress`, `section`, `select`, `slot`, `small`, `source`, `span`, `strong`, `sub`, `summary`, `sup`, `table`, `tbody`, `td`, `template`, `textarea`, `tfoot`, `th`, `thead`, `time`, `tr`, `u`, `ul`, `video`.
 
-> **SVG is not in the global list.** SVG tags (`svg`, `path`, `circle`, `g`, `defs`, `linearGradient`, ...) are **detected by name in `h()`** and use the correct namespace automatically. Use `h('path', {...})` or import `svg` from the module. The auto-detection works even without `exposeTags()`.
+> **SVG is not in the global list.** SVG tags (`svg`, `path`, `circle`, `g`, `defs`, `linearGradient`, ...) are **detected by name inside `h()`** and use the correct namespace automatically. They are **not** installed as globals by `exposeTags()`. Use `h('path', {...})` or `h('svg', {...}, [h('path', {...})])`. The auto-detection works without `exposeTags()`.
 
 ---
 
@@ -102,9 +104,20 @@ div({
 });
 ```
 
+For `style`, both forms work: a reactive **string** (`'color: red'`) or a reactive **object** with camelCase keys, which is diffed per property:
+
+```javascript
+div({
+  style: () => ({
+    backgroundColor: count() > 10 ? 'red' : 'blue',
+    '--progress': `${count()}%`   // CSS variables via setProperty
+  })
+});
+```
+
 ### D. Reactive Children
 
-Pass a function as a child. It re-runs on dependency change and only the affected nodes are swapped.
+Pass a function as a child. It re-runs on dependency change. The previous nodes are cleaned up (via `cleanupNode`) and removed, then the new nodes are inserted before the anchor comment.
 
 ```javascript
 div({}, () => count() > 0 ? span('positive') : span('zero or negative'));
@@ -188,6 +201,8 @@ textarea({ onkeydown: e => e.key === 'Tab' && e.preventDefault() });
 
 Listeners are stored on the element (`el._cln`) and removed automatically when the node is cleaned up via `unmount()`, a reactive child swap, or a scope dispose.
 
+> **Validation:** an `on*` prop whose value is not a function logs a `console.error` and is skipped. It does not break the render.
+
 ---
 
 ## 6. Summary Cheat Sheet
@@ -198,7 +213,8 @@ Listeners are stored on the element (`el._cln`) and removed automatically when t
 | Use a specific tag | `div(props, ...children)` |
 | Use only children | `div('Hello')` or `div([a, b])` |
 | Reactive attribute | `class: () => active() ? 'on' : 'off'` |
-| Reactive style | `style: () => open() ? '' : 'display:none'` |
+| Reactive style (string) | `style: () => open() ? '' : 'display:none'` |
+| Reactive style (object) | `style: () => ({ backgroundColor: active() ? 'red' : 'blue' })` |
 | Reactive child | `div({}, () => cond() ? A() : B())` |
 | Event handler | `onclick: fn`, `oninput: fn` (lowercase) |
 | Custom component | `const Card = (props, children) => div(props, children)` |

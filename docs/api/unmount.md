@@ -14,7 +14,7 @@ unmount(node: Node): void
 
 **Returns:** nothing.
 
-> **Availability:** `unmount` is exported from the SigPro module. Import it by name (`import { unmount } from 'sigpro'`).
+> **Availability:** `unmount` is exported from the SigPro module. Import it by name (`import { unmount } from 'sigpro'`). Tag helpers (`div`, `button`, ...) are globals after `exposeTags()` — they are **not** named exports.
 
 ---
 
@@ -35,11 +35,11 @@ If you render everything through `h()`, you never call `unmount`. The reactive p
 Given a node, `unmount` walks the subtree (the node itself plus every descendant) and for each node:
 
 1. **Stops its scope.** If the node was created by a component (via `h(Component)`), its `effectScope` is disposed. Every effect and computed created during that component's render is torn down.
-2. **Removes event listeners.** Every `addEventListener` added by `h()` is tracked on the element. `unmount` removes them all.
-3. **Removes reactive children.** Any child rendered by a function is disposed, running its cleanup and removing the nodes it produced.
+2. **Runs its `_cln` cleanups.** Every `addEventListener` added by `h()` is tracked on the element's `_cln` array. `unmount` runs them all, removing each listener.
+3. **Cleans reactive children.** Any child rendered by a function is disposed, running its cleanup and removing the nodes it produced.
 4. **Recurses into descendants.** Every child node is treated the same way.
 
-After the cleanup, the node is detached from its parent with `parentNode.removeChild(node)`.
+After the cleanup, the node is detached from its parent with `parentNode.removeChild(node)`. If the node is not in the DOM, the cleanup still runs — only the `removeChild` call is skipped.
 
 ---
 
@@ -51,7 +51,7 @@ import { unmount } from 'sigpro';
 unmount(document.querySelector('.widget'));
 ```
 
-If the node is not in the DOM, the cleanup still runs — only the `removeChild` call is skipped.
+If the argument is not a `Node` (e.g. `null`), the call is a no-op and nothing throws.
 
 ---
 
@@ -60,34 +60,63 @@ If the node is not in the DOM, the cleanup still runs — only the `removeChild`
 The core case where `unmount` matters:
 
 ```javascript
-import { unmount, on } from 'sigpro';
+import { unmount } from 'sigpro';
 
 const el = document.createElement('div');
 el.textContent = 'Hand-made node';
-
-const handler = () => console.log('clicked');
-el.addEventListener('click', handler);
+el.addEventListener('click', () => console.log('clicked'));
 
 document.body.appendChild(el);
 
-// Later — the listener would leak if we just removed the element
+// Later
 unmount(el);
 ```
 
 Without `unmount`, `el.remove()` would detach the node but leave the listener attached to a node that's now garbage. The GC usually collects it, but if anything holds a reference to `el`, the listener stays alive and the closure it captures stays alive with it.
 
-With `unmount`, the tracked listener is removed before detaching.
+> **Note:** `addEventListener` called directly on an element is **not** tracked by SigPro — `unmount` only runs `_cln` cleanups, and direct `addEventListener` calls don't register there. If you add listeners by hand, you own their removal. Use the `on()` helper below if you want `unmount` to handle them.
 
-> **Note:** `addEventListener` called directly on an element is **not** tracked by SigPro. Only listeners added through `h()` are. If you add listeners by hand, you own their removal — or use the `on()` helper (see below).
+---
+
+## The `on()` Helper (Userland)
+
+If you're creating nodes outside `h()` and want SigPro's cleanup to cover their listeners, define a small `on` helper that writes to the element's `_cln` array — the same mechanism `h()` uses internally:
+
+```javascript
+export const on = (el, ev, fn) => {
+  el.addEventListener(ev, fn);
+  const off = () => el.removeEventListener(ev, fn);
+  (el._cln || (el._cln = [])).push(off);
+  return off;
+};
+```
+
+Now `unmount` will remove those listeners automatically:
+
+```javascript
+import { unmount } from 'sigpro';
+import { on } from './on.js';
+
+const el = document.createElement('div');
+on(el, 'click', () => console.log('clicked'));
+on(el, 'mouseover', () => console.log('hovered'));
+
+document.body.appendChild(el);
+
+// Later — both listeners removed
+unmount(el);
+```
+
+> **Caveat:** `_cln` is an internal implementation detail. It's stable in the current version, but if you prefer not to depend on it, track your listeners in your own array and remove them in a custom cleanup.
 
 ---
 
 ## Integration with External Libraries
 
-A chart library returns a canvas element you need to insert and later remove:
+A chart library returns a canvas element you need to insert and later remove. Assuming `exposeTags()` has been called:
 
 ```javascript
-import { unmount, div, button, effect, signal } from 'sigpro';
+import { unmount, effect, signal } from 'sigpro';
 
 const Chart = () => {
   const chart = signal(null);
@@ -99,8 +128,6 @@ const Chart = () => {
 
     return () => {
       instance.destroy();  // library's own cleanup
-      // The canvas node itself has no SigPro scopes,
-      // but if it did, they'd be cleaned up by the parent unmount.
     };
   });
 
@@ -121,10 +148,10 @@ They serve different purposes:
 
 | Function | Removes | Disposes |
 | :--- | :--- | :--- |
-| `mount(Component, target)` returns a stop function | The target's children | The root scope of the mount |
-| `unmount(node)` | The node itself | The node's subtree of scopes |
+| `mount(Component, target)` returns a stop function | The target's children (including manually added ones, via `replaceChildren`) | The root scope of the mount, plus `_cln`/`_stopScope` on the nodes it created |
+| `unmount(node)` | The node itself (via `removeChild`) | The node's subtree of scopes and `_cln` cleanups |
 
-The stop function from `mount` only knows about the app it mounted. If you later added a node to that target manually and want it gone, `unmount(node)` on that node is what removes it.
+The stop function from `mount` only knows about the nodes it created. If you later added a node to that target manually and want its scopes cleaned up, `unmount(node)` on that node is what does it.
 
 Example:
 
@@ -142,43 +169,30 @@ Order doesn't strictly matter, but cleaning up the small thing before the big th
 
 ---
 
-## `on()` — Registering Listeners You Own
+## `cleanupNode()` — Cleanup Without Detaching
 
-If you're creating a node outside `h()` and want SigPro to track its listeners so `unmount` handles them, use the `on` helper instead of `addEventListener`:
-
-```javascript
-import { on, unmount } from 'sigpro';
-
-const el = document.createElement('div');
-
-on(el, 'click', () => console.log('clicked'));
-on(el, 'mouseover', () => console.log('hovered'));
-
-document.body.appendChild(el);
-
-// Later
-unmount(el); // removes both listeners
-```
-
-`on()` is not part of the core module — it's a small wrapper you can define yourself:
+If you want the same recursive cleanup as `unmount` but **without removing the node from the DOM**, use `cleanupNode()`:
 
 ```javascript
-export const on = (el, ev, fn) => {
-  el.addEventListener(ev, fn);
-  const off = () => el.removeEventListener(ev, fn);
-  (el._cln || (el._cln = [])).push(off);
-  return off;
-};
+import { cleanupNode } from 'sigpro';
+
+cleanupNode(el);   // stops scopes + removes listeners, el stays in place
 ```
 
-The `_cln` array is what `unmount` reads. This is the same mechanism `h()` uses internally to track listeners.
+This is useful when you want to reuse the node (e.g. re-insert it elsewhere) but its previous effects and listeners should be dead.
+
+| Function | Detaches from DOM | Cleans subtree |
+| :--- | :--- | :--- |
+| `unmount(node)` | ✅ | ✅ |
+| `cleanupNode(node)` | ❌ | ✅ |
 
 ---
 
 ## What `unmount` Does Not Do
 
 - **Does not remove siblings.** It removes the node and cleans up its subtree. Siblings are untouched.
-- **Does not stop external resources.** If an effect inside the subtree created an `setInterval`, the effect's cleanup runs (which should call `clearInterval`). But if you created the interval **outside** an effect, SigPro doesn't know about it. Return a cleanup from an effect to make it tracked.
+- **Does not stop external resources.** If an effect inside the subtree created a `setInterval`, the effect's cleanup runs (which should call `clearInterval`). But if you created the interval **outside** an effect, SigPro doesn't know about it. Return a cleanup from an effect to make it tracked.
+- **Does not clear `ref` values.** If you passed `ref: { current: null }`, the object still points to the (now detached) node. Clear it yourself if needed.
 - **Does not affect other references.** If you hold a reference to the node in a variable, the variable still points to it. The node is just detached from the DOM.
 - **Does not run on the root of a component you still want.** Once unmounted, the component is gone. If you want to re-show it, create it again.
 
@@ -198,8 +212,9 @@ unmount(el);
 If a component was mounted into a detached container, its scope is still alive even if the container is not in the DOM. `unmount` handles it:
 
 ```javascript
-const container = div({}, ...);
-// container is a component root, sitting detached
+import { unmount } from 'sigpro';
+
+const container = div({}, ...);   // after exposeTags(), or use h('div', ...)
 document.body.appendChild(container);
 
 // Later:
@@ -208,27 +223,26 @@ unmount(container); // scopes are stopped, listeners removed
 
 ### Integration with Modal / Toast Systems
 
-Some toast libraries own the DOM node they insert. Others don't. When they don't:
+When the toast library doesn't own the node you insert, clean it up yourself:
 
 ```javascript
-// Create the toast node yourself with SigPro
-import { unmount, div, signal } from 'sigpro';
+import { unmount, signal } from 'sigpro';
 
 const toast = signal(null);
 
 const show = () => {
-  const el = div({ class: 'toast' }, 'Hello');
+  const el = div({ class: 'toast' }, 'Hello');   // after exposeTags()
   document.body.appendChild(el);
   toast(el);
 
   setTimeout(() => {
-    if (toast()) unmount(toast());
+    unmount(toast());   // no-op if toast() is null
     toast(null);
   }, 3000);
 };
 ```
 
-`unmount` ensures that if the toast contained reactive children or listeners, they're cleaned up at removal time.
+`unmount` ensures that if the toast contained reactive children or listeners, they're cleaned up at removal time. `unmount(null)` is safe (the guard `if (!(node instanceof Node)) return` prevents errors).
 
 ---
 
@@ -238,7 +252,7 @@ const show = () => {
 | :--- | :--- |
 | Remove a node created by `h()` | Just let the parent dispose — no need to call `unmount` |
 | Remove a hand-made node | `unmount(el)` |
-| Track listeners on a hand-made node | `on(el, 'click', fn)` before `unmount` |
+| Clean a node's scopes/listeners without detaching | `cleanupNode(el)` |
+| Track listeners on a hand-made node | Define an `on(el, ev, fn)` helper that writes to `el._cln` |
 | Stop the whole app | `const stop = mount(...); stop()` |
 | Clean up after a library | library's own destroy, then let SigPro's scope handle the rest |
-

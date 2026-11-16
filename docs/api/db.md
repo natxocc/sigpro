@@ -1,6 +1,6 @@
 # HTTP Helper: `db`
 
-A small JSON fetch wrapper for the common cases: GET, POST, loading state, and abort. It is not a full HTTP client — just enough to cover 90% of app requests with one function call.
+A small fetch wrapper for the common cases: GET, POST, JSON/multipart/form-encoded bodies, loading state, and abort. It is not a full HTTP client — just enough to cover 90% of app requests with one function call.
 
 ## Signature
 
@@ -16,11 +16,11 @@ db<T = any>(
 | Parameter | Type | Required | Description |
 | :--- | :--- | :--- | :--- |
 | **`url`** | `string` | Yes | Request URL. |
-| **`data`** | `any` | No | If provided, the request is a **POST** with `data` as JSON body. If omitted or `null`, the request is a **GET**. |
+| **`data`** | `any` | No | If provided, the request is a **POST**. If omitted or `null`, the request is a **GET**. Accepted types: plain object/array/primitive (sent as JSON), `FormData` (multipart), `Blob`/`File` (binary), `URLSearchParams` (form-encoded). |
 | **`loading`** | `(loading: boolean) => void` | No | Called with `true` before the request and `false` after, in a `finally` block. Receives the same value on success and error. |
 | **`signal`** | `AbortSignal` | No | Standard `AbortSignal` for cancellation. Pass `controller.signal` from an `AbortController`. |
 
-**Returns:** a `Promise<T>` resolving to the parsed JSON body.
+**Returns:** a `Promise<T>` resolving to the parsed JSON body, or `null` for 204/205 responses.
 
 > **Availability:** `db` is exported from the SigPro module. Import it by name: `import { db } from 'sigpro'`.
 
@@ -29,12 +29,18 @@ db<T = any>(
 ## Behavior
 
 - **Method.** POST if `data` is provided, GET otherwise.
-- **Headers.** Always sends `Content-Type: application/json`.
-- **Body.** `JSON.stringify(data)` when POST, `undefined` when GET.
+- **Headers.** `Content-Type: application/json` for JSON bodies. For `FormData`, `Blob`/`File`, and `URLSearchParams`, the `Content-Type` header is left for the browser to set (so the multipart boundary is correct).
+- **Body.**
+  - Plain object/array/primitive → `JSON.stringify(data)`.
+  - `FormData` / `Blob` / `File` / `URLSearchParams` → sent as-is.
 - **Credentials.** Always `include`, so cookies and auth headers are sent for same-origin and CORS-enabled requests.
-- **Response.** `await res.json()` — the response is always parsed as JSON.
-- **Errors.** If `res.ok` is `false`, throws an `Error` with message `Error {status}: {text}`, where `{text}` is the response body as text.
-- **Loading.** If `loading` is provided, it is called with `true` before the request and `false` in a `finally` block, so it fires on both success and error.
+- **Response.** Parsed as JSON. Returns `null` for 204 (No Content) and 205 (Reset Content).
+- **Errors.** If `res.ok` is `false`, throws an `Error` with:
+  - `message`: `"HTTP {status}"`
+  - `status`: the numeric HTTP status
+  - `statusText`: the status text (e.g. `"Not Found"`)
+- **Loading.** If `loading` is provided, it is called with `true` before the request and `false` in a `finally` block, so it fires on both success and error (including aborts).
+- **Only `null` and `undefined` produce a GET.** Any other value — including `0`, `''`, and `false` — produces a POST with that value serialized as body. If you need a GET with a default query, build the URL yourself.
 
 ---
 
@@ -48,10 +54,34 @@ import { db } from 'sigpro';
 const users = await db('/api/users');
 ```
 
-### POST
+### POST (JSON)
 
 ```javascript
 const created = await db('/api/users', { name: 'Ada', role: 'admin' });
+```
+
+### File upload (FormData)
+
+```javascript
+const form = new FormData();
+form.append('file', fileInput.files[0]);
+form.append('name', 'avatar');
+
+await db('/api/upload', form);
+// Content-Type: multipart/form-data with boundary (set by browser)
+```
+
+### Form-encoded (URLSearchParams)
+
+```javascript
+await db('/api/search', new URLSearchParams({ q: 'foo', page: '2' }));
+// Content-Type: application/x-www-form-urlencoded
+```
+
+### Binary (Blob/File)
+
+```javascript
+await db('/api/raw', new Blob([buffer], { type: 'application/octet-stream' }));
 ```
 
 ### With Loading State
@@ -174,7 +204,7 @@ Every keystroke aborts the previous request before starting a new one.
 
 ## Error Handling
 
-`db` throws on non-OK responses, network failures, and JSON parse errors. Wrap in try/catch:
+`db` throws on non-OK responses, network failures, and JSON parse errors. The thrown `Error` carries the HTTP status code and status text, so you can branch on them without parsing the message.
 
 ```javascript
 try {
@@ -182,32 +212,36 @@ try {
 } catch (err) {
   if (err.name === 'AbortError') {
     // cancelled
+  } else if (err.status === 401) {
+    // unauthorized — redirect to login
+  } else if (err.status >= 500) {
+    // server error — show retry UI
   } else {
-    console.error(err.message); // "Error 401: Unauthorized" or similar
+    console.error(err.status, err.statusText, err.message);
   }
 }
 ```
 
-The error message includes the HTTP status and the response body text, so you can log it directly.
+### Structured error helper
 
-For more structured error handling, wrap `db` in your own helper:
+Wrap `db` for app-wide error handling:
 
 ```javascript
 const api = {
   async get(url) {
-    const res = await db(url);
-    return res;
+    return db(url);
   },
   async post(url, data) {
-    const res = await db(url, data);
-    return res;
+    return db(url, data);
   }
 };
 
 try {
   const users = await api.get('/api/users');
 } catch (err) {
-  // centralized error UI, logging, retry, etc.
+  if (err.status === 401) redirectToLogin();
+  else if (err.status >= 500) showRetryToast();
+  else console.error(err);
 }
 ```
 
@@ -226,7 +260,7 @@ await db('/api/users', null, loading);
 let isLoading = false;
 await db('/api/users', null, (v) => isLoading = v);
 
-// Multiple loaders
+// Multiple loaders (e.g. counter for parallel requests)
 const fetching = signal(false);
 const progress = { active: 0 };
 await db('/api/users', null, (v) => {
@@ -242,8 +276,7 @@ The callback is invoked synchronously before the request starts and again in a `
 ## What `db` Is Not
 
 - **Not a full HTTP client.** No custom methods (PUT, PATCH, DELETE), no custom headers, no query string builder, no response streaming, no retry, no interceptors.
-- **Not JSON-only aware.** It assumes the response is JSON. If the server returns text, HTML, or a file, `res.json()` throws.
-- **Not for file uploads.** No `FormData` support — the body is always `JSON.stringify(data)`.
+- **Not content-type aware on responses.** It always parses the response as JSON. If the server returns text, HTML, or a file, `res.json()` throws — use `fetch` directly for those.
 - **Not a router-aware fetcher.** No base URL, no path params, no automatic auth headers.
 
 For anything beyond the basics, use `fetch` directly or wrap `db`:
@@ -268,10 +301,12 @@ const api = async (method, path, body) => {
 | Goal | Code |
 | :--- | :--- |
 | GET | `await db('/api/users')` |
-| POST | `await db('/api/users', { name: 'Ada' })` |
+| POST JSON | `await db('/api/users', { name: 'Ada' })` |
+| POST FormData (file upload) | `await db('/api/upload', formData)` |
+| POST form-encoded | `await db('/api/search', new URLSearchParams({ q: 'foo' }))` |
+| POST binary | `await db('/api/raw', blob)` |
 | With loading signal | `await db(url, null, loading)` |
 | With abort | `db(url, null, null, controller.signal)` |
-| Error handling | `try { ... } catch (err) { ... }` |
+| Check HTTP status | `err.status === 401` |
 | Cancel previous request | `controller?.abort(); controller = new AbortController();` |
 | Custom method / headers | Use `fetch` directly |
-

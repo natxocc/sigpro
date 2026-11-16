@@ -12,9 +12,7 @@ Choose the method that best fits your workflow:
 
 ```bash
 npm install sigpro
-
-or
-
+# or
 bun add sigpro
 ```
 
@@ -39,7 +37,7 @@ bun add sigpro
 
 ## 2. Quick Start Examples
 
-SigPro uses **lowercase** Tag Helpers (e.g., `div`, `button`) to keep the syntax close to raw HTML, while still being pure JavaScript functions. Tag helpers are registered as globals when you call `exposeTags()` once at startup. You can also import them by name from the module.
+SigPro uses **lowercase** Tag Helpers (e.g., `div`, `button`) to keep the syntax close to raw HTML, while still being pure JavaScript functions. Tag helpers are **not** named exports of the module — they are installed as globals on `window` when you call `exposeTags()` once at startup. If you prefer to avoid globals, use the `h()` primitive directly: `h('div', { ... }, ...)`.
 
 <div class="tabs tabs-box w-full mt-8 mb-12 bg-base-200/50 p-2 rounded-xl border border-base-300">
   <input type="radio" name="quick_start_tabs" class="tab !rounded-lg" aria-label="ESM" checked />
@@ -49,7 +47,7 @@ SigPro uses **lowercase** Tag Helpers (e.g., `div`, `button`) to keep the syntax
 // App.js
 import { signal, mount, exposeTags } from "sigpro";
 
-exposeTags();
+exposeTags();   // installs div, h1, button, ... as globals
 
 const App = () => {
   const count = signal(0);
@@ -104,6 +102,8 @@ mount(App, "#app");
   </div>
 </div>
 
+> **No build step required.** SigPro ships as plain ES Modules. You can import it from a CDN with no bundler at all, or run it through Vite/esbuild/whatever you already use. Only add a build step if you want minification and tree-shaking for production.
+
 ---
 
 ## 3. Why no build step?
@@ -120,7 +120,7 @@ Because SigPro uses **native ES Modules** and standard JavaScript functions to g
 - **Lazy Computed**: `computed()` recomputes on read and only when dependencies actually changed. No wasted work.
 - **Native Web Standards**: Everything is a standard JS function. No custom template syntax to learn.
 - **Zero Magic**: No hidden compilers, no overloaded operators. What you write is what runs in the browser.
-- **Global by Design** (with control): Tag helpers become globals when you call `exposeTags()`, or you can import them by name. You choose.
+- **Globals Optional**: Tag helpers become globals when you call `exposeTags()`. If you prefer no globals, use `h('div', ...)` directly. You choose.
 
 ---
 

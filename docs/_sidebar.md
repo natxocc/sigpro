@@ -1,25 +1,24 @@
 * [**Home**](README.md)
 
-* **Introduction**
+* **Getting Started**
   * [Installation](install.md)
   * [Quick Start](api/quick.md)
-  * [Router](router.md)
 
-* **Reactivity**
+* **Core**
   * [Signals, Computed & Local](api/signal.md)
   * [Effects](api/effects.md)
   * [watch](api/watch.md)
-
-* **DOM**
   * [h](api/h.md)
   * [Tags](api/tags.md)
   * [mount](api/mount.md)
   * [unmount](api/unmount.md)
 
 * **Built-ins**
+  * [Router](router.md)
   * [i18n](api/i18n.md)
   * [db](api/db.md)
+  * [HMR](api/hmr.md)
 
-* **Concepts**
+* **Guides**
   * [Global Store](api/global.md)
   * [HTML Converter](convert.md)

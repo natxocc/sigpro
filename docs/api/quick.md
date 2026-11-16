@@ -4,15 +4,14 @@
 
 ### `signal(value)` – Writable Signal
 
-Creates a reactive signal. Call with no args to read, with a value or updater function to write.
+Creates a reactive signal. Call with no args to read, with a value to write.
 
 ```javascript
 import { signal } from 'sigpro';
 
 const count = signal(0);
-count();              // read → 0
-count(5);             // write
-count(c => c + 1);    // updater
+count();     // read → 0
+count(5);    // write
 ```
 
 ### `computed(getter)` – Lazy Derived Value
@@ -46,6 +45,8 @@ theme('dark');    // writes to signal + localStorage
 
 Runs `fn` reactively. Re-executes when tracked dependencies change. `fn` may return a **cleanup function** that runs before the next re-execution and on stop.
 
+If `fn` throws, the effect is disposed (`flags = None`), its dependencies are removed, and the error is forwarded to `onError` (or `console.error`). A dead effect does **not** re-run.
+
 ```javascript
 import { signal, effect } from 'sigpro';
 
@@ -60,21 +61,31 @@ count(5);   // → "cleanup", then "5"
 stop();     // → "cleanup"
 ```
 
-### `effectScope(fn)` – Scope Grouping
+### `onMount(fn)` – Run Once on Mount
 
-Groups child effects so they can be stopped together with a single call. Does **not** track dependencies and does **not** re-execute. Returns a dispose function.
+Runs `fn` once when the effect is created, without tracking any reads. `fn` may return a cleanup that runs on parent unmount. Returns the effect disposer.
+
+Useful for initializing external libraries (charts, maps, editors):
 
 ```javascript
-import { signal, effect, effectScope } from 'sigpro';
+import { onMount } from 'sigpro';
 
-const count = signal(0);
-
-const dispose = effectScope(() => {
-  effect(() => console.log('A:', count()));
-  effect(() => console.log('B:', count()));
+onMount(() => {
+  const chart = new Chart(el, config);
+  return () => chart.destroy();   // cleanup on unmount
 });
+```
 
-dispose(); // stops both effects
+### `onError(handler)` – Global Error Handler
+
+Sets a global handler called when an `effect`, `h()` component, or router component throws. `where` is the throwing function (for debugging). Without a handler, errors go to `console.error('[sigpro] error in', where, err)`.
+
+```javascript
+import { onError } from 'sigpro';
+
+onError((err, where) => {
+  Sentry.captureException(err, { extra: { where: where?.name } });
+});
 ```
 
 ### `watch(source, cb, options?)` – Value Watcher
@@ -150,7 +161,6 @@ h('div', {}, [child1, child2]); // arrays are flattened
 | Reactive style | `style: () => open() ? '' : 'display:none'` |
 | Reactive children | `h('div', {}, () => count() > 0 ? A() : B())` |
 | Refs | `ref: el => ...` or `ref: { current: null }` |
-| `innerHTML` | `html: () => markdown(source())` |
 | SVG | Auto-detected by tag name (`svg`, `circle`, `path`, ...) |
 
 **No two-way binding.** Wire explicitly:
@@ -161,7 +171,12 @@ input({
 });
 ```
 
-**No XSS sanitization.** SigPro does not filter URLs. Sanitization is the programmer's responsibility.
+**Security defaults:**
+
+- `innerHTML`, `outerHTML`, `srcdoc` are **ignored** (blocklist).
+- URL props (`href`, `src`, `action`, `formAction`, `poster`, `data`, `xlink:href`) are restricted to `http(s)`, `mailto`, `tel`, `blob`, and safe `data:image/*` for images.
+- `target="_blank"` on `<a>` gets `rel="noopener noreferrer"` automatically.
+- `on*` props that are not functions log an error and are skipped.
 
 ### `exposeTags(target?)` – Register Global Tag Helpers
 
@@ -181,7 +196,7 @@ div({ class: 'container' }, [
 
 **Full list of tags**: `a`, `abbr`, `article`, `aside`, `audio`, `b`, `blockquote`, `br`, `button`, `canvas`, `caption`, `cite`, `code`, `col`, `colgroup`, `datalist`, `dd`, `del`, `details`, `dfn`, `dialog`, `div`, `dl`, `dt`, `em`, `embed`, `fieldset`, `figcaption`, `figure`, `footer`, `form`, `h1`–`h6`, `header`, `hr`, `i`, `iframe`, `img`, `input`, `ins`, `kbd`, `label`, `legend`, `li`, `main`, `mark`, `meter`, `nav`, `object`, `ol`, `optgroup`, `option`, `output`, `p`, `picture`, `pre`, `progress`, `section`, `select`, `slot`, `small`, `source`, `span`, `strong`, `sub`, `summary`, `sup`, `table`, `tbody`, `td`, `template`, `textarea`, `tfoot`, `th`, `thead`, `time`, `tr`, `u`, `ul`, `video`.
 
-**SVG tags** (`svg`, `path`, `circle`, `g`, `defs`, `linearGradient`, ...) are detected by name and use the correct namespace automatically. They are **not** exposed as globals — use `h('path', {...})` or `svg({...}, [h('path', {...})])`.
+**SVG tags** (`svg`, `path`, `circle`, `g`, `defs`, `linearGradient`, ...) are detected by name and use the correct namespace automatically. They are **not** exposed as globals — use `h('path', {...})` or `h('svg', {...}, [h('path', {...})])`.
 
 ---
 
@@ -212,7 +227,7 @@ ul({}, () =>
 );
 ```
 
-For small lists, this is enough. For large reordering lists with DOM state (inputs, scroll, focus), keyed reconciliation with LIS is on the roadmap — not in the current core.
+For small lists, this is enough. For large reordering lists with DOM state (inputs, scroll, focus), keyed reconciliation is **not** in the current core — use a userland helper.
 
 ---
 
@@ -245,9 +260,19 @@ import { unmount } from 'sigpro';
 unmount(document.querySelector('.widget'));
 ```
 
+### `cleanupNode(node)` – Recursive Cleanup Only
+
+Same traversal as `unmount` but **does not detach** the node from the DOM. Useful when you want to clear listeners/scopes and reinsert the node elsewhere.
+
+```javascript
+import { cleanupNode } from 'sigpro';
+
+cleanupNode(node);   // stops scopes + removes listeners, node stays in place
+```
+
 ### No Auto-Replace on Same Target
 
-SigPro does **not** track mounted targets. Calling `mount` twice on the same target leaves the old scope alive. **Keep the stop function** and call it before remounting:
+SigPro does **not** track mounted targets. Calling `mount` twice on the same target cleans up existing children (via `cleanupNode`) but does **not** stop the previous app scope. **Keep the stop function** and call it before remounting:
 
 ```javascript
 let stop = mount(Login, '#app');
@@ -264,12 +289,11 @@ stop = mount(Dashboard, '#app');
 All effects, listeners, and nested scopes are cleaned up automatically when the scope that owns them is stopped. This happens on:
 
 - `stop()` from `mount`
-- `dispose()` from `effectScope`
 - `stop()` from `effect`
 - Removal of a reactive child node
-- Route change in the router
+- Route change in the router (previous route's scope is stopped and children are cleaned up via `cleanupNode`)
 
-**You must clean up manually for external resources**: `setInterval`, `setTimeout`, WebSocket, `IntersectionObserver`, third-party library instances. Use an `effect` that returns a cleanup function.
+**You must clean up manually for external resources**: `setInterval`, `setTimeout`, WebSocket, `IntersectionObserver`, third-party library instances. Use `onMount` or an `effect` that returns a cleanup function.
 
 ```javascript
 effect(() => {
@@ -298,14 +322,17 @@ mount(App, '#app');
 ```
 
 - `path` supports `:param` segments and `*` for fallback.
+- **Priority**: routes are sorted at creation. Static segments win over dynamic (`/about` beats `/:id`), and `*` is always last.
 - Route components receive `params` as their first argument.
+- Params are decoded via `decodeURIComponent` (falling back to the raw value if malformed).
+- Query strings and hashes are stripped from the path before matching (`/users?page=2` matches `/users`).
 
 ### `router.to(path)`, `router.back()`, `router.path()`
 
 ```javascript
 router.to('/about');   // navigate
 router.back();         // browser history back
-router.path();         // current path string
+router.path();         // current path string (includes query)
 ```
 
 ### `currentPath` / `routerParams` – Reactive Signals
@@ -355,9 +382,18 @@ currentLocale('en');     // switch
 
 ## HTTP Helper
 
-### `db(url, data?, loading?, signal?)` – JSON Fetch
+### `db(url, data?, loading?, signal?)` – Fetch Helper
 
 GET when `data` is omitted, POST otherwise. Calls `loading(true/false)` if provided.
+
+`data` may be:
+
+- plain object/array/primitive → sent as JSON
+- `FormData` → sent as multipart/form-data (browser sets Content-Type)
+- `Blob` / `File` → sent as binary (browser sets Content-Type)
+- `URLSearchParams` → sent as application/x-www-form-urlencoded
+
+On non-2xx responses, the thrown `Error` has `status` and `statusText`. Returns `null` for 204/205. Parses the response as JSON.
 
 ```javascript
 import { db, signal } from 'sigpro';
@@ -367,6 +403,12 @@ const loading = signal(false);
 const data = await db('/api/users', null, loading);
 
 await db('/api/save', { name: 'Ada' });
+
+// File upload:
+await db('/api/upload', formData);
+
+// Form-encoded:
+await db('/api/search', new URLSearchParams({ q: 'foo' }));
 ```
 
 Pass an `AbortSignal` to cancel:
@@ -382,7 +424,7 @@ controller.abort();
 ## Full Example – Counter with Persistence
 
 ```javascript
-import { signal, computed, local, mount, exposeTags } from 'sigpro';
+import { local, computed, mount, exposeTags } from 'sigpro';
 
 exposeTags();
 
@@ -399,40 +441,4 @@ const App = () => {
 };
 
 mount(App, '#app');
-```
-
----
-
-## Utilities
-
-### `$` – Universal Element Selector
-
-Returns a single element. Accepts an id (with or without `#`) or any CSS selector.
-
-```javascript
-import { $ } from 'sigpro';
-
-$('app');              // by id
-$('#app');             // by id
-$('.btn');             // first .btn
-$('div');              // first <div>
-$('input[type=text]'); // CSS
-$('item', formEl);     // id inside a context
-```
-
-Resolution order:
-1. If the string starts with `#` → `getElementById`.
-2. If it's a bare word (`/^[\w-]+$/`) → try `getElementById`, fall back to `querySelector`.
-3. Otherwise → `querySelector`.
-
-### `$$` – Selector All
-
-Returns an array of elements (always an array, never a NodeList).
-
-```javascript
-import { $$ } from 'sigpro';
-
-$$('.item');              // all .item
-$$('.item').forEach(...); // iterate
-$$('li', listEl);         // all <li> inside a context
 ```
