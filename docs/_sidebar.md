@@ -21,4 +21,5 @@
 
 * **Guides**
   * [Global Store](api/global.md)
+  * [Userland Helpers](api/helpers.md)
   * [HTML Converter](convert.md)

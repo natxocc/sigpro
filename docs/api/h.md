@@ -207,8 +207,8 @@ mount(App, '#app');
 ## Summary
 
 - `h` is the low-level DOM builder used internally by all tag helpers.
-- It supports reactive attributes, reactive children, event listeners, `ref`, reactive `style` (string or object), and SVG — all with automatic cleanup.
+- It supports reactive attributes, reactive children, event listeners, `ref`, reactive `style` (string or object), boolean props (`checked`, `disabled`, etc.), and SVG — all with automatic cleanup.
 - Security defaults block `innerHTML`/`outerHTML`/`srcdoc`, validate URL props, and auto-set `rel="noopener noreferrer"` on `target="_blank"` links.
-- **No two-way binding, no `emit` helper.** Data flows in via props and out via `on*` handlers. Explicit, predictable, and identical for every input type.
+- **No built-in two-way binding, no `emit` helper.** Data flows in via props (`value: () => s()`) and out via `on*` handlers (`oninput: e => s(e.target.value)`). For convenience, use the `bindvalue` and `bindcheck` userland helpers.
 - Use `h` directly when you need a **dynamic tag name**; otherwise, prefer the tag helpers.
 - To make the tag name itself reactive, wrap the `h(...)` call in a reactive child function.
