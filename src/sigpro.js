@@ -7,7 +7,7 @@ function reportError(err, where) {
   if (errorHandler) {
     try { errorHandler(err, where); } catch { }
   } else {
-    console.error('[sigpro]', err);
+    console.error('[sigpro] error in', where, err);
   }
 }
 
@@ -543,57 +543,6 @@ export function cleanupNode(n) {
   }
 }
 
-export function each(items, render, keyFn = (_, i) => i) {
-  const anchor = DOC.createComment('each');
-  const entries = new Map();
-  const mount = (item, i) => {
-    const nodes = [];
-    const scope = effectScope(() => {
-      const r = render(item, i);
-      for (const n of Array.isArray(r) ? r : [r])
-        if (n instanceof Node) nodes.push(n);
-        else if (n != null && n !== false && n !== true) nodes.push(DOC.createTextNode(String(n)));
-    });
-    return { nodes, scope, item };
-  };
-  const dispose = e => { e.scope(); e.nodes.forEach(n => { cleanupNode(n); n.remove(); }); };
-  const diff = arr => {
-    const parent = anchor.parentNode, alive = new Set(), out = [];
-    for (let i = 0; i < arr.length; i++) {
-      const k = keyFn(arr[i], i);
-      let e = entries.get(k);
-      if (!e || e.item !== arr[i]) { e && dispose(e); e = mount(arr[i], i); entries.set(k, e); }
-      alive.add(k); out.push(...e.nodes);
-    }
-    for (const [k, e] of entries) if (!alive.has(k)) { dispose(e); entries.delete(k); }
-    let ref = anchor;
-    for (let i = out.length - 1; i >= 0; i--) {
-      const n = out[i];
-      if (n.parentNode !== parent || n.nextSibling !== ref) parent.insertBefore(n, ref);
-      ref = n;
-    }
-  };
-  const initial = untrack(() => {
-    const arr = items(), out = [];
-    for (let i = 0; i < arr.length; i++) {
-      const e = mount(arr[i], i);
-      entries.set(keyFn(arr[i], i), e);
-      out.push(...e.nodes);
-    }
-    return out;
-  });
-  anchor._stopScope = () => {
-    if (anchor._itemsEffect) anchor._itemsEffect();
-    for (const e of entries.values()) dispose(e);
-    entries.clear();
-  };
-  queueMicrotask(() => {
-    if (anchor.parentNode)
-      anchor._itemsEffect = effect(() => { const arr = items(); untrack(() => diff(arr)); });
-  });
-  return [...initial, anchor];
-}
-
 export function h(tag, props = {}, ...children) {
   if (tag == null) {
     console.error('[sigpro] h() called with no tag');
@@ -894,7 +843,7 @@ export const db = async (url, data = null, loading = null, abortSignal = null) =
       new Error(`HTTP ${res.status}`),
       { status: res.status, statusText: res.statusText }
     );
-    if (res.status === 204) return null;
+    if (res.status === 204 || res.status === 205) return null;
     return await res.json();
   } finally {
     if (loading) loading(false);

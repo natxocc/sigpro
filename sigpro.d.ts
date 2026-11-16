@@ -30,6 +30,18 @@ export function computed<T>(getter: (oldValue?: T) => T): ReadonlySignal<T>;
  */
 export function effect(fn: () => void | (() => void)): () => void;
 
+/**
+ * Runs `fn` once when the effect is created. `fn` may return a cleanup
+ * that runs on parent unmount. Returns the effect disposer.
+ */
+export function onMount(fn: () => void | (() => void)): () => void;
+
+/**
+ * Sets a global error handler. Called when an `effect` or component throws.
+ * `where` is the throwing function (for debugging).
+ */
+export function onError(handler: (err: unknown, where: unknown) => void): void;
+
 /** Runs `fn` without tracking reads as dependencies. */
 export function untrack<T>(fn: () => T): T;
 
@@ -139,6 +151,12 @@ export function mount(
  */
 export function unmount(node: Node): void;
 
+/**
+ * Recursively disposes scopes, removes tracked listeners, and clears
+ * `_cln` / `_stopScope` on the node and its descendants.
+ */
+export function cleanupNode(node: Node): void;
+
 // ============================================================================
 // Router
 // ============================================================================
@@ -219,98 +237,13 @@ export function db<T = any>(
 ): Promise<T>;
 
 // ============================================================================
-// Tag Helpers (registered by `exposeTags`)
+// Tag Helper shape (for Window augmentation)
 // ============================================================================
 
 export type TagHelper = (
   props?: Props | Child | null,
   ...children: Child[]
 ) => Element;
-
-export const a: TagHelper;
-export const abbr: TagHelper;
-export const article: TagHelper;
-export const aside: TagHelper;
-export const audio: TagHelper;
-export const b: TagHelper;
-export const blockquote: TagHelper;
-export const br: TagHelper;
-export const button: TagHelper;
-export const canvas: TagHelper;
-export const caption: TagHelper;
-export const cite: TagHelper;
-export const code: TagHelper;
-export const col: TagHelper;
-export const colgroup: TagHelper;
-export const datalist: TagHelper;
-export const dd: TagHelper;
-export const del: TagHelper;
-export const details: TagHelper;
-export const dfn: TagHelper;
-export const dialog: TagHelper;
-export const div: TagHelper;
-export const dl: TagHelper;
-export const dt: TagHelper;
-export const em: TagHelper;
-export const embed: TagHelper;
-export const fieldset: TagHelper;
-export const figcaption: TagHelper;
-export const figure: TagHelper;
-export const footer: TagHelper;
-export const form: TagHelper;
-export const h1: TagHelper;
-export const h2: TagHelper;
-export const h3: TagHelper;
-export const h4: TagHelper;
-export const h5: TagHelper;
-export const h6: TagHelper;
-export const header: TagHelper;
-export const hr: TagHelper;
-export const i: TagHelper;
-export const iframe: TagHelper;
-export const img: TagHelper;
-export const input: TagHelper;
-export const ins: TagHelper;
-export const kbd: TagHelper;
-export const label: TagHelper;
-export const legend: TagHelper;
-export const li: TagHelper;
-export const main: TagHelper;
-export const mark: TagHelper;
-export const meter: TagHelper;
-export const nav: TagHelper;
-export const object: TagHelper;
-export const ol: TagHelper;
-export const optgroup: TagHelper;
-export const option: TagHelper;
-export const output: TagHelper;
-export const p: TagHelper;
-export const picture: TagHelper;
-export const pre: TagHelper;
-export const progress: TagHelper;
-export const section: TagHelper;
-export const select: TagHelper;
-export const slot: TagHelper;
-export const small: TagHelper;
-export const source: TagHelper;
-export const span: TagHelper;
-export const strong: TagHelper;
-export const sub: TagHelper;
-export const summary: TagHelper;
-export const sup: TagHelper;
-export const table: TagHelper;
-export const tbody: TagHelper;
-export const td: TagHelper;
-export const template: TagHelper;
-export const textarea: TagHelper;
-export const tfoot: TagHelper;
-export const th: TagHelper;
-export const thead: TagHelper;
-export const time: TagHelper;
-export const tr: TagHelper;
-export const u: TagHelper;
-export const ul: TagHelper;
-export const video: TagHelper;
 
 // ============================================================================
 // Aggregate Export
@@ -327,6 +260,9 @@ declare const SigPro: {
   h: typeof h;
   mount: typeof mount;
   unmount: typeof unmount;
+  onMount: typeof onMount;
+  onError: typeof onError;
+  cleanupNode: typeof cleanupNode;
   exposeTags: typeof exposeTags;
   router: typeof router;
   currentPath: typeof currentPath;
@@ -359,6 +295,9 @@ declare global {
     h: typeof h;
     mount: typeof mount;
     unmount: typeof unmount;
+    onMount: typeof onMount;
+    onError: typeof onError;
+    cleanupNode: typeof cleanupNode;
     exposeTags: typeof exposeTags;
     router: typeof router;
     currentPath: typeof currentPath;
