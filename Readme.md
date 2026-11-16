@@ -19,10 +19,10 @@ That extra development time and the cognitive load of "learning the framework" i
 * **Atomic Precision:** Powered by an **alien-signals**-class push-pull reactive core. State is bound directly to DOM nodes—when a value changes, **only that specific node updates**. No diffing, no virtual tree, no wasted work.
 * **Zero-Hydration Bottlenecks:** No 100KB bundles or complex build steps. SigPro is pure, optimized JavaScript tailored for the browser's native engine.
 * **Lazy Computation:** `computed()` is lazy and verified with `checkDirty`. Effects don't re-run when a dependency's value didn't actually change.
-* **Build-Tool Agnostic:** Total freedom. Use it with **Vite, Webpack, or Rollup** for enterprise projects, or simply import it via a **`<script>` tag** for rapid prototyping. No tooling required.
+* **Build-Tool Agnostic:** Total freedom. Use it with **Vite, Webpack, or Rollup** for enterprise projects, or simply import it via a **`<script type="module">` tag** for rapid prototyping. No tooling required.
 * **Zero-Scale Bloat:** Unlike other frameworks where the bundle grows exponentially, SigPro's footprint remains **flat and predictable**.
-* **Premium DX:** Forget boilerplate imports. SigPro injects an elegant, functional syntax (`div()`, `button()`, `span()`) directly into your scope for a **"Zero-Import"** workflow.
-* **Fully Loaded:** Built-in Hash Routing, native **`localStorage` persistence**, **`provide`/`inject`** dependency injection, **SVG support**, and automatic cleanup of listeners and scopes—all in a single file.
+* **Premium DX:** Forget boilerplate imports. SigPro injects an elegant, functional syntax (`div()`, `button()`, `span()`) directly into your scope (via `exposeTags()`) for a **"Zero-Import"** workflow.
+* **Fully Loaded:** Built-in Hash Routing, native **`localStorage` persistence**, **SVG support**, and automatic cleanup of listeners and scopes—all in a single file.
 * **No Memory Leaks:** Scopes cascade idempotently. Event listeners are tracked and removed with the node. Computeds die with their owners.
 
 -----
@@ -36,7 +36,7 @@ Create reactive, persistent components with a syntax that feels like Vanilla JS,
 ```
 
 ```javascript
-import { signal, computed, mount, exposeTags } from "sigpro";
+import { signal, computed, local, mount, exposeTags } from "sigpro";
 
 exposeTags();
 
@@ -44,7 +44,7 @@ const Counter = () => {
   // Simple signal
   const value = signal(100);
   // One-line persistence: state survives page reloads automatically
-  const count = local("user-counter-pref",0); // use local() for persistence
+  const count = local("user-counter-pref", 0); 
   const ref   = signal(100);
   const doubleValue = computed(() => value() * ref());
 
@@ -66,8 +66,8 @@ mount(Counter, "#app");
 
 ```javascript
 import {
-  signal, computed, effect, effectScope,
-  batch, untrack, watch, local, provide, inject
+  signal, computed, effect, onMount, onError,
+  batch, untrack, watch, local
 } from "sigpro";
 
 const count = signal(0);
@@ -84,10 +84,10 @@ const stop = effect(() => {
   return () => console.log("cleanup");
 });
 
-// Scoped effects (cascade cleanup for children)
-const dispose = effectScope(() => {
-  effect(() => console.log(count()));
-  effect(() => console.log(double()));
+// Run once on mount (great for 3rd party libs)
+const dispose = onMount(() => {
+  const chart = new Chart(el);
+  return () => chart.destroy();
 });
 
 // Batching: defer flush until the end
@@ -105,10 +105,6 @@ untrack(() => count());
 // Persistent signal (localStorage-backed, JSON)
 const theme = local("theme", "light");
 theme("dark");  // stored, survives reloads
-
-// Dependency injection
-provide("theme", signal("dark"));
-const t = inject("theme");  // nearest provider
 ```
 
 ### Rendering
@@ -124,30 +120,27 @@ div({ class: "card" }, "Hello");
 // Reactive props
 div({ class: () => active() ? "card active" : "card" });
 
-// Reactive style
+// Reactive style (string or object)
 div({ style: () => open() ? "" : "display:none" });
 
 // Reactive children
 div({}, () => items().map(i => li({}, i.name)));
 
-// Events
+// Events (tracked and cleaned up automatically)
 button({ onclick: () => count(count() + 1) }, "+1");
 
 // ref
 input({ ref: el => el.focus() });
 
-// innerHTML (reactive)
-div({ html: () => markdown(run().text) });
-
 // Two-way binding
-input({ value: () => username(), oninput: e => username(e.target.value)})
+input({ value: () => username(), oninput: e => username(e.target.value) })
 ```
 
 ### SVG
 
 ```javascript
-svg({ viewBox: "0 0 24 24" }, [
-  path({ d: "M9 12l2 2 4-4", stroke: "currentColor", fill: "none" })
+h('svg', { viewBox: "0 0 24 24" }, [
+  h('path', { d: "M9 12l2 2 4-4", stroke: "currentColor", fill: "none" })
 ]);
 ```
 
@@ -173,7 +166,7 @@ router.path(); // current path
 ### i18n
 
 ```javascript
-import { addLang, setLocale, t, tt } from "sigpro";
+import { addLang, setLocale, t } from "sigpro";
 
 addLang({
   en: { hello: "Hello" },
@@ -181,8 +174,8 @@ addLang({
 });
 
 setLocale("es");
-tt("hello");    // "Hola"
-t("hello")();   // "Hola" (reactive getter)
+t("hello")();   // "Hola" (imperative read)
+h1(t("hello")); // "Hola" (reactive, updates when locale changes)
 ```
 
 ### HTTP Helper
@@ -193,8 +186,11 @@ import { db } from "sigpro";
 const loading = signal(false);
 const data = await db("/api/users", null, loading);
 
-// POST
+// POST JSON
 await db("/api/save", { name: "Ada" });
+
+// Upload files (FormData is supported natively)
+await db("/api/upload", formData);
 ```
 
 -----
@@ -227,9 +223,12 @@ cd my-app
 npm install sigpro
 ```
 
-**Or without build tools:**
+**Or without build tools (Native ES Modules):**
 ```html
-<script src="https://unpkg.com/sigpro"></script>
+<script type="module">
+  import { signal, mount, exposeTags } from "https://cdn.jsdelivr.net/npm/sigpro/+esm";
+  // ...
+</script>
 ```
 
 -----
