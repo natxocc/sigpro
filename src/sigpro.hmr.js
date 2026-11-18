@@ -4,7 +4,7 @@ import path from "path";
 const PAGES = path.resolve(import.meta.dir, "src/pages") + path.sep;
 const isDev = process.env.NODE_ENV === "development";
 
-export const sigproPlugin = {
+export const hmr = {
   name: "sigpro-hmr",
   setup(build) {
     build.onLoad({ filter: /\.js$/ }, async (args) => {

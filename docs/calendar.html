@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <base href="https://code.natxocc.com/proxy/3000/" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SigPro — Demo Calendar</title>
+  <link rel="stylesheet" href="./demo.css" />
+</head>
+
+<body>
+  <header style="padding: 1rem; background: #0f172a; color: #e2e8f0;">
+    <h1>SigPro demo — Calendar &nbsp;<code>sandbox:sigpro/calendar</code></h1>
+    <nav>
+      <a href="./grid.html">Grid</a> · <a href="./chart.html">Chart</a> · <a href="./calendar.html">Calendar</a> · <a
+        href="./combined.html">Combined</a>
+    </nav>
+  </header>
+
+  <div id="app"></div>
+
+  <script type="module">
+    import { signal, mount, exposeTags, h } from './sigpro.js';
+    import { Calendar } from './sigpro.calendar.js';
+
+    exposeTags();
+
+    const today = new Date();
+    const iso = (offset) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() + offset);
+      return d.toISOString().slice(0, 10);
+    };
+
+    // eventos reactivos: signal → Calendar lee con getEvents()
+    const events = signal([
+      { id: 'e1', title: 'Sprint Planning', start: iso(0), end: iso(2) },
+      { id: 'e2', title: 'Demo SigPro', start: iso(3), allDay: true },
+      { id: 'e3', title: 'Release Candidate', start: iso(6), end: iso(8) },
+    ]);
+    let nextId = 4;
+
+    const App = () =>
+      h('div', { class: 'app' }, [
+        h('section', { class: 'card' }, [
+          h('h2', {}, 'Calendar — reactive events + callbacks'),
+          h('div', { id: 'calendar', style: 'height: 400px; margin-bottom: .5rem' }, [
+            h(Calendar, {
+              // events como signal (función) para reactividad
+              events,
+              options: { initialView: 'dayGridMonth' },
+              // callbacks de FullCalendar expuestos via on.*
+              on: {
+                onDidMount(cal) {
+                  console.log('calendar mounted', cal);
+                },
+                onDateClick(arg) {
+                  console.log('date clicked:', arg.dateStr);
+                },
+                onEventClick(arg) {
+                  console.log('event clicked:', arg.event.title, '→ id', arg.event.id);
+                },
+                onEventDrop(arg) {
+                  // sincronizar cambio con el signal para que reaccione
+                  const list = events().map(ev =>
+                    ev.id === arg.event.id ? { ...ev, start: arg.event.startStr.slice(0, 10) } : ev
+                  );
+                  events(list);
+                },
+              },
+            }),
+          ]),
+        ]),
+      ]);
+
+    mount(App, '#app');
+
+    document.querySelectorAll('a').forEach(a => a.style.color = '#93c5fd');
+
+    // añadir eventos periódicamente para demostrar reactividad
+    const titles = ['Standup', 'Code Review', 'Planning', 'Sprint Review', 'Retrospective', 'Hack Day'];
+    setInterval(() => {
+      const id = 'e' + (nextId++);
+      const offset = Math.floor(Math.random() * 14) - 3;
+      events(events().concat({ id, title: titles[(nextId - 1) % titles.length], start: iso(offset), allDay: true }));
+    }, 5000);
+  </script>
+</body>
+
+</html>

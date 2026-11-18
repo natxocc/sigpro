@@ -2,7 +2,7 @@
 
 SigPro’s core is deliberately minimal. Instead of bloating the library with utility functions you might not use, the philosophy is to provide the primitives (`signal`, `h`, `db`) and let you write exactly the helpers you need.
 
-Below is a curated set of zero-dependency, pure Vanilla JavaScript helpers. They do **not** import from `sigpro` and don't rely on any framework internals. Copy them into your project's `helpers.js` file and import them wherever you need them.
+Below is a curated set of zero-dependency, pure Vanilla JavaScript helpers. They do **not** import from `sigpro` and don't rely on any framework internals. Copy them into your project's `utils.js` file and import them wherever you need them.
 
 > **Note:** These are not part of the `sigpro` package. They are standard JS functions that work perfectly with SigPro because SigPro uses standard DOM events and signals.
 
@@ -26,7 +26,7 @@ export const onEscape   = fn => onKey("Escape", fn);
 ### Usage
 Because they are just higher-order functions, you can **compose** them:
 ```javascript
-import { onPrevent, onDebounce } from './helpers.js';
+import { onPrevent, onDebounce } from 'sigpro/utils';
 
 // Prevent default form submit and debounce it
 form({ onsubmit: onPrevent(onDebounce(500, saveForm)) }, [
@@ -55,7 +55,7 @@ Because they return plain objects, you just spread (`...`) them into your props:
 
 ```javascript
 import { signal } from 'sigpro';
-import { bindvalue, bindcheck } from './helpers.js';
+import { bindvalue, bindcheck } from 'sigpro/utils';
 
 const username = signal("");
 const isActive = signal(false);
@@ -82,7 +82,7 @@ export const cls = (...args) => args.filter(Boolean).join(" ");
 
 ### Usage
 ```javascript
-import { cls } from './helpers.js';
+import { cls } from './utils.js';
 
 button({ 
   class: cls("btn", isActive() && "btn-active", theme() === 'dark' && "btn-neutral")
@@ -91,33 +91,7 @@ button({
 
 ---
 
-## 4. DOM Queries (`$` & `$$`)
-
-While SigPro provides the `ref` prop for elements created inside your components, you often need to query the **static HTML** from your `index.html`, or nodes created by third-party libraries.
-
-These helpers are just standard `querySelector` wrappers, with the added benefit that `$$` always returns a real Array (making `.map()` and `.forEach()` usable without conversions).
-
-```javascript
-export const $  = (sel, ctx = document) => ctx.querySelector(sel);
-export const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
-```
-
-### Usage
-```javascript
-import { $, $$ } from './helpers.js';
-
-// Query the static HTML
-$("#app"); 
-$$(".card").forEach(card => card.classList.add("loaded"));
-
-// Scoped queries
-const layout = $(".layout");
-$$("button", layout).forEach(btn => btn.disabled = true);
-```
-
----
-
-## The Complete Helper File (`helpers.js`)
+## The Complete Utility File (`utils.js`)
 
 Copy and paste this into your project:
 
@@ -136,8 +110,6 @@ export const cls = (...args) => args.filter(Boolean).join(" ");
 export const bindvalue = s => ({ value: () => s(), oninput: e => s(e.target.value) });
 export const bindcheck = s => ({ checked: () => !!s(), onchange: e => s(e.target.checked) });
 
-export const $  = (sel, ctx = document) => ctx.querySelector(sel);
-export const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 ```
 
 This is the recommended approach for building apps with SigPro: a tiny core for reactivity and DOM creation, and a lightweight set of pure JS utilities for daily ergonomics.

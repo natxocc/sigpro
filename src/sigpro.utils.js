@@ -1,5 +1,3 @@
-import { signal, db } from "sigpro";
-
 export const onPrevent = fn => e => { e.preventDefault(); fn(e); };
 export const onStop = fn => e => { e.stopPropagation(); fn(e); };
 export const onSelf = fn => e => { if (e.target === e.currentTarget) fn(e); };
@@ -11,5 +9,3 @@ export const onEscape = fn => onKey("Escape", fn);
 export const cls = (...args) => args.filter(Boolean).join(" ");
 export const bindvalue = s => ({ value: () => s(), oninput: e => s(e.target.value) });
 export const bindcheck = s => ({ checked: () => !!s(), onchange: e => s(e.target.checked) });
-export const $  = (sel, ctx = document) => ctx.querySelector(sel);
-export const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
