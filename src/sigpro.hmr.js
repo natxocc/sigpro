@@ -1,4 +1,4 @@
-// sigpro.bun.js
+// sigpro.hmr.js
 import path from "path";
 
 const PAGES = path.resolve(import.meta.dir, "src/pages") + path.sep;

@@ -20,9 +20,18 @@
 
   <div id="app"></div>
 
+  <script type="importmap">
+  {
+    "imports": {
+      "sigpro": "../../src/sigpro.js",
+      "sigpro/ui": "../../src/sigpro.ui.js"
+    }
+  }
+  </script>
+
   <script type="module">
-    import { signal, mount, exposeTags, h } from './sigpro.js';
-    import { Calendar } from './sigpro.calendar.js';
+    import { signal, mount, exposeTags, h } from '../../src/sigpro.js';
+    import { Calendar } from '../../src/sigpro.calendar.js';
 
     exposeTags();
 

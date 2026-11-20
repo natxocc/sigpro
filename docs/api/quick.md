@@ -309,7 +309,8 @@ effect(() => {
 ### `router(routes)` – Hash-Based Router
 
 ```javascript
-import { router } from 'sigpro';
+import { mount } from 'sigpro';
+import { router } from 'sigpro/router';
 
 const App = router([
   { path: '/',           component: Home },
@@ -330,6 +331,8 @@ mount(App, '#app');
 ### `router.to(path)`, `router.back()`, `router.path()`
 
 ```javascript
+import { router } from 'sigpro/router';
+
 router.to('/about');   // navigate
 router.back();         // browser history back
 router.path();         // current path string (includes query)
@@ -338,7 +341,7 @@ router.path();         // current path string (includes query)
 ### `currentPath` / `routerParams` – Reactive Signals
 
 ```javascript
-import { currentPath, routerParams } from 'sigpro';
+import { currentPath, routerParams } from 'sigpro/router';
 
 h1(() => `Path: ${currentPath()}`);
 h2(() => `Slug: ${routerParams().slug}`);
@@ -351,7 +354,7 @@ h2(() => `Slug: ${routerParams().slug}`);
 ### `addLang(translations)`, `setLocale(locale)`
 
 ```javascript
-import { addLang, setLocale, t, currentLocale } from 'sigpro';
+import { addLang, setLocale, t, currentLocale } from 'sigpro/lang';
 
 addLang({
   en: { hello: 'Hello' },
@@ -396,7 +399,8 @@ GET when `data` is omitted, POST otherwise. Calls `loading(true/false)` if provi
 On non-2xx responses, the thrown `Error` has `status` and `statusText`. Returns `null` for 204/205. Parses the response as JSON.
 
 ```javascript
-import { db, signal } from 'sigpro';
+import { db } from 'sigpro/http';
+import { signal } from 'sigpro';
 
 const loading = signal(false);
 

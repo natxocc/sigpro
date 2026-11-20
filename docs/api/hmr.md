@@ -113,7 +113,7 @@ The plugin only touches `.js` files inside `src/pages/`. Anything outside is unt
 Both are exported (or installed globally) by SigPro for advanced use:
 
 ```js
-import { hmrTick } from "sigpro";
+import { hmrTick } from "sigpro/router";
 ```
 
 - **`window.__sigpro_hmr_page__(path, component)`** — updates the internal registry and increments `hmrTick`. Call it from a custom HMR integration (e.g., a Vite plugin) if you're not using the Bun plugin.

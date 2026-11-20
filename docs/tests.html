@@ -78,16 +78,18 @@
 <div id="test-mount" style="display:none"></div>
 
 <script type="module">
-import * as SigPro from './sigpro.js';
+import * as SigPro from './src/sigpro.js';
+import * as Router from './src/sigpro.router.js';
+import * as DBModule from './src/sigpro.db.js';
 
 const {
   signal, computed, effect, onMount, onError, batch, untrack, watch, local,
   h, mount, unmount, exposeTags, cleanupNode,
-  router, currentPath, routerParams,
-  db,
 } = SigPro;
 
-exposeTags();
+const { currentPath, routerParams, router } = Router;
+const { db } = DBModule;
+
 const { div, input, span } = window;
 
 const tests = [

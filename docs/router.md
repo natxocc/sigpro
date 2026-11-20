@@ -17,7 +17,7 @@ interface Route {
 
 The route component receives the route parameters as its first argument.
 
-> **Availability:** `router`, `currentPath`, and `routerParams` are exported from the SigPro module. Import them by name: `import { router, currentPath, routerParams } from 'sigpro'`.
+> **Availability:** `router`, `currentPath`, and `routerParams` are exported from `sigpro/router`. Import them by name: `import { router, currentPath, routerParams } from 'sigpro/router'`.
 
 ---
 
@@ -26,7 +26,8 @@ The route component receives the route parameters as its first argument.
 ### 1. Basic Setup
 
 ```javascript
-import { router, mount, exposeTags } from 'sigpro';
+import { mount, exposeTags } from 'sigpro';
+import { router } from 'sigpro/router';
 
 exposeTags();
 
@@ -50,7 +51,8 @@ The router returns a component. `mount` renders it into `#app` and manages its l
 You can call the router inside another component to keep a persistent layout:
 
 ```javascript
-import { router, mount, exposeTags } from 'sigpro';
+import { mount, exposeTags } from 'sigpro';
+import { router } from 'sigpro/router';
 
 exposeTags();
 
@@ -137,6 +139,8 @@ router([
 Sets `window.location.hash`. Accepts a plain path or a full hash.
 
 ```javascript
+import { router } from 'sigpro/router';
+
 button({ onclick: () => router.to('/about') }, 'Go to About');
 router.to('/user/42');   // → '#/user/42'
 router.to('#/user/42');  // same
@@ -149,6 +153,8 @@ router.to('#/user/42');  // same
 Calls `window.history.back()`.
 
 ```javascript
+import { router } from 'sigpro/router';
+
 button({ onclick: () => router.back() }, '← Back');
 ```
 
@@ -157,6 +163,8 @@ button({ onclick: () => router.back() }, '← Back');
 Returns the current path as a string, without the leading `#`. **Includes the query string** if present.
 
 ```javascript
+import { router } from 'sigpro/router';
+
 console.log(router.path()); // "/user/42"  or  "/users?page=2"
 ```
 
@@ -183,7 +191,7 @@ Two signals are exported for reading the current route anywhere in your app:
 ### `currentPath`
 
 ```javascript
-import { currentPath } from 'sigpro';
+import { currentPath } from 'sigpro/router';
 
 h1(() => `Path: ${currentPath()}`);
 ```
@@ -193,7 +201,7 @@ Use it in reactive child positions to update the DOM when the route changes.
 ### `routerParams`
 
 ```javascript
-import { routerParams } from 'sigpro';
+import { routerParams } from 'sigpro/router';
 
 h2(() => `Slug: ${routerParams().slug}`);
 ```
@@ -205,10 +213,11 @@ h2(() => `Slug: ${routerParams().slug}`);
 ### Watching Route Changes
 
 ```javascript
-import { watch, routerParams } from 'sigpro';
+import { watch } from 'sigpro';
+import { routerParams } from 'sigpro/router';
 
 watch(routerParams, (nuevo, viejo) => {
-  console.log('params changed:', viejo, '→', nuevo);
+  console.log('params changed:', nuevo, viejo);
 });
 ```
 
@@ -253,7 +262,8 @@ Or make it layout-neutral:
 ## Complete Example
 
 ```javascript
-import { router, mount, currentPath, routerParams, exposeTags } from 'sigpro';
+import { mount, exposeTags } from 'sigpro';
+import { router, currentPath, routerParams } from 'sigpro/router';
 
 exposeTags();
 

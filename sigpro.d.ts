@@ -158,7 +158,7 @@ export function unmount(node: Node): void;
 export function cleanupNode(node: Node): void;
 
 // ============================================================================
-// Router
+// Router (sigpro/router)
 // ============================================================================
 
 export interface RouteDefinition {
@@ -191,8 +191,11 @@ export const routerParams: Signal<Record<string, string>>;
 /** Increments on HMR page registration; read to force route refresh. */
 export const hmrTick: Signal<number>;
 
+const hmrRegistry: Map<string, any>;
+export { hmrRegistry };
+
 // ============================================================================
-// i18n
+// i18n (sigpro/lang)
 // ============================================================================
 
 /** Active locale. Reactive. */
@@ -213,7 +216,7 @@ export function setLocale(locale: string): void;
 export function t(key: string): () => string;
 
 // ============================================================================
-// HTTP Helper
+// HTTP Helper (sigpro/http)
 // ============================================================================
 
 /**

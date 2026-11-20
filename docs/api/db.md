@@ -22,7 +22,7 @@ db<T = any>(
 
 **Returns:** a `Promise<T>` resolving to the parsed JSON body, or `null` for 204/205 responses.
 
-> **Availability:** `db` is exported from the SigPro module. Import it by name: `import { db } from 'sigpro'`.
+> **Availability:** `db` is exported from `sigpro/http`. Import it by name: `import { db } from 'sigpro/http'`.
 
 ---
 
@@ -49,7 +49,7 @@ db<T = any>(
 ### GET
 
 ```javascript
-import { db } from 'sigpro';
+import { db } from 'sigpro/http';
 
 const users = await db('/api/users');
 ```
@@ -57,12 +57,16 @@ const users = await db('/api/users');
 ### POST (JSON)
 
 ```javascript
+import { db } from 'sigpro/http';
+
 const created = await db('/api/users', { name: 'Ada', role: 'admin' });
 ```
 
 ### File upload (FormData)
 
 ```javascript
+import { db } from 'sigpro/http';
+
 const form = new FormData();
 form.append('file', fileInput.files[0]);
 form.append('name', 'avatar');
@@ -74,6 +78,8 @@ await db('/api/upload', form);
 ### Form-encoded (URLSearchParams)
 
 ```javascript
+import { db } from 'sigpro/http';
+
 await db('/api/search', new URLSearchParams({ q: 'foo', page: '2' }));
 // Content-Type: application/x-www-form-urlencoded
 ```
@@ -81,6 +87,8 @@ await db('/api/search', new URLSearchParams({ q: 'foo', page: '2' }));
 ### Binary (Blob/File)
 
 ```javascript
+import { db } from 'sigpro/http';
+
 await db('/api/raw', new Blob([buffer], { type: 'application/octet-stream' }));
 ```
 
@@ -121,7 +129,7 @@ await db('/api/raw', new Blob([buffer], { type: 'application/octet-stream' }));
 Pass an `AbortSignal` to cancel a request. Typical for "cancel the previous search when a new one starts" or "abort on unmount".
 
 ```javascript
-import { db } from 'sigpro';
+import { db } from 'sigpro/http';
 
 const controller = new AbortController();
 
@@ -141,7 +149,8 @@ controller.abort();
 Return a cleanup from an `effect` so the request is aborted on unmount:
 
 ```javascript
-import { signal, effect, db } from 'sigpro';
+import { signal, effect } from 'sigpro';
+import { db } from 'sigpro/http';
 
 const UserProfile = () => {
   const user = signal(null);
@@ -207,6 +216,8 @@ Every keystroke aborts the previous request before starting a new one.
 `db` throws on non-OK responses, network failures, and JSON parse errors. The thrown `Error` carries the HTTP status code and status text, so you can branch on them without parsing the message.
 
 ```javascript
+import { db } from 'sigpro/http';
+
 try {
   const data = await db('/api/protected');
 } catch (err) {
@@ -227,6 +238,8 @@ try {
 Wrap `db` for app-wide error handling:
 
 ```javascript
+import { db } from 'sigpro/http';
+
 const api = {
   async get(url) {
     return db(url);

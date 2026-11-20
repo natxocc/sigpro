@@ -9,6 +9,17 @@
 
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify/lib/themes/vue.css" />
   <link href="./sigpro.ui.css" rel="stylesheet" type="text/css" />
+
+  <script type="importmap">
+  {
+    "imports": {
+      "sigpro": "./src/sigpro.js",
+      "sigpro/router": "./src/sigpro.router.js",
+      "sigpro/lang": "./src/sigpro.lang.js",
+      "sigpro/http": "./src/sigpro.db.js"
+    }
+  }
+  </script>
 </head>
 
 <body>
@@ -62,11 +73,14 @@
 
   <script type="module">
     window.SigProReady = (async () => {
-      const SigPro = await import("./sigpro.js");
+      const SigPro = await import("./src/sigpro.js");
       Object.assign(window, SigPro);
       window.SigPro = SigPro;
       SigPro.exposeTags();
-      await import("./sigpro.convert.js").catch(() => { });
+      await import("./src/sigpro.router.js").catch(() => {});
+      await import("./src/sigpro.lang.js").catch(() => {});
+      await import("./src/sigpro.db.js").catch(() => {});
+      await import("./src/sigpro.convert.js").catch(() => {});
     })();
   </script>
 

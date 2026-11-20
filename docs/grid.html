@@ -18,10 +18,8 @@
   <div id="app"></div>
 
   <script type="module">
-    import { signal, mount, exposeTags, h } from './sigpro.js';
-    import { Grid } from './sigpro.grid.js';
-
-    exposeTags();
+    import { signal, mount, h } from './src/sigpro.js';
+    import { Grid } from './src/sigpro.grid.js';
 
     const data = signal([
       { id: 1, name: 'Natxo', country: 'ES', population: 47, active: true },

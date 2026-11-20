@@ -1,6 +1,6 @@
 {
   "name": "sigpro",
-  "version": "2.0.10",
+  "version": "2.1.0",
   "type": "module",
   "license": "MIT",
   "author": {
@@ -8,54 +8,50 @@
     "email": "sigpro@natxocc.com",
     "url": "https://sigpro.natxocc.com"
   },
-  "main": "./dist/sigpro.js",
-  "module": "./dist/sigpro.js",
-  "unpkg": "./dist/sigpro.js",
-  "jsdelivr": "./dist/sigpro.js",
+  "main": "./src/sigpro.js",
+  "module": "./src/sigpro.js",
   "types": "./sigpro.d.ts",
   "exports": {
     ".": {
       "types": "./sigpro.d.ts",
-      "import": "./dist/sigpro.js",
-      "default": "./dist/sigpro.js"
+      "import": "./src/sigpro.js"
+    },
+    "./router": {
+      "import": "./src/sigpro.router.js"
+    },
+    "./lang": {
+      "import": "./src/sigpro.lang.js"
+    },
+    "./http": {
+      "import": "./src/sigpro.db.js"
     },
     "./grid": {
-      "import": "./dist/sigpro.grid.js",
-      "default": "./dist/sigpro.grid.js"
-    },
-    "./editor": {
-      "import": "./dist/sigpro.editor.js",
-      "default": "./dist/sigpro.editor.js"
+      "import": "./src/sigpro.grid.js"
     },
     "./chart": {
-      "import": "./dist/sigpro.chart.js",
-      "default": "./dist/sigpro.chart.js"
+      "import": "./src/sigpro.chart.js"
     },
     "./calendar": {
-      "import": "./dist/sigpro.calendar.js",
-      "default": "./dist/sigpro.calendar.js"
+      "import": "./src/sigpro.calendar.js"
+    },
+    "./editor": {
+      "import": "./src/sigpro.editor.js"
     },
     "./vite": {
-      "import": "./dist/sigpro.vite.js",
-      "default": "./dist/sigpro.vite.js"
+      "import": "./src/sigpro.vite.js"
     },
     "./hmr": {
-      "import": "./dist/sigpro.hmr.js",
-      "default": "./dist/sigpro.hmr.js"
+      "import": "./src/sigpro.hmr.js"
     },
     "./utils": {
-      "import": "./dist/sigpro.utils.js",
-      "default": "./dist/sigpro.utils.js"
+      "import": "./src/sigpro.utils.js"
     },
     "./pdf": {
-      "import": "./dist/sigpro.pdf.js",
-      "default": "./dist/sigpro.pdf.js"
+      "import": "./src/sigpro.pdf.js"
     }
   },
   "files": [
-    "dist/",
-    "README.md",
-    "LICENSE",
+    "src/",
     "sigpro.d.ts"
   ],
   "homepage": "https://sigpro.natxocc.com/#/",
@@ -68,22 +64,8 @@
     "email": "sigpro@natxocc.com"
   },
   "scripts": {
-    "del": "bun pm cache rm && rm -f bun.lockb && rm -f bun.lock",
-    "clean": "rm -rf dist docs/*.js",
-    "prebuild": "bun run clean",
-    "build:core": "bun build ./src/sigpro.js --bundle --outfile=./dist/sigpro.js --format=esm --minify",
-    "build:utils": "bun build ./src/sigpro.utils.js --bundle --outfile=./dist/sigpro.utils.js --format=esm --minify",
-    "build:grid": "bun build ./src/sigpro.grid.js --bundle --outfile=./dist/sigpro.grid.js --format=esm --minify",
-    "build:chart": "bun build ./src/sigpro.chart.js --bundle --outfile=./dist/sigpro.chart.js --format=esm --minify",
-    "build:calendar": "bun build ./src/sigpro.calendar.js --bundle --outfile=./dist/sigpro.calendar.js --format=esm --minify",
-    "build:editor": "bun build ./src/sigpro.editor.js --bundle --outfile=./dist/sigpro.editor.js --format=esm --minify",
-    "build:ui": "bun build ./src/sigpro.ui.js --bundle --outfile=./dist/sigpro.ui.js --format=esm --external ./src/sigpro.js --minify",
-    "build:vite": "bun build ./src/sigpro.vite.js --bundle --outfile=./dist/sigpro.vite.js --format=esm --external fs --external path --minify",
-    "build:hmr": "bun build ./src/sigpro.hmr.js --bundle --outfile=./dist/sigpro.hmr.js --format=esm --external fs --external path --minify",
-    "build:convert": "bun build ./src/sigpro.convert.js --bundle --outfile=./dist/sigpro.convert.js --format=esm --minify",
-    "build:pdf": "bun build ./src/sigpro.pdf.js --bundle --outfile=./dist/sigpro.pdf.js --format=esm --minify",
-    "build": "mkdir -p docs && bun run build:core && bun run build:utils && bun run build:grid && bun run build:chart && bun run build:calendar && bun run build:editor && bun run build:ui && bun run build:vite && bun run build:convert && bun run build:pdf && cp ./dist/*.js ./docs/",
-    "docs": "bun x serve docs"
+    "docs:sync": "mkdir -p docs/src && cp src/*.js docs/src/",
+    "docs": "bun run docs:sync && bun x serve docs"
   },
   "devDependencies": {
     "@fullcalendar/core": "^6.1.22",

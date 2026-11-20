@@ -11,7 +11,7 @@ import {
   MultiFilterModule, SetFilterModule, CellSelectionModule, PivotModule,
   MasterDetailModule, SideBarModule, ColumnsToolPanelModule, ColumnMenuModule,
   StatusBarModule, ExcelExportModule, ClipboardModule, ContextMenuModule
-} from "./grid-e";
+} from "./grid";
 
 ModuleRegistry.registerModules([
   ValidationModule, ColumnAutoSizeModule, CellStyleModule, QuickFilterModule,
