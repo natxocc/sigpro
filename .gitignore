@@ -34,6 +34,8 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Kilo
 .kilo/
 
 # Tests and Tools
