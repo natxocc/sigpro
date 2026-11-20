@@ -34,6 +34,7 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+.kilo/
 
 # Tests and Tools
 .nyc_output
