@@ -149,7 +149,7 @@ SVG tags are detected automatically. `class`, `style`, and every attribute go th
 ### Router
 
 ```javascript
-import { router } from "sigpro";
+import { router } from "sigpro/router";
 
 const App = router([
   { path: "/",          component: Home },
@@ -166,7 +166,7 @@ router.path(); // current path
 ### i18n
 
 ```javascript
-import { addLang, setLocale, t } from "sigpro";
+import { addLang, setLocale, t } from "sigpro/lang";
 
 addLang({
   en: { hello: "Hello" },
@@ -181,7 +181,7 @@ h1(t("hello")); // "Hola" (reactive, updates when locale changes)
 ### HTTP Helper
 
 ```javascript
-import { db } from "sigpro";
+import { db } from "sigpro/db";
 
 const loading = signal(false);
 const data = await db("/api/users", null, loading);
