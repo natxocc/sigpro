@@ -1,4 +1,5 @@
-// sigpro.db.js — Minimal fetch wrapper for GET/POST with loading state and abort support
+// sigpro.db.js
+
 export const db = async (url, data = null, loading = null, abortSignal = null) => {
   if (loading) loading(true);
   try {

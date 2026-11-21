@@ -1,4 +1,5 @@
-// sigpro.router.js — Hash router, reactive path & params, HMR tick
+// sigpro.router.js
+
 import { signal, effect, cleanupNode } from 'sigpro';
 
 export const currentPath = signal(

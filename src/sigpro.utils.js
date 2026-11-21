@@ -1,3 +1,5 @@
+// sigpro.utils.js
+
 export const onPrevent = fn => e => { e.preventDefault(); fn(e); };
 export const onStop = fn => e => { e.stopPropagation(); fn(e); };
 export const onSelf = fn => e => { if (e.target === e.currentTarget) fn(e); };

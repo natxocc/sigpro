@@ -1,4 +1,4 @@
-// drag.js — un único drag() para sigpro (move + sort + nested)
+// sigpro.drag.js
 import { signal, effect } from './sigpro.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -15,24 +15,17 @@ function matchHandle(root, handle, target) {
   return true;
 }
 
-/* ================================================================== */
-/*  API PÚBLICA                                                        */
-/* ================================================================== */
 export function drag(el, opts = {}) {
   if (!el || typeof el.addEventListener !== 'function') return null;
   return opts.items ? sortDrag(el, opts) : moveDrag(el, opts);
 }
 
-/** helper para usar como `ref` en h() y autolimpiarse */
 export const vDrag = (opts = {}) => (el) => {
   const d = drag(el, opts);
   if (d) (el._cln || (el._cln = [])).push(d.destroy);
   return d;
 };
 
-/* ================================================================== */
-/*  MODO MOVE                                                          */
-/* ================================================================== */
 function moveDrag(el, opts) {
   const {
     handle, disabled = false, threshold = 4, bounds = null,
@@ -48,7 +41,6 @@ function moveDrag(el, opts) {
 
   let session = null, minDx, maxDx, minDy, maxDy;
 
-  // aplicar posición de forma reactiva (una sola suscripción)
   effect(() => {
     if (useTransform) el.style.translate = `${x()}px ${y()}px`;
     else { el.style.left = x() + 'px'; el.style.top = y() + 'px'; }
@@ -149,14 +141,11 @@ function moveDrag(el, opts) {
   };
 }
 
-/* ================================================================== */
-/*  MODO SORT                                                          */
-/* ================================================================== */
 const ITEM_ATTR = 'data-drag-item';
 const KEY_ATTR  = 'data-drag-key';
 const KEY_OF    = 'data-drag-key-of';
 
-const registry = new WeakMap(); // container → cfg
+const registry = new WeakMap();
 
 function findContainerAt(x, y) {
   for (const el of document.elementsFromPoint(x, y)) {
@@ -236,7 +225,6 @@ function sortDrag(container, opts) {
       if (Math.hypot(dx, dy) < threshold) return;
       s.started = true;
 
-      // ghost flotante
       const ghost = s.itemEl.cloneNode(true);
       ghost.style.cssText =
         `position:fixed;left:0;top:0;z-index:9999;pointer-events:none;
@@ -245,7 +233,6 @@ function sortDrag(container, opts) {
          opacity:.85;${ghostStyle}`;
       document.body.appendChild(ghost);
 
-      // placeholder
       const ph = document.createElement('div');
       ph.style.cssText =
         `width:${s.rect.width}px;height:${s.rect.height}px;
@@ -272,8 +259,6 @@ function sortDrag(container, opts) {
     if (!hoverCfg || !srcCfg || hoverCfg.group !== srcCfg.group) return;
 
     const idx = indexAt(e.clientY, s.keyVal);
-    // Nota: indexAt se calcula sobre hoverContainer, no el origen
-    // Si es lista distinta, el keyVal no está en hoverContainer, así que cuenta todo
     const sameList = hoverContainer === s.fromList;
     const effectiveIdx = sameList ? idx : (() => {
       const els = [...hoverContainer.children].filter(c => c.hasAttribute?.(ITEM_ATTR));

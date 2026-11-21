@@ -1,3 +1,5 @@
+//sigpro.pdf.js
+
 import { signal } from './sigpro.js';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';

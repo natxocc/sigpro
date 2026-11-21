@@ -68,11 +68,6 @@
     "docs": "bun run docs:sync && bun x serve docs"
   },
   "devDependencies": {
-    "@fullcalendar/core": "^6.1.22",
-    "@fullcalendar/daygrid": "^6.1.22",
-    "@fullcalendar/interaction": "^6.1.22",
-    "@fullcalendar/list": "^6.1.22",
-    "@fullcalendar/timegrid": "^6.1.22",
     "@iconify/json": "^2.2.557",
     "@iconify/tailwind4": "^1.2.3",
     "@tailwindcss/cli": "^4.3.5",

@@ -1,3 +1,5 @@
+//sigpro.chart.js
+
 import { h, effect, untrack } from './sigpro.js';
 import Highcharts from 'highcharts';
 

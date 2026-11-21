@@ -1,3 +1,5 @@
+// sigpro.editor.js
+
 import { signal, exposeTags } from "sigpro";
 
 exposeTags();

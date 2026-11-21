@@ -1,4 +1,5 @@
 // src/sigpro.ui.js
+
 import { signal, computed, effect, h, mount } from './sigpro.js';
 
 // ── Internal Helpers ───────────────────────────────────────────

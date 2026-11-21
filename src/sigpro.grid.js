@@ -32,7 +32,6 @@ const commonEvents = [
   'onPaginationChanged', 'onBodyScroll'
 ];
 
-// FIX 1: builder puro que recibe isDark
 const buildTheme = (isDark) => isDark
   ? themeQuartz.withParams({
       headerFontSize: 14,
@@ -72,7 +71,6 @@ export const Grid = (props) => {
 
       const eventHandlers = {};
       commonEvents.forEach(eventName => {
-        // FIX 4: handler lee `on` en cada invocación (opcional)
         eventHandlers[eventName] = (params) => {
           const fn = on?.[eventName];
           if (fn) fn(params);
@@ -94,7 +92,6 @@ export const Grid = (props) => {
       gridApi = createGrid(container, gridOptions);
       if (api) api.current = gridApi;
 
-      // effect de data (sin cambios)
       effect(() => {
         const newData = typeof data === "function" ? data() : data;
         if (Array.isArray(newData)) {
@@ -103,7 +100,6 @@ export const Grid = (props) => {
         }
       });
 
-      // FIX 2: theme reacciona a isDark, no a JSON.stringify
       let lastIsDark = null;
       effect(() => {
         const isDark = getDark();
@@ -112,7 +108,6 @@ export const Grid = (props) => {
         gridApi.setGridOption("theme", buildTheme(isDark));
       });
 
-      // FIX 3: options no se re-setean en el primer render
       let firstOptionsRun = true;
       effect(() => {
         const newOptions = typeof options === "function" ? options() : options;
@@ -130,7 +125,7 @@ export const Grid = (props) => {
       };
     });
 
-    return () => { stop(); };  // red de seguridad (requiere el cambio en h())
+    return () => { stop(); };
   };
 
   return h("div", { class: className, style, ref: initGrid });
