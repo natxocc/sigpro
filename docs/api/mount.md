@@ -87,7 +87,7 @@ When you call `mount`, SigPro performs these steps:
    `h(component, {})` is called. The result may be a single node, an array of nodes, or `null`. Arrays are filtered to remove falsy entries.
 
 4. **Inject into target**
-   The target's existing children are first recursively cleaned up with `cleanupNode()` (which disposes their scopes and removes their event listeners), then removed, and the new nodes are appended via `appendChild()`. This guarantees no orphaned listeners from a previous render.
+    The target's existing children are removed and their scopes/listeners cleaned up, then the new nodes are appended via `appendChild()`. This guarantees no orphaned listeners from a previous render.
 
 5. **Return stop function**
    The function returned stops the root scope (cascading cleanup of all descendant effects and listeners) and clears the target with `el.replaceChildren()`.
@@ -152,7 +152,7 @@ mount(LoginScreen, '#app');
 mount(Dashboard, '#app');
 ```
 
-The second call cleans up the existing children (via `cleanupNode`) before rendering the new component, so **event listeners and scopes attached to those child nodes are disposed**. However, the root scope of the previous mount is not explicitly stopped.
+The second call cleans up the existing children (scopes and listeners) before rendering the new component, so **event listeners and scopes attached to those child nodes are disposed**. However, the root scope of the previous mount is not explicitly stopped.
 
 For deterministic lifecycle management, keep the stop function and call it before mounting again:
 
@@ -221,7 +221,6 @@ setTimeout(stop, 10000);
 | Mount to a DOM element | `const stop = mount(App, document.getElementById('root'))` |
 | Stop the app | `stop()` |
 | Remove an arbitrary node | `unmount(el)` |
-| Recursively clean a node without detaching it | `cleanupNode(el)` |
 | Register cleanup for a resource | `return () => cleanup` inside `effect()` or `onMount()` |
 
 > **Note:** The target must exist in the DOM at the time of mounting. If it does not, `mount` returns a no-op function and logs nothing.

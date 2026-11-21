@@ -1,6 +1,6 @@
 // sigpro.router.js
 
-import { signal, effect, cleanupNode } from 'sigpro';
+import { signal, effect } from 'sigpro';
 
 export const currentPath = signal(
   typeof window !== 'undefined'
@@ -41,7 +41,14 @@ export const router = routes => () => {
   let lastComponent;
 
   const clearHook = () => {
-    for (const child of hook.childNodes) cleanupNode(child);
+    const stack = [];
+    for (const child of hook.childNodes) stack.push(child);
+    while (stack.length) {
+      const node = stack.pop();
+      if (node._stopScope) { node._stopScope(); node._stopScope = null; }
+      if (node._cln) { for (const f of node._cln) f(); node._cln = null; }
+      for (let i = 0; i < node.childNodes.length; i++) stack.push(node.childNodes[i]);
+    }
     hook.replaceChildren();
   };
 

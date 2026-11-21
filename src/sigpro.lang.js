@@ -2,8 +2,6 @@
 
 import { signal } from 'sigpro';
 
-const DOC = typeof document !== 'undefined' ? null : null;
-
 export const currentLocale = signal('en');
 
 const translations = {};

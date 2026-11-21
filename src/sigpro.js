@@ -1,5 +1,6 @@
 //sigpro.js
 
+/* ALIEN SIGNALS */
 const None = 0, Mutable = 1, Watching = 2, RecursedCheck = 4,
   Recursed = 8, Dirty = 16, Pending = 32, HasChildEffect = 64;
 
@@ -444,6 +445,8 @@ export function local(key, initial) {
   return s;
 }
 
+/* TSIGPRO TAGS */
+
 const DOC = typeof document !== 'undefined' ? document : null;
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -534,16 +537,7 @@ function setAttr(el, key, res, isSVG) {
   else el.setAttribute(key, res === true ? '' : res);
 }
 
-export function cleanupNode(n) {
-  const stack = [n];
-  while (stack.length) {
-    const node = stack.pop();
-    if (node._stopScope) { node._stopScope(); node._stopScope = null; }
-    if (node._cln) { for (const f of node._cln) f(); node._cln = null; }
-    const children = node.childNodes;
-    for (let i = 0, len = children.length; i < len; i++) stack.push(children[i]);
-  }
-}
+
 
 export function h(tag, props = {}, ...children) {
   if (tag == null) {
@@ -699,3 +693,16 @@ export const exposeTags = (target = typeof window !== 'undefined' ? window : nul
     target[tag] = (props, ...children) => h(tag, props, ...children);
   }
 };
+
+
+/* HELPERS */
+export const onPrevent = fn => e => { e.preventDefault(); fn(e); };
+export const onStop = fn => e => { e.stopPropagation(); fn(e); };
+export const onSelf = fn => e => { if (e.target === e.currentTarget) fn(e); };
+export const onOnce = fn => { let c = false; return e => { if (!c) { c = true; fn(e); } }; };
+export const onDebounce = (ms, fn) => { let t; return e => { clearTimeout(t); t = setTimeout(() => fn(e), ms); }; };
+export const onKey = (key, fn) => e => { if (e.key === key) fn(e); };
+export const onEnter = fn => onKey("Enter", fn);
+export const onEscape = fn => onKey("Escape", fn);
+export const bindvalue = s => ({ value: () => s(), oninput: e => s(e.target.value) });
+export const bindcheck = s => ({ checked: () => !!s(), onchange: e => s(e.target.checked) });

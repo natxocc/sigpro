@@ -262,19 +262,9 @@ import { unmount } from 'sigpro';
 unmount(document.querySelector('.widget'));
 ```
 
-### `cleanupNode(node)` – Recursive Cleanup Only
-
-Same traversal as `unmount` but **does not detach** the node from the DOM. Useful when you want to clear listeners/scopes and reinsert the node elsewhere.
-
-```javascript
-import { cleanupNode } from 'sigpro';
-
-cleanupNode(node);   // stops scopes + removes listeners, node stays in place
-```
-
 ### No Auto-Replace on Same Target
 
-SigPro does **not** track mounted targets. Calling `mount` twice on the same target cleans up existing children (via `cleanupNode`) but does **not** stop the previous app scope. **Keep the stop function** and call it before remounting:
+SigPro does **not** track mounted targets. Calling `mount` twice on the same target cleans up existing children (scopes and listeners) but does **not** stop the previous app scope. **Keep the stop function** and call it before remounting:
 
 ```javascript
 let stop = mount(Login, '#app');

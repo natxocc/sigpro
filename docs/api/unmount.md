@@ -169,25 +169,6 @@ Order doesn't strictly matter, but cleaning up the small thing before the big th
 
 ---
 
-## `cleanupNode()` — Cleanup Without Detaching
-
-If you want the same recursive cleanup as `unmount` but **without removing the node from the DOM**, use `cleanupNode()`:
-
-```javascript
-import { cleanupNode } from 'sigpro';
-
-cleanupNode(el);   // stops scopes + removes listeners, el stays in place
-```
-
-This is useful when you want to reuse the node (e.g. re-insert it elsewhere) but its previous effects and listeners should be dead.
-
-| Function | Detaches from DOM | Cleans subtree |
-| :--- | :--- | :--- |
-| `unmount(node)` | ✅ | ✅ |
-| `cleanupNode(node)` | ❌ | ✅ |
-
----
-
 ## What `unmount` Does Not Do
 
 - **Does not remove siblings.** It removes the node and cleans up its subtree. Siblings are untouched.
@@ -252,7 +233,5 @@ const show = () => {
 | :--- | :--- |
 | Remove a node created by `h()` | Just let the parent dispose — no need to call `unmount` |
 | Remove a hand-made node | `unmount(el)` |
-| Clean a node's scopes/listeners without detaching | `cleanupNode(el)` |
-| Track listeners on a hand-made node | Define an `on(el, ev, fn)` helper that writes to `el._cln` |
 | Stop the whole app | `const stop = mount(...); stop()` |
 | Clean up after a library | library's own destroy, then let SigPro's scope handle the rest |

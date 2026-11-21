@@ -30,9 +30,6 @@
     },
     "./hmr": {
       "import": "./src/sigpro.hmr.js"
-    },
-    "./utils": {
-      "import": "./src/sigpro.utils.js"
     }
   },
   "files": [
