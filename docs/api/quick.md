@@ -399,7 +399,7 @@ GET when `data` is omitted, POST otherwise. Calls `loading(true/false)` if provi
 On non-2xx responses, the thrown `Error` has `status` and `statusText`. Returns `null` for 204/205. Parses the response as JSON.
 
 ```javascript
-import { db } from 'sigpro/http';
+import { db } from 'sigpro/db';
 import { signal } from 'sigpro';
 
 const loading = signal(false);

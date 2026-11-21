@@ -39,12 +39,12 @@ Add the plugin to your Bun build config:
 
 ```js
 // build.js
-import { sigproPlugin } from "sigpro/hmr";
+import { hmr } from "sigpro/hmr";
 
 await Bun.build({
   entrypoints: ["./src/main.js"],
   outdir: "./dist",
-  plugins: [sigproPlugin],
+  plugins: [hmr],
   define: {
     "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV ?? "development"),
   },

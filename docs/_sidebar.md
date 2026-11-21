@@ -18,10 +18,6 @@
     * [i18n](api/i18n.md)
     * [db](api/db.md)
     * [HMR](api/hmr.md)
-    * [Grid](api/grid.md)
-    * [Chart](api/chart.md)
-    * [Calendar](api/calendar.md)
-     * [PDF](api/pdf.md)
 
 * **Guides**
   * [Global Store](api/global.md)
