@@ -103,14 +103,8 @@ export const router = routes => () => {
   return hook;
 };
 
-router.to = path => {
-  if (typeof window !== 'undefined') {
-    window.location.hash = path.replace(/^#?\/?/, '#/');
-  }
-};
-router.back = () => {
-  if (typeof window !== 'undefined') window.history.back();
-};
+router.to = path => { if (typeof window !== 'undefined') { window.location.hash = path.replace(/^#?\/?/, '#/') } };
+router.back = () => { if (typeof window !== 'undefined') window.history.back() };
 router.path = () => currentPath();
 
 export { hmrRegistry };

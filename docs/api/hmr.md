@@ -64,7 +64,7 @@ import path from "path";
 const PAGES = path.resolve(import.meta.dir, "src/pages") + path.sep;
 const isDev = process.env.NODE_ENV === "development";
 
-export const sigproPlugin = {
+export const hmr = {
   name: "sigpro-hmr",
   setup(build) {
     build.onLoad({ filter: /\.js$/ }, async (args) => {
@@ -108,6 +108,44 @@ export const sigproPlugin = {
 
 The plugin only touches `.js` files inside `src/pages/`. Anything outside is untouched. The `isDev` check ensures the HMR block is **stripped entirely** in production builds (it never reaches the browser).
 
+## Vite Router Plugin
+
+SigPro ships a separate Vite plugin (`sigpro/vite`) that auto-generates routes from a `src/pages/` directory structure:
+
+```js
+// vite.config.js
+import { defineConfig } from "vite";
+import { sigproRouter } from "sigpro/vite";
+
+export default defineConfig({
+  plugins: [sigproRouter({ pagesDir: "src/pages" })],
+});
+```
+
+It generates a virtual `virtual:sigpro-routes` module with all routes sorted by priority (static > dynamic > catch-all). Pages under `src/pages/` are automatically converted to route entries. Files starting with `_` are ignored. It also adds HMR support to page files.
+
+Supported path patterns:
+- `:param` → dynamic segment (`[id]` in filenames)
+- `*` → catch-all (`[...slug]` in filenames)
+
+## `convert` — HTML to SigPro Converter
+
+SigPro ships a DOM-to-code converter (`sigpro/convert`) that transforms existing HTML markup into either `h()` calls or tag helper syntax:
+
+```js
+// Browser environment
+window.html2sigpro('<div class="box"><h1>Hello</h1></div>');
+// → "div({ class: 'box' },\n  h1('Hello')\n)"
+
+window.converter(); // returns a reactive converter component
+```
+
+It supports two output modes:
+- `"tags"` (default) — `div(props, children)` style
+- `"core"` — `h('tag', props, children)` style
+
+The converter also includes a live HTML preview iframe. Use it as an interactive tool or import `html2sigpro` directly for programmatic conversion.
+
 ## `hmrTick` and `__sigpro_hmr_page__`
 
 Both are exported (or installed globally) by SigPro for advanced use:
@@ -150,6 +188,8 @@ The whole integration is one function call per file change.
 
 ## What HMR Does Not Do
 
+The Bun plugin and Vite plugin are independent. The Bun plugin handles HMR for individual page files. The Vite plugin additionally auto-generates route entries from the `src/pages/` directory.
+
 - **Does not reload CSS.** Only `.js` files are watched. Use your bundler's CSS HMR for styles.
 - **Does not preserve component state.** The component is re-rendered from scratch; any `signal()` declared inside the component body is recreated. For cross-reload state, keep it outside the component (module-level signal or `local()`).
 - **Does not work with `route.component`.** The fallback is only for production or for routes not registered via HMR. Editing a file outside `src/pages/` (or a file whose route doesn't match the convention) won't replace the currently rendered component.
@@ -159,8 +199,9 @@ The whole integration is one function call per file change.
 
 | Goal | Code |
 | :--- | :--- |
-| Enable HMR | `NODE_ENV=development` + Bun plugin |
-| Register a page for HMR | Name the file `src/pages/<route>.js` |
+| Enable HMR (Bun) | `NODE_ENV=development` + import `hmr` from `sigpro/hmr` |
+| Enable HMR (Vite) | Use `sigproRouter()` plugin, pages under `src/pages/` |
+| Register a page for HMR (Bun) | Name the file `src/pages/<route>.js` |
 | Force a route refresh from user code | `hmrTick(hmrTick() + 1)` |
 | Disable HMR | `NODE_ENV=production` (block is stripped) |
 | Check if HMR is active | `typeof window.__sigpro_hmr_page__ === "function"` |

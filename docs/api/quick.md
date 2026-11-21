@@ -31,7 +31,9 @@ double(); // → 10 (recomputed on read)
 
 ### `local(key, initial)` – Persistent Signal
 
-Creates a signal backed by `localStorage`. Value is JSON-serialized. Falls back to `initial` if unavailable.
+Creates a signal backed by `localStorage`. Value is JSON-serialized. Falls back to `initial` if unavailable or parse fails. 
+
+Internally, it creates an `effect` that writes the signal value to localStorage on every change (write-through). The signal and storage stay in sync reactively.
 
 ```javascript
 import { local } from 'sigpro';
