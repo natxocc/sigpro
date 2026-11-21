@@ -1,4 +1,3 @@
-/// <reference path="../sigpro.d.ts" />
 // sigpro.convert.js
 
 function html2sigpro(h, mode = "tags") {

@@ -153,9 +153,9 @@ export function unmount(node: Node): void;
 
 /**
  * Recursively disposes scopes, removes tracked listeners, and clears
- * `_cln` / `_stopScope` on the node and its descendants.
+ * `_cln` / `_stopScope` on the node and its descendants. Internal use only.
  */
-export function cleanupNode(node: Node): void;
+declare function cleanupNode(node: Node): void;
 
 // ============================================================================
 // Router (sigpro/router)
@@ -187,12 +187,6 @@ export const currentPath: Signal<string>;
 
 /** Current route params as a reactive signal. */
 export const routerParams: Signal<Record<string, string>>;
-
-/** Increments on HMR page registration; read to force route refresh. */
-export const hmrTick: Signal<number>;
-
-const hmrRegistry: Map<string, any>;
-export { hmrRegistry };
 
 // ============================================================================
 // i18n (sigpro/lang)
@@ -267,10 +261,6 @@ declare const SigPro: {
   onError: typeof onError;
   cleanupNode: typeof cleanupNode;
   exposeTags: typeof exposeTags;
-  router: typeof router;
-  currentPath: typeof currentPath;
-  routerParams: typeof routerParams;
-  hmrTick: typeof hmrTick;
   currentLocale: typeof currentLocale;
   addLang: typeof addLang;
   setLocale: typeof setLocale;
@@ -302,10 +292,6 @@ declare global {
     onError: typeof onError;
     cleanupNode: typeof cleanupNode;
     exposeTags: typeof exposeTags;
-    router: typeof router;
-    currentPath: typeof currentPath;
-    routerParams: typeof routerParams;
-    hmrTick: typeof hmrTick;
     currentLocale: typeof currentLocale;
     addLang: typeof addLang;
     setLocale: typeof setLocale;
