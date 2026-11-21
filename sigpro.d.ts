@@ -151,12 +151,9 @@ export function mount(
  */
 export function unmount(node: Node): void;
 
-/**
- * Recursively disposes scopes, removes tracked listeners, and clears
- * `_cln` / `_stopScope` on the node and its descendants. Internal use only.
- */
-declare function cleanupNode(node: Node): void;
 
+// ============================================================================
+// Router (sigpro/router)
 // ============================================================================
 // Router (sigpro/router)
 // ============================================================================
@@ -259,7 +256,6 @@ declare const SigPro: {
   unmount: typeof unmount;
   onMount: typeof onMount;
   onError: typeof onError;
-  cleanupNode: typeof cleanupNode;
   exposeTags: typeof exposeTags;
   currentLocale: typeof currentLocale;
   addLang: typeof addLang;
@@ -290,7 +286,6 @@ declare global {
     unmount: typeof unmount;
     onMount: typeof onMount;
     onError: typeof onError;
-    cleanupNode: typeof cleanupNode;
     exposeTags: typeof exposeTags;
     currentLocale: typeof currentLocale;
     addLang: typeof addLang;

@@ -1,7 +1,6 @@
-// sigpro.lang.js — Minimal i18n with reactive locale switching
-import { signal, effect } from 'sigpro';
+// sigpro.lang.js
 
-const DOC = typeof document !== 'undefined' ? null : null;
+import { signal } from 'sigpro';
 
 export const currentLocale = signal('en');
 

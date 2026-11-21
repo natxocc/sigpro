@@ -1,4 +1,4 @@
-/// <reference path="../sigpro.d.ts" />
+// sigpro.convert.js
 
 function html2sigpro(h, mode = "tags") {
     const B = new Set(["allowfullscreen", "async", "autofocus", "autoplay", "checked", "controls", "default", "defer", "disabled", "formnovalidate", "hidden", "ismap", "itemscope", "loop", "multiple", "muted", "nomodule", "novalidate", "open", "playsinline", "readonly", "required", "reversed", "selected", "truespeed"]);
