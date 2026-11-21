@@ -22,20 +22,8 @@
     "./lang": {
       "import": "./src/sigpro.lang.js"
     },
-    "./http": {
+    "./db": {
       "import": "./src/sigpro.db.js"
-    },
-    "./grid": {
-      "import": "./src/sigpro.grid.js"
-    },
-    "./chart": {
-      "import": "./src/sigpro.chart.js"
-    },
-    "./calendar": {
-      "import": "./src/sigpro.calendar.js"
-    },
-    "./editor": {
-      "import": "./src/sigpro.editor.js"
     },
     "./vite": {
       "import": "./src/sigpro.vite.js"
@@ -45,9 +33,6 @@
     },
     "./utils": {
       "import": "./src/sigpro.utils.js"
-    },
-    "./pdf": {
-      "import": "./src/sigpro.pdf.js"
     }
   },
   "files": [
@@ -66,18 +51,6 @@
   "scripts": {
     "docs:sync": "mkdir -p docs/src && cp src/*.js docs/src/",
     "docs": "bun run docs:sync && bun x serve docs"
-  },
-  "devDependencies": {
-    "@iconify/json": "^2.2.557",
-    "@iconify/tailwind4": "^1.2.3",
-    "@tailwindcss/cli": "^4.3.5",
-    "ag-grid-community": "^35.3.1",
-    "ag-grid-enterprise": "^35.3.1",
-    "daisyui": "^5.8.1",
-    "highcharts": "^13.1.1",
-    "jspdf": "^4.2.1",
-    "jspdf-autotable": "^5.0.9",
-    "tailwindcss": "^4.3.5"
   },
   "keywords": [
     "signals",
