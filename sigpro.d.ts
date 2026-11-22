@@ -64,6 +64,18 @@ export function watch<T>(
  */
 export function local<T>(key: string, initial: T): Signal<T>;
 
+/**
+ * Groups effects/`computed` under one disposable scope. Calling the returned
+ * function stops everything created within `fn`.
+ */
+export function effectScope<T>(fn: () => T): T;
+
+/**
+ * Reports an error thrown inside an `effect` or component to the handler set by
+ * `onError`. Called internally; rarely used directly.
+ */
+export function reportError(err: unknown, where?: unknown): void;
+
 // ============================================================================
 // DOM Creation
 // ============================================================================
@@ -150,6 +162,43 @@ export function mount(
  * the node. Only needed for nodes created outside `h()`.
  */
 export function unmount(node: Node): void;
+
+
+// ============================================================================
+// Event helpers
+// ============================================================================
+
+export type EventListener<T extends Event = Event> = (event: T) => void;
+
+/** Wraps a handler to `preventDefault()` before calling it. */
+export function onPrevent<T extends Event = Event>(fn: EventListener<T>): EventListener<T>;
+
+/** Wraps a handler to `stopPropagation()` before calling it. */
+export function onStop<T extends Event = Event>(fn: EventListener<T>): EventListener<T>;
+
+/** Only invokes `fn` when the event target equals the current target. */
+export function onSelf<T extends Event = Event>(fn: EventListener<T>): EventListener<T>;
+
+/** Wraps a handler so it runs only once, then detaches itself. */
+export function onOnce<T extends Event = Event>(fn: EventListener<T>): EventListener<T>;
+
+/** Wraps a handler with a leading-trailing debounce of `ms` milliseconds. */
+export function onDebounce<T extends Event = Event>(ms: number, fn: EventListener<T>): EventListener<T>;
+
+/** Invokes `fn` only when `e.key` matches `key`. */
+export function onKey<T extends Event = Event>(key: string, fn: EventListener<T>): EventListener<T>;
+
+/** Invokes `fn` when the pressed key is `Enter`. */
+export function onEnter<T extends Event = Event>(fn: EventListener<T>): EventListener<T>;
+
+/** Invokes `fn` when the pressed key is `Escape`. */
+export function onEscape<T extends Event = Event>(fn: EventListener<T>): EventListener<T>;
+
+/** Binds an input's value to a signal: `{ value, oninput }` props for `h`. */
+export function bindvalue<T>(s: () => T): { value: () => T; oninput: (e: Event) => void };
+
+/** Binds a checkbox's checked state to a signal: `{ checked, onchange }` props for `h`. */
+export function bindcheck<T>(s: () => T): { checked: () => boolean; onchange: (e: Event) => void };
 
 
 // ============================================================================

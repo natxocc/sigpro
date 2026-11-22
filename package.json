@@ -1,6 +1,6 @@
 {
   "name": "sigpro",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "type": "module",
   "license": "MIT",
   "author": {
@@ -14,22 +14,33 @@
   "exports": {
     ".": {
       "types": "./sigpro.d.ts",
-      "import": "./src/sigpro.js"
+      "import": "./src/sigpro.js",
+      "default": "./src/sigpro.js"
     },
     "./router": {
-      "import": "./src/sigpro.router.js"
+      "types": "./sigpro.d.ts",
+      "import": "./src/sigpro.router.js",
+      "default": "./src/sigpro.router.js"
     },
     "./lang": {
-      "import": "./src/sigpro.lang.js"
+      "types": "./sigpro.d.ts",
+      "import": "./src/sigpro.lang.js",
+      "default": "./src/sigpro.lang.js"
     },
     "./db": {
-      "import": "./src/sigpro.db.js"
+      "types": "./sigpro.d.ts",
+      "import": "./src/sigpro.db.js",
+      "default": "./src/sigpro.db.js"
     },
     "./vite": {
-      "import": "./src/sigpro.vite.js"
+      "types": "./sigpro.d.ts",
+      "import": "./src/sigpro.vite.js",
+      "default": "./src/sigpro.vite.js"
     },
     "./hmr": {
-      "import": "./src/sigpro.hmr.js"
+      "types": "./sigpro.d.ts",
+      "import": "./src/sigpro.hmr.js",
+      "default": "./src/sigpro.hmr.js"
     }
   },
   "files": [
@@ -37,6 +48,10 @@
     "sigpro.d.ts"
   ],
   "homepage": "https://sigpro.natxocc.com/#/",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/natxocc/sigpro"
