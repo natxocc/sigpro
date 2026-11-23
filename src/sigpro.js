@@ -248,6 +248,15 @@ export const exposeTags = (target = typeof window !== 'undefined' ? window : nul
   }
 };
 
+export const slots = children => {
+  const s = children[0]
+  return (
+    children.length === 1 && s && typeof s === 'object' &&
+      !Array.isArray(s) && !(s instanceof Node)
+      ? s
+      : { default: () => children }
+  )
+}
 
 /* HELPERS */
 export const onPrevent = fn => e => { e.preventDefault(); fn(e); };

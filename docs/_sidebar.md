@@ -9,6 +9,7 @@
   * [Effects](api/effects.md)
   * [watch](api/watch.md)
   * [h](api/h.md)
+  * [Slots](api/slots.md)
   * [Tags](api/tags.md)
   * [mount](api/mount.md)
   * [unmount](api/unmount.md)

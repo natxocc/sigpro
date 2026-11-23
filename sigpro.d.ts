@@ -122,6 +122,15 @@ export type Child =
   | Child[];
 
 /**
+ * A slot: a function that returns the rendered content when called.
+ * Named slots are keyed by name; the fallback slot is keyed as `default`.
+ */
+export type Slot = () => Child | Child[];
+
+/** A map of slot names to slot functions. */
+export type Slots = Record<string, Slot>;
+
+/**
  * Creates an HTML/SVG element (tag: string) or renders a component
  * (tag: function). The first arg after `tag` may be children when it is not
  * a plain object.
@@ -137,6 +146,29 @@ export function h<P extends object>(
   props?: P | null,
   ...children: Child[]
 ): Node | Node[] | null;
+
+/**
+ * Normalizes a component's `children` into a `Slots` map.
+ *
+ * - A single object argument (not an array, not a `Node`) is returned as-is,
+ *   so you can pass a named-slots object directly.
+ * - Otherwise the children are wrapped as `{ default: () => children }`.
+ *
+ * @example
+ * const Card = (props) => {
+ *   const { default: body, footer } = props.slots || {};
+ *   return div({}, body && body());
+ * };
+ * Card({}, slots([p({}, 'body'), p({}, 'other')]));
+ *
+ * @example
+ * const Card = (props) => {
+ *   const { header } = props.slots;
+ *   return div({}, header && header());
+ * };
+ * Card({}, slots({ header: () => h('h1', {}, 'Title') }));
+ */
+export function slots(children: Child | Child[] | Slots): Slots;
 
 /**
  * Registers all standard HTML tag names as globals on `target` (default
@@ -301,6 +333,7 @@ declare const SigPro: {
   watch: typeof watch;
   local: typeof local;
   h: typeof h;
+  slots: typeof slots;
   mount: typeof mount;
   unmount: typeof unmount;
   onMount: typeof onMount;
@@ -331,6 +364,7 @@ declare global {
     watch: typeof watch;
     local: typeof local;
     h: typeof h;
+    slots: typeof slots;
     mount: typeof mount;
     unmount: typeof unmount;
     onMount: typeof onMount;
