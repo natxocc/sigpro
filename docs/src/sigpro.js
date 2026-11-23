@@ -91,7 +91,16 @@ function setAttr(el, key, res, isSVG) {
   else el.setAttribute(key, res === true ? '' : res);
 }
 
-
+export function cleanupNode(n) {
+  const stack = [n];
+  while (stack.length) {
+    const node = stack.pop();
+    if (node._stopScope) { node._stopScope(); node._stopScope = null; }
+    if (node._cln) { for (const f of node._cln) f(); node._cln = null; }
+    const children = node.childNodes;
+    for (let i = 0, len = children.length; i < len; i++) stack.push(children[i]);
+  }
+}
 
 export function h(tag, props = {}, ...children) {
   if (tag == null) {
