@@ -12,7 +12,9 @@ export function sigproRouter({ pagesDir = "src/pages" } = {}) {
   const pagesRootPosix = pagesRoot.split(path.sep).join("/");
 
   const isPage = (f) =>
-    /\.(js|jsx)$/.test(f) && !path.basename(f).startsWith("_");
+    /\.(js|jsx|ts|tsx)$/.test(f) && 
+    !path.basename(f).startsWith("_") &&
+    !f.includes(".store.");
 
   const getFiles = (dir) => {
     if (!fs.existsSync(dir)) return [];
@@ -26,7 +28,7 @@ export function sigproRouter({ pagesDir = "src/pages" } = {}) {
     const relative = path
       .relative(dir, filePath)
       .replace(/\\/g, "/")
-      .replace(/\.(js|jsx)$/, "")
+      .replace(/\.(js|jsx|ts|tsx)$/, "")
       .replace(/\/index$/, "")
       .replace(/^index$/, "");
     return (
@@ -40,8 +42,7 @@ export function sigproRouter({ pagesDir = "src/pages" } = {}) {
 
   const sortRoutes = (dir, files) =>
     files.slice().sort((a, b) => {
-      const ua = pathToUrl(dir, a),
-        ub = pathToUrl(dir, b);
+      const ua = pathToUrl(dir, a), ub = pathToUrl(dir, b);
       const wa = ua.includes(":") || ua.includes("*");
       const wb = ub.includes(":") || ub.includes("*");
       if (wa !== wb) return wa ? 1 : -1;
@@ -57,8 +58,7 @@ export function sigproRouter({ pagesDir = "src/pages" } = {}) {
 
     files.forEach((fullPath, i) => {
       const url = pathToUrl(dir, fullPath);
-      const importPath =
-        "/" + path.relative(root, fullPath).replace(/\\/g, "/");
+      const importPath = "/" + path.relative(root, fullPath).replace(/\\/g, "/");
       const name = `Page${i}`;
       imports += `import ${name} from '${importPath}';\n`;
       routes += `  { path: '${url}', component: ${name} },\n`;
@@ -71,23 +71,19 @@ export function sigproRouter({ pagesDir = "src/pages" } = {}) {
 
   return {
     name: "sigpro-router",
-
     resolveId(id) {
       if (id === virtualModuleId) return resolvedVirtualModuleId;
     },
-
     load(id) {
       if (id !== resolvedVirtualModuleId) return;
       return generateModule();
     },
-
     transform(code, id) {
       const clean = id.split("?")[0];
       const cleanPosix = clean.split(path.sep).join("/");
 
       if (!cleanPosix.startsWith(pagesRootPosix + "/")) return;
-      if (!/\.(js|jsx)$/.test(cleanPosix)) return;
-      if (path.basename(cleanPosix).startsWith("_")) return;
+      if (!isPage(cleanPosix)) return;
 
       const url = pathToUrl(pagesRoot, clean);
 
@@ -96,22 +92,25 @@ export function sigproRouter({ pagesDir = "src/pages" } = {}) {
 if (import.meta.hot) {
   import.meta.hot.accept((newMod) => {
     if (newMod && typeof window !== 'undefined' && window.__sigpro_hmr_page__) {
-      window.__sigpro_hmr_page__(${JSON.stringify(url)}, newMod.default ?? newMod);
+      Promise.resolve().then(() => {
+        window.__sigpro_hmr_page__(${JSON.stringify(url)}, newMod.default ?? newMod);
+      });
     }
   });
 }
 `;
       return { code: code + hmr, map: null };
     },
-
     configureServer(server) {
       const onChange = (file) => {
         const posix = file.split(path.sep).join("/");
         if (!posix.startsWith(pagesRootPosix + "/")) return;
         if (!isPage(posix)) return;
         const vm = server.moduleGraph.getModuleById(resolvedVirtualModuleId);
-        if (vm) server.moduleGraph.invalidateModule(vm);
-        server.ws.send({ type: "full-reload" });
+        if (vm) {
+          server.moduleGraph.invalidateModule(vm);
+          server.ws.send({ type: "full-reload" });
+        }
       };
       server.watcher.on("add", onChange);
       server.watcher.on("unlink", onChange);
@@ -119,28 +118,31 @@ if (import.meta.hot) {
   };
 }
 
+
 /* Vite Config
 
 import { defineConfig } from "vite";
-import tailwindcss from "@tailwindcss/vite";
-import { sigproRouter } from "./sigpro.vite.js";
+import { sigproRouter } from "sigpro/vite";
 
 const dev = process.env.NODE_ENV === "development";
 
 export default defineConfig({
   plugins: [sigproRouter({ pagesDir: "src/pages" }), tailwindcss()],
-  base: dev ? "/absproxy/5173/" : "/",
-  server: { host: "0.0.0.0", allowedHosts: true, port: 5173 },
-  build: { chunkSizeWarningLimit: 1500 },
 });
 
 */
 
 /* main.js 
+
+import { mount } from 'sigpro'
+import App from './pages/App.js'
+
+let dispose = mount(App, '#root')
+
 if (import.meta.hot) {
-  import.meta.hot.accept(["./App.js"], ([newApp]) => {
+  import.meta.hot.accept('./pages/App.js', (newModule) => {
     dispose?.();
-    dispose = mount(newApp.App, "#app");
+    dispose = mount(newModule.default, '#root');
   });
 }
   */

@@ -1,20 +1,33 @@
 // sigpro.router.js
 import { signal, effect } from 'sigpro';
 
-export const currentPath = signal(typeof window !== 'undefined' ? location.hash.slice(1) || '/' : '/');
+export const currentPath = signal(
+  typeof window !== 'undefined' ? location.hash.slice(1) || '/' : '/'
+);
 export const routerParams = signal({});
 
 if (typeof window !== 'undefined') {
   addEventListener('hashchange', () => currentPath(location.hash.slice(1) || '/'));
 }
 
-const hmrTick = signal(0);
-const hmrRegistry = new Map();
-window.__sigpro_hmr_page__ = (url, component) => { hmrRegistry.set(url, component); hmrTick(hmrTick() + 1); };
+let hmrTick, hmrRegistry;
 
-export const router = routes => {
-  const sorted = [...routes].sort((a, b) => a.path.split('/').filter(p => p[0] === ':').length -
-    b.path.split('/').filter(p => p[0] === ':').length || (b.path === '*') - (a.path === '*'));
+if (import.meta.hot) {
+  hmrTick = signal(0);
+  hmrRegistry = new Map();
+  
+  window.__sigpro_hmr_page__ = (url, component) => {
+    hmrRegistry.set(url, component);
+    hmrTick(hmrTick() + 1);
+  };
+}
+
+export const router = (routes) => {
+  const sorted = [...routes].sort((a, b) =>
+    a.path.split('/').filter(p => p[0] === ':').length -
+    b.path.split('/').filter(p => p[0] === ':').length ||
+    (b.path === '*') - (a.path === '*')
+  );
 
   const hook = document.createElement('div');
   hook.classList.add('router-hook');
@@ -32,34 +45,45 @@ export const router = routes => {
   };
 
   const effectStop = effect(() => {
-    hmrTick();
+    if (import.meta.hot) hmrTick();
+
     const hash = currentPath().split(/[?#]/)[0];
     const p2 = hash.split('/').filter(Boolean);
 
-    let route = sorted.find(r => r.path.split('/').filter(Boolean).length === p2.length &&
-      r.path.split('/').every((p, i) => p[0] === ':' || p === p2[i]));
+    let route = sorted.find(r =>
+      r.path.split('/').filter(Boolean).length === p2.length &&
+      r.path.split('/').every((p, i) => p[0] === ':' || p === p2[i])
+    );
     if (!route) route = sorted[sorted.length - 1];
 
     const params = {};
     route.path.split('/').filter(Boolean).reduce((acc, p, i) => {
-      if (p[0] === ':') try { params[p.slice(1)] = decodeURIComponent(p2[i]); } catch { params[p.slice(1)] = p2[i]; }
+      if (p[0] === ':') {
+        try { params[p.slice(1)] = decodeURIComponent(p2[i]); }
+        catch { params[p.slice(1)] = p2[i]; }
+      }
       return acc;
     }, null);
 
-    const component = hmrRegistry.get(route.path) ?? route.component;
+    const component = (import.meta.hot && hmrRegistry.get(route.path)) || route.component;
+
     if (hash === lastPath && component === lastComponent) return;
     lastPath = hash; lastComponent = component;
 
     if (scopeStop) { scopeStop(); scopeStop = undefined; }
     clearHook();
     routerParams(params);
+
     scopeStop = effect(() => {
       const node = typeof component === 'function' ? component(params) : component;
       hook.replaceChildren(...(node == null ? [] : Array.isArray(node) ? node : [node]));
     });
   });
 
-  hook._stopScope = () => { if (scopeStop) { scopeStop(); scopeStop = undefined; } effectStop(); };
+  hook._stopScope = () => {
+    if (scopeStop) { scopeStop(); scopeStop = undefined; }
+    effectStop();
+  };
   return hook;
 };
 

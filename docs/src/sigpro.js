@@ -91,7 +91,7 @@ function setAttr(el, key, res, isSVG) {
   else el.setAttribute(key, res === true ? '' : res);
 }
 
-export function cleanupNode(n) {
+function cleanupNode(n) {
   const stack = [n];
   while (stack.length) {
     const node = stack.pop();

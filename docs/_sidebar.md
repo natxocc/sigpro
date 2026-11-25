@@ -14,11 +14,11 @@
   * [mount](api/mount.md)
   * [unmount](api/unmount.md)
 
-  * **Built-ins**
-    * [Router](router.md)
-    * [i18n](api/i18n.md)
-    * [db](api/db.md)
-    * [HMR](api/hmr.md)
+* **Built-ins**
+   * [Router](router.md)
+   * [Vite Plugin](api/vite.md)
+   * [i18n](api/i18n.md)
+   * [db](api/db.md)
 
 * **Guides**
   * [Global Store](api/global.md)

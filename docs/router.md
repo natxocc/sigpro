@@ -310,6 +310,47 @@ Note that `route` is created **once**, outside the component. Calling `route()` 
 
 ---
 
+## ⚠️ Using `sigpro/router` and `sigpro/vite` Together
+
+`sigpro/vite` auto-generates routes from `src/pages/`. If you also use `sigpro/router` with a **manual** route list that lives in the same `src/pages/` folder, you will get conflicts: the two routers will try to claim the same routes, and the generated virtual module can shadow or collide with your manual entries.
+
+**Do not mix both in the same folder.** Pick one approach per folder:
+
+- **Automatic routing** — put your pages under `src/pages/` and let `sigpro/vite` generate the routes.
+- **Manual routing** — put your route components under a different folder (e.g. `src/routes/`) and build the list yourself with `sigpro/router`.
+
+You can use both, as long as they point at different directories:
+
+```js
+import { sigproRouter } from "sigpro/vite";
+
+export default defineConfig({
+  plugins: [
+    // automatic routes from src/pages/
+    sigproRouter({ pagesDir: "src/pages" }),
+    // manual routes from src/routes/ (built by hand, not auto-generated)
+  ],
+});
+```
+
+---
+
+## Hot Module Replacement (HMR)
+
+The router has built-in HMR support that only activates in dev. When a bundler plugin (such as `sigpro/vite`) updates a page component, it calls `window.__sigpro_hmr_page__(routePath, newComponent)`. The router stores that replacement in an internal `hmrRegistry` keyed by route path and bumps an `hmrTick` signal, which forces the router's effect to re-render the current route with the new component — no page reload, so state in other routes, scroll position, and open modals stay intact.
+
+The replacement is looked up on every render:
+
+```js
+const component = (import.meta.hot && hmrRegistry.get(route.path)) || route.component;
+```
+
+In production `import.meta.hot` is `undefined`, so the registry is never populated and the router falls back to `route.component` from your config. The whole block is stripped from production builds, leaving zero runtime overhead.
+
+See [Vite Plugin](api/vite.md) for the plugin that wires it up.
+
+---
+
 ## Summary Cheat Sheet
 
 | Function / Signal | Description |
