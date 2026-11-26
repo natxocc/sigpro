@@ -213,6 +213,53 @@ setTimeout(stop, 10000);
 
 ---
 
+## Teleport: `teleport()`
+
+`mount` renders into a target **inside the component tree**. Sometimes you need a node to live **outside** that tree — at the end of `<body>` — so it is not affected by the parent's `overflow`, `transform`, `z-index`, or `filter`. That is what `teleport` does: it renders a component into a different target (default `document.body`) and swaps the content reactively.
+
+```javascript
+import { teleport } from 'sigpro';
+
+const done = teleport(document.body); // target defaults to document.body
+
+done(() => div({ class: "modal" }, "Rendered at the end of <body>"));
+
+// Swap to different content
+done(() => div({ class: "toast" }, "Notification"));
+
+// Clear it
+done(() => null);
+```
+
+`teleport` returns a setter function. Calling it with a new component function replaces the previous content in the target. The old content is cleaned up (scopes stopped, listeners removed) before the new one is inserted.
+
+### Why teleport for modals and winboxes
+
+A modal or draggable window should float over the entire tree, not be clipped by a parent container. With teleport:
+
+- The overlay uses `position: fixed` against the viewport, not the parent.
+- It is not truncated by `overflow: hidden` or distorted by `transform` on ancestors.
+- You control it from anywhere — the DOM lives in `body`, but the `signal` that toggles it is global.
+
+```javascript
+import { signal, effect, teleport } from 'sigpro';
+
+const open = signal(false);
+const done = teleport();
+
+effect(() => {
+  if (!open()) { done(() => null); return; }
+  done(() => div({ class: "modal" }, [
+    div({ class: "modal-box" }, "Content floats over the page"),
+    button({ onclick: () => open(false) }, "Close")
+  ]));
+});
+```
+
+> **Note:** The target must exist in the DOM at the time of the first render. If it does not, the content is not inserted.
+
+---
+
 ## Summary Cheat Sheet
 
 | Goal | Code |
@@ -221,6 +268,7 @@ setTimeout(stop, 10000);
 | Mount to a DOM element | `const stop = mount(App, document.getElementById('root'))` |
 | Stop the app | `stop()` |
 | Remove an arbitrary node | `unmount(el)` |
+| Render outside the tree (modals, winboxes) | `const done = teleport(); done(() => node)` |
 | Register cleanup for a resource | `return () => cleanup` inside `effect()` or `onMount()` |
 
 > **Note:** The target must exist in the DOM at the time of mounting. If it does not, `mount` returns a no-op function and logs nothing.

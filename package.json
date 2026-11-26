@@ -1,6 +1,6 @@
 {
   "name": "sigpro",
-  "version": "2.1.4",
+  "version": "2.1.6",
   "type": "module",
   "license": "MIT",
   "author": {
@@ -21,6 +21,11 @@
       "types": "./sigpro.d.ts",
       "import": "./src/sigpro.router.js",
       "default": "./src/sigpro.router.js"
+    },
+    "./drag": {
+      "types": "./sigpro.d.ts",
+      "import": "./src/sigpro.drag.js",
+      "default": "./src/sigpro.drag.js"
     },
     "./lang": {
       "types": "./sigpro.d.ts",

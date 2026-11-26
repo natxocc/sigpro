@@ -195,6 +195,16 @@ export function mount(
  */
 export function unmount(node: Node): void;
 
+/**
+ * Renders a component into a different target (default `document.body`) and
+ * swaps the content reactively. Returns a setter function: call it with a new
+ * component function to replace the previous content, or `null` to clear it.
+ *
+ * Useful for modals, winboxes, and any node that must float over the entire
+ * tree rather than being clipped by a parent's `overflow`, `transform`, or `z-index`.
+ */
+export function teleport(target?: HTMLElement | string): (fn: () => Node | Node[] | null) => void;
+
 
 // ============================================================================
 // Event helpers
@@ -225,6 +235,12 @@ export function onEnter<T extends Event = Event>(fn: EventListener<T>): EventLis
 
 /** Invokes `fn` when the pressed key is `Escape`. */
 export function onEscape<T extends Event = Event>(fn: EventListener<T>): EventListener<T>;
+
+/** Wraps a handler to `preventDefault()` on right-click (context menu). */
+export function onContextMenu<T extends Event = Event>(fn: EventListener<T>): EventListener<T>;
+
+/** Invokes `fn` only when the right mouse button (button 2) is pressed. */
+export function onRightClick<T extends Event = Event>(fn: EventListener<T>): EventListener<T>;
 
 /** Binds an input's value to a signal: `{ value, oninput }` props for `h`. */
 export function bindvalue<T>(s: () => T): { value: () => T; oninput: (e: Event) => void };
@@ -334,9 +350,10 @@ declare const SigPro: {
   local: typeof local;
   h: typeof h;
   slots: typeof slots;
-  mount: typeof mount;
-  unmount: typeof unmount;
-  onMount: typeof onMount;
+   mount: typeof mount;
+   unmount: typeof unmount;
+   teleport: typeof teleport;
+   onMount: typeof onMount;
   onError: typeof onError;
   exposeTags: typeof exposeTags;
   currentLocale: typeof currentLocale;
@@ -367,6 +384,7 @@ declare global {
     slots: typeof slots;
     mount: typeof mount;
     unmount: typeof unmount;
+    teleport: typeof teleport;
     onMount: typeof onMount;
     onError: typeof onError;
     exposeTags: typeof exposeTags;

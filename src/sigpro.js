@@ -248,6 +248,23 @@ export function unmount(node) {
   if (node.parentNode) node.parentNode.removeChild(node);
 }
 
+export function teleport(target = DOC.body) {
+  let scope, node;
+  const set = (fn) => {
+    scope?.();
+    scope = effectScope(() => { node = fn(); });
+    const nodes = (Array.isArray(node) ? node : [node])
+      .filter(n => n != null && n !== false && n !== true)
+      .map(n => (n instanceof Node ? n : DOC.createTextNode(String(n))));
+    while (target.firstChild) {
+      cleanupNode(target.firstChild);
+      target.removeChild(target.firstChild);
+    }
+    for (const n of nodes) target.appendChild(n);
+  };
+  return set;
+}
+
 const htmlTags = "a abbr article aside audio b blockquote br button canvas caption cite code col colgroup datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 header hr i iframe img input ins kbd label legend li main mark meter nav object ol optgroup option output p picture pre progress section select slot small source span strong sub summary sup table tbody td template textarea tfoot th thead time tr u ul video";
 
 export const exposeTags = (target = typeof window !== 'undefined' ? window : null) => {
@@ -276,5 +293,84 @@ export const onDebounce = (ms, fn) => { let t; return e => { clearTimeout(t); t 
 export const onKey = (key, fn) => e => { if (e.key === key) fn(e); };
 export const onEnter = fn => onKey("Enter", fn);
 export const onEscape = fn => onKey("Escape", fn);
+export const onContextMenu = fn => e => { e.preventDefault(); fn(e); };
+export const onRightClick = fn => e => { if (e.button === 2) fn(e); };
+export const onSwipe = (dir, { distance = 50, threshold = 0.7 } = {}, fn) => {
+  let sx, sy, active;
+  const start = e => { const t = e.changedTouches || [e]; sx = t[0].clientX; sy = t[0].clientY; active = true; };
+  const end = e => {
+    if (!active) return;
+    const t = e.changedTouches || [e];
+    const dx = t[0].clientX - sx, dy = t[0].clientY - sy;
+    if (dir === 'x' && Math.abs(dx) > distance && Math.abs(dx) > Math.abs(dy) * threshold) { active = false; fn(e); }
+    if (dir === 'y' && Math.abs(dy) > distance && Math.abs(dy) > Math.abs(dx) * threshold) { active = false; fn(e); }
+  };
+  return h => {
+    h.addEventListener('touchstart', start, { passive: true });
+    h.addEventListener('touchend', end, { passive: true });
+    h.addEventListener('mousedown', start);
+    h.addEventListener('mouseup', end);
+  };
+};
+export const onPullRefresh = (threshold = 60, fn) => {
+  let startY, pulling;
+  const start = e => { const t = e.changedTouches || [e]; startY = t[0].clientY; pulling = true; };
+  const move = e => {
+    if (!pulling) return;
+    const t = e.changedTouches || [e];
+    if (t[0].clientY - startY > threshold) { pulling = false; fn(e); }
+  };
+  return h => {
+    h.addEventListener('touchstart', start, { passive: true });
+    h.addEventListener('touchmove', move, { passive: true });
+  };
+};
 export const bindvalue = s => ({ value: () => s(), oninput: e => s(e.target.value) });
 export const bindcheck = s => ({ checked: () => !!s(), onchange: e => s(e.target.checked) });
+
+export const resize = (el, opts = {}) => {
+  const { axis = 'both', min = 0, max = Infinity, handle, onStart, onResize, onEnd } = opts;
+  const w = signal(el.offsetWidth || 0);
+  const h = signal(el.offsetHeight || 0);
+
+  let sx, sy, sw, sh, active;
+
+  const start = e => {
+    if (handle && !handle.contains(e.target) && handle !== e.target) return;
+    const t = e.changedTouches || [e];
+    sx = t[0].clientX; sy = t[0].clientY;
+    sw = el.offsetWidth; sh = el.offsetHeight;
+    active = true;
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', end);
+    document.addEventListener('pointercancel', end);
+    if (onStart) onStart();
+  };
+
+  const move = e => {
+    if (!active) return;
+    const t = e.changedTouches || [e];
+    const dx = t[0].clientX - sx, dy = t[0].clientY - sy;
+    if (axis === 'x' || axis === 'both') {
+      const nw = Math.min(max, Math.max(min, sw + dx));
+      if (nw !== w()) w(nw);
+    }
+    if (axis === 'y' || axis === 'both') {
+      const nh = Math.min(max, Math.max(min, sh + dy));
+      if (nh !== h()) h(nh);
+    }
+    if (onResize) onResize({ w: w(), h: h() });
+  };
+
+  const end = () => {
+    if (!active) return;
+    active = false;
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', end);
+    document.removeEventListener('pointercancel', end);
+    if (onEnd) onEnd();
+  };
+
+  el.addEventListener('mousedown', start);
+  return { w, h };
+};

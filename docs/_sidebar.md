@@ -13,14 +13,15 @@
   * [Tags](api/tags.md)
   * [mount](api/mount.md)
   * [unmount](api/unmount.md)
+  * [Event Helpers](api/utils.md)
 
 * **Built-ins**
    * [Router](router.md)
    * [Vite Plugin](api/vite.md)
    * [i18n](api/i18n.md)
    * [db](api/db.md)
+   * [Drag & Drop](api/drag.md)
 
 * **Guides**
   * [Global Store](api/global.md)
-  * [Userland Utils](api/utils.md)
   * [HTML Converter](convert.md)

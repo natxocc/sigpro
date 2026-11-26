@@ -122,16 +122,12 @@ if (import.meta.hot) {
 /* Vite Config
 
 import { defineConfig } from "vite";
-import tailwindcss from "@tailwindcss/vite";
-import { sigproRouter } from "./sigpro.vite.js";
+import { sigproRouter } from "sigpro/vite";
 
 const dev = process.env.NODE_ENV === "development";
 
 export default defineConfig({
   plugins: [sigproRouter({ pagesDir: "src/pages" }), tailwindcss()],
-  base: dev ? "/absproxy/5173/" : "/",
-  server: { host: "0.0.0.0", allowedHosts: true, port: 5173 },
-  build: { chunkSizeWarningLimit: 1500 },
 });
 
 */
