@@ -59,24 +59,32 @@ Turns a container into a drag-to-reorder list. On drop it **mutates the `items()
 
 ```javascript
 import { sortable } from 'sigpro/drag';
-import { signal } from 'sigpro';
+import { signal, watch } from 'sigpro';
 
 const items = signal(['apple', 'banana', 'cherry']);
 const container = div({});
-items().forEach(i => div({ 'data-drag-item': '' }, i));
+
+// Render the items into the container. Re-run this whenever `items()` changes.
+const render = () => {
+  container.replaceChildren(...items().map(i => div({ 'data-drag-item': '' }, i)));
+};
+render();
+watch(items, render, { immediate: true }); // re-render whenever the array is reordered
 
 const handle = sortable(container, {
   items,              // reactive array (mutated on drop)
   key: 'id',          // item key (or a function)
   group: 'default',   // items can only cross lists with the same group
   handle: '[data-handle]',
-  onStart: ({ item, from }) => console.log('start', item, from),
-  onMove: ({ item, to }) => console.log('move to', to),
-  onEnd: ({ item }) => console.log('end', item),
+  onStart: (session) => console.log('start', session.item, session.fromIdx),
+  onMove: (session) => console.log('move to', session.targetIdx),
+  onEnd: (session) => console.log('end', session.item),
   onChange: ({ item, from, to }) => console.log('changed', item, from, to),
 });
 
-handle.destroy(); // remove listeners + registry entry
+// Call destroy() ONLY when you want to stop the sortable entirely.
+// After destroy() the sortable no longer responds to drag.
+handle.destroy();
 ```
 
 ### `SortableOptions`
