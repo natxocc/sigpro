@@ -15,12 +15,15 @@
   * [unmount](api/unmount.md)
   * [Event Helpers](api/utils.md)
 
-* **Built-ins**
-   * [Router](router.md)
-   * [Vite Plugin](api/vite.md)
-   * [i18n](api/i18n.md)
-   * [db](api/db.md)
-   * [Drag & Drop](api/drag.md)
+ * **Built-ins**
+    * [Router](router.md)
+    * [Vite Plugin](api/vite.md)
+    * [i18n](api/i18n.md)
+    * [db](api/db.md)
+    * [Drag & Drop](api/drag.md)
+
+ * **Tooling**
+    * [VS Code Extension](https://open-vsx.org/extension/natxocc/sigpro-vscode)
 
 * **Guides**
   * [Global Store](api/global.md)
